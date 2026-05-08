@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { neuraComments } from './data/messages';
 import { chatAuthors, groupPublishMessage, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
@@ -11,7 +12,11 @@ import {
   defaultState,
   getNextDifficulty,
   getStatDelta,
+  getTitleReveal,
   loadState,
+  maskTrackTitle,
+  revealTitleByAccuracy,
+  revealTitleFully,
   saveState,
 } from './storage';
 import {
@@ -39,6 +44,25 @@ type ActiveRun = {
   draftId?: string;
 };
 
+type RhythmNote = {
+  id: string;
+  lane: number;
+  delay: number;
+  duration: number;
+  opacity: number;
+  kind: 'tap' | 'hold' | 'smash';
+  lengthBeats?: number;
+};
+
+type RhythmLink = {
+  id: string;
+  fromLane: number;
+  toLane: number;
+  delay: number;
+  duration: number;
+  opacity: number;
+};
+
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
   const [activeWindow, setActiveWindow] = useState<WindowId>('messenger');
@@ -48,7 +72,6 @@ export default function App() {
   const [messengerTab, setMessengerTab] = useState<'pawel' | 'group'>('pawel');
   const [neuraIndex, setNeuraIndex] = useState(0);
   const [selectedPublishedId, setSelectedPublishedId] = useState<string | null>(null);
-  const [playerIsPlaying, setPlayerIsPlaying] = useState(false);
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
     create: { x: 210, y: 116 },
@@ -97,6 +120,14 @@ export default function App() {
   );
 
   const selectedPublished = gameState.publishedTracks.find((track) => track.id === selectedPublishedId) ?? null;
+  const selectedPublishedTrack = selectedPublished
+    ? tracks.find((track) => track.id === selectedPublished.trackId) ?? null
+    : null;
+
+  function getDisplayTitle(trackId: string, title: string) {
+    const isPublished = gameState.publishedTrackIds.includes(trackId);
+    return maskTrackTitle(title, getTitleReveal(gameState.titleRevealByTrackId, trackId, isPublished));
+  }
 
   function startCreate(track: Track) {
     startRun(track, track.difficulties[0], 'create');
@@ -127,6 +158,7 @@ export default function App() {
     setGameState((state) => ({
       ...state,
       createdTrackIds: addUnique(state.createdTrackIds, result.trackId),
+      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, result.trackId, result.accuracy),
       drafts: upsertDraft(state.drafts, draft),
       pawelMessages:
         status === 'sentToPawel'
@@ -158,6 +190,7 @@ export default function App() {
         status: 'inDrawer',
         updatedAt: new Date().toISOString(),
       }),
+      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, result.trackId, result.accuracy),
       stats: applyStatDelta(state.stats, getStatDelta(result, 'saveDraft')),
     }));
     returnToDesktop('me');
@@ -168,6 +201,7 @@ export default function App() {
     setGameState((state) => ({
       ...state,
       drafts: upsertDraft(state.drafts, { ...draft, status: 'sentToPawel', updatedAt: new Date().toISOString() }),
+      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, draft.trackId, draft.bestAccuracy),
       pawelMessages: addMessage(
         state.pawelMessages,
         chatAuthors.cybek,
@@ -191,6 +225,7 @@ export default function App() {
     setGameState((state) => ({
       ...state,
       createdTrackIds: addUnique(state.createdTrackIds, draft.trackId),
+      titleRevealByTrackId: revealTitleFully(state.titleRevealByTrackId, draft.trackId),
       drafts: state.drafts.filter((item) => item.trackId !== draft.trackId),
       publishedTracks: upsertPublished(state.publishedTracks, published),
       publishedTrackIds: addUnique(state.publishedTrackIds, draft.trackId),
@@ -207,7 +242,6 @@ export default function App() {
 
   function openPlayer(published: PublishedTrack) {
     setSelectedPublishedId(published.id);
-    setPlayerIsPlaying(false);
     setActiveWindow('player');
   }
 
@@ -225,13 +259,13 @@ export default function App() {
     setActiveRun(null);
     setResult(null);
     setSelectedPublishedId(null);
-    setPlayerIsPlaying(false);
   }
 
   if (screen === 'rhythm' && activeRun) {
     return (
       <RhythmScreen
         activeRun={activeRun}
+        displayTitle={getDisplayTitle(activeRun.track.id, activeRun.track.title)}
         neuraComment={neuraComments[neuraIndex]}
         onFinish={finishRun}
         onExit={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
@@ -243,6 +277,7 @@ export default function App() {
     return (
       <ResultsScreen
         result={result}
+        displayTitle={getDisplayTitle(result.trackId, result.trackTitle)}
         runMode={activeRun.mode}
         alreadyPublished={gameState.publishedTrackIds.includes(result.trackId)}
         neuraComment={neuraComments[neuraIndex]}
@@ -313,7 +348,12 @@ export default function App() {
           onMove={(position) => setWindowPositions((state) => ({ ...state, create: position }))}
           onClose={() => setActiveWindow(null)}
         >
-          <CreateWindow tracks={availableCreateTracks} onCreate={startCreate} />
+          <CreateWindow
+            tracks={availableCreateTracks}
+            titleRevealByTrackId={gameState.titleRevealByTrackId}
+            publishedTrackIds={gameState.publishedTrackIds}
+            onCreate={startCreate}
+          />
         </Window>
       )}
 
@@ -325,11 +365,18 @@ export default function App() {
           onMove={(position) => setWindowPositions((state) => ({ ...state, me: position }))}
           onClose={() => setActiveWindow(null)}
         >
-          <MeWindow drafts={gameState.drafts} onRemix={startRemix} onSendToPawel={sendDraftToPawel} onPublish={publishDraft} />
+          <MeWindow
+            drafts={gameState.drafts}
+            titleRevealByTrackId={gameState.titleRevealByTrackId}
+            publishedTrackIds={gameState.publishedTrackIds}
+            onRemix={startRemix}
+            onSendToPawel={sendDraftToPawel}
+            onPublish={publishDraft}
+          />
         </Window>
       )}
 
-      {activeWindow === 'player' && selectedPublished && (
+      {activeWindow === 'player' && selectedPublished && selectedPublishedTrack && (
         <Window
           title={windowLabels.player}
           position={windowPositions.player}
@@ -338,8 +385,7 @@ export default function App() {
         >
           <PlayerWindow
             published={selectedPublished}
-            isPlaying={playerIsPlaying}
-            onPlay={() => setPlayerIsPlaying(true)}
+            track={selectedPublishedTrack}
           />
         </Window>
       )}
@@ -477,32 +523,52 @@ function MessengerWindow({
   );
 }
 
-function CreateWindow({ tracks: createTracks, onCreate }: { tracks: Track[]; onCreate: (track: Track) => void }) {
+function CreateWindow({
+  tracks: createTracks,
+  titleRevealByTrackId,
+  publishedTrackIds,
+  onCreate,
+}: {
+  tracks: Track[];
+  titleRevealByTrackId: GameState['titleRevealByTrackId'];
+  publishedTrackIds: string[];
+  onCreate: (track: Track) => void;
+}) {
   if (createTracks.length === 0) return <p className="empty">{placeholderLabels.noCreateTracks}</p>;
 
   return (
     <div className="track-list">
-      {createTracks.map((track) => (
-        <article className="track-row" key={track.id}>
-          <div>
-            <strong>{track.title}</strong>
-            <span>{track.artist} / {track.bpm} BPM / {track.mood}</span>
-            <em>{placeholderLabels.level}: {track.difficulties[0]}</em>
-          </div>
-          <button onClick={() => onCreate(track)}>{buttonLabels.createFirstVersion}</button>
-        </article>
-      ))}
+      {createTracks.map((track) => {
+        const displayTitle = maskTrackTitle(
+          track.title,
+          getTitleReveal(titleRevealByTrackId, track.id, publishedTrackIds.includes(track.id)),
+        );
+        return (
+          <article className="track-row" key={track.id}>
+            <div>
+              <strong>{displayTitle}</strong>
+              <span>{track.artist} / {track.bpm} BPM / {track.mood}</span>
+              <em>{placeholderLabels.level}: {track.difficulties[0]}</em>
+            </div>
+            <button onClick={() => onCreate(track)}>{buttonLabels.createFirstVersion}</button>
+          </article>
+        );
+      })}
     </div>
   );
 }
 
 function MeWindow({
   drafts,
+  titleRevealByTrackId,
+  publishedTrackIds,
   onRemix,
   onSendToPawel,
   onPublish,
 }: {
   drafts: DraftTrack[];
+  titleRevealByTrackId: GameState['titleRevealByTrackId'];
+  publishedTrackIds: string[];
   onRemix: (draft: DraftTrack) => void;
   onSendToPawel: (draft: DraftTrack) => void;
   onPublish: (draft: DraftTrack) => void;
@@ -513,10 +579,14 @@ function MeWindow({
     <div className="track-list">
       {drafts.map((draft) => {
         const nextDifficulty = getNextDifficulty(draft.trackId, draft.difficulty);
+        const displayTitle = maskTrackTitle(
+          draft.trackTitle,
+          getTitleReveal(titleRevealByTrackId, draft.trackId, publishedTrackIds.includes(draft.trackId)),
+        );
         return (
           <article className="track-row" key={draft.id}>
             <div>
-              <strong>{draft.trackTitle}</strong>
+              <strong>{displayTitle}</strong>
               <span>{draft.difficulty} / {draft.bestAccuracy}% / {placeholderLabels.grade} {draft.bestGrade}</span>
               <em>Status: {statusLabels[draft.status]}</em>
               {!nextDifficulty && <em>{statusLabels.noRemix}</em>}
@@ -539,26 +609,106 @@ function MeWindow({
 
 function RhythmScreen({
   activeRun,
+  displayTitle,
   neuraComment,
   onFinish,
   onExit,
 }: {
   activeRun: ActiveRun;
+  displayTitle: string;
   neuraComment: string;
   onFinish: () => void;
   onExit: () => void;
 }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(activeRun.track.bpm));
+  const notePattern = useMemo(
+    () => buildNotePattern(vocalPeaks, activeRun.track.bpm),
+    [activeRun.track.bpm, vocalPeaks],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const audioContext = new AudioContext();
+
+    fetch(activeRun.track.audio.vocals)
+      .then((response) => {
+        if (!response.ok) throw new Error('Nie udało się pobrać wokalu.');
+        return response.arrayBuffer();
+      })
+      .then((buffer) => audioContext.decodeAudioData(buffer))
+      .then((decoded) => {
+        if (!cancelled) setVocalPeaks(buildVocalPeaks(decoded));
+      })
+      .catch(() => {
+        if (!cancelled) setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+      })
+      .finally(() => {
+        void audioContext.close();
+      });
+
+    void audioRef.current?.play().catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRun.track.audio.vocals, activeRun.track.bpm]);
+
   return (
     <main className="stage-screen">
       <div className="stage-header">
         <button onClick={onExit}>{buttonLabels.backToDesktop}</button>
-        <strong>{activeRun.track.title}</strong>
+        <strong>{displayTitle}</strong>
         <span>{placeholderLabels.level}: {activeRun.difficulty}</span>
       </div>
+      <audio
+        ref={audioRef}
+        className="stage-audio"
+        src={activeRun.track.audio.instrumental}
+        autoPlay
+        controls
+        preload="auto"
+      />
+      <section className="vocal-map" aria-label={placeholderLabels.vocalMapLabel}>
+        <div className="vocal-waveform">
+          {vocalPeaks.map((peak, index) => (
+            <span
+              key={`${peak}-${index}`}
+              style={{ height: `${Math.max(8, peak * 100)}%` }}
+            />
+          ))}
+        </div>
+      </section>
       <section className="lanes" aria-label={placeholderLabels.rhythmLanesLabel}>
-        {['S', 'D', 'J', 'K'].map((key) => (
+        {notePattern.links.map((link) => (
+          <span
+            className="note-link ghost"
+            key={link.id}
+            style={{
+              left: `${(link.fromLane + 0.5) * 25}%`,
+              width: `${(link.toLane - link.fromLane) * 25}%`,
+              animationDelay: `${link.delay}s`,
+              animationDuration: `${link.duration}s`,
+              opacity: link.opacity,
+            } as CSSProperties}
+          />
+        ))}
+        {['S', 'D', 'J', 'K'].map((key, laneIndex) => (
           <div className="lane" key={key}>
-            <span className="note ghost" />
+            {notePattern.notes
+              .filter((note) => note.lane === laneIndex)
+              .map((note) => (
+                <span
+                  className={`note ${note.kind} ghost`}
+                  key={note.id}
+                  style={{
+                    '--length-beats': note.lengthBeats ?? 1,
+                    animationDelay: `${note.delay}s`,
+                    animationDuration: `${note.duration}s`,
+                    opacity: note.opacity,
+                  } as CSSProperties}
+                />
+              ))}
             <kbd>{key}</kbd>
           </div>
         ))}
@@ -573,6 +723,7 @@ function RhythmScreen({
 
 function ResultsScreen({
   result,
+  displayTitle,
   runMode,
   alreadyPublished,
   neuraComment,
@@ -583,6 +734,7 @@ function ResultsScreen({
   onBack,
 }: {
   result: PerformanceResult;
+  displayTitle: string;
   runMode: ActiveRun['mode'];
   alreadyPublished: boolean;
   neuraComment: string;
@@ -596,7 +748,7 @@ function ResultsScreen({
     <main className="results-screen">
       <section className="results-panel">
         <span>{placeholderLabels.resultTitle}</span>
-        <h1>{result.trackTitle}</h1>
+        <h1>{displayTitle}</h1>
         <div className="score-grid">
           <strong>{result.accuracy}%</strong>
           <strong>{result.grade}</strong>
@@ -625,12 +777,10 @@ function ResultsScreen({
 
 function PlayerWindow({
   published,
-  isPlaying,
-  onPlay,
+  track,
 }: {
   published: PublishedTrack;
-  isPlaying: boolean;
-  onPlay: () => void;
+  track: Track;
 }) {
   return (
     <div className="player-panel">
@@ -638,13 +788,96 @@ function PlayerWindow({
       <p>{placeholderLabels.level}: {published.difficulty}</p>
       <p>{placeholderLabels.grade}: {published.grade} / {published.accuracy}%</p>
       <p>{placeholderLabels.quality}: {published.quality}</p>
-      <div className="listen-placeholder">
-        <span>{isPlaying ? statusLabels.playing : statusLabels.stopped}</span>
-        <small>{placeholderLabels.listenPlaceholder}</small>
-      </div>
-      <button onClick={onPlay}>{buttonLabels.play}</button>
+      <audio className="player-audio" src={track.audio.merged} controls preload="metadata" />
     </div>
   );
+}
+
+function buildVocalPeaks(audioBuffer: AudioBuffer, bins = 64) {
+  const channel = audioBuffer.getChannelData(0);
+  const blockSize = Math.max(1, Math.floor(channel.length / bins));
+
+  return Array.from({ length: bins }, (_, bin) => {
+    let peak = 0;
+    const start = bin * blockSize;
+    const end = Math.min(channel.length, start + blockSize);
+
+    for (let index = start; index < end; index += 1) {
+      peak = Math.max(peak, Math.abs(channel[index]));
+    }
+
+    return Math.max(0.08, Math.min(1, peak * 1.8));
+  });
+}
+
+function createFallbackPeaks(bpm: number, bins = 64) {
+  return Array.from({ length: bins }, (_, index) => {
+    const pulse = Math.sin((index / bins) * Math.PI * 8 + bpm / 18);
+    const accent = index % 8 === 0 ? 0.34 : 0;
+    return Math.max(0.12, Math.min(1, 0.32 + pulse * 0.22 + accent));
+  });
+}
+
+function buildNotePattern(peaks: number[], bpm: number): { notes: RhythmNote[]; links: RhythmLink[] } {
+  const beatSeconds = 60 / bpm;
+  const phraseBeats = 16;
+  const phraseLanes = [0, 1, 2, 3, 3, 2, 1, 0, 1, 2, 3, 0, 0, 3, 2, 1];
+  const peakGroupSize = Math.max(1, Math.floor(peaks.length / phraseBeats));
+  const holdBeats = new Map([
+    [4, 2],
+    [12, 2],
+  ]);
+  const smashBeats = new Map([
+    [8, 2],
+  ]);
+  const linkedBeats = new Map([
+    [3, [0, 3]],
+    [11, [1, 2]],
+  ]);
+
+  const notes: RhythmNote[] = Array.from({ length: phraseBeats }, (_, beatIndex) => {
+    const groupStart = beatIndex * peakGroupSize;
+    const group = peaks.slice(groupStart, groupStart + peakGroupSize);
+    const peak = group.length ? Math.max(...group) : peaks[beatIndex % peaks.length] ?? 0.5;
+    const isDownbeat = beatIndex % 4 === 0;
+    const linkedLanes = linkedBeats.get(beatIndex);
+    const lengthBeats = smashBeats.get(beatIndex) ?? holdBeats.get(beatIndex) ?? 1;
+    const kind: RhythmNote['kind'] = smashBeats.has(beatIndex) ? 'smash' : holdBeats.has(beatIndex) ? 'hold' : 'tap';
+
+    return {
+      id: `beat-${beatIndex}`,
+      lane: linkedLanes?.[0] ?? phraseLanes[beatIndex],
+      delay: Number((beatIndex * beatSeconds).toFixed(2)),
+      duration: Number(Math.max(1.15, beatSeconds * 3.2).toFixed(2)),
+      opacity: Number(Math.max(isDownbeat ? 0.72 : 0.5, Math.min(0.92, peak * 0.88)).toFixed(2)),
+      kind,
+      lengthBeats,
+    };
+  });
+
+  linkedBeats.forEach(([fromLane, toLane], beatIndex) => {
+    const source = notes[beatIndex];
+    const groupStart = beatIndex * peakGroupSize;
+    const group = peaks.slice(groupStart, groupStart + peakGroupSize);
+    const peak = group.length ? Math.max(...group) : 0.68;
+    notes.push({
+      ...source,
+      id: `beat-${beatIndex}-linked`,
+      lane: toLane,
+      opacity: Number(Math.max(0.62, Math.min(0.92, peak * 0.9)).toFixed(2)),
+    });
+  });
+
+  const links: RhythmLink[] = Array.from(linkedBeats, ([beatIndex, [fromLane, toLane]]) => ({
+    id: `link-${beatIndex}`,
+    fromLane: Math.min(fromLane, toLane),
+    toLane: Math.max(fromLane, toLane),
+    delay: Number((beatIndex * beatSeconds).toFixed(2)),
+    duration: Number(Math.max(1.15, beatSeconds * 3.2).toFixed(2)),
+    opacity: 0.7,
+  }));
+
+  return { notes, links };
 }
 
 function StatsPanel({ stats }: { stats: GameState['stats'] }) {

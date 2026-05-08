@@ -68,13 +68,14 @@ export const placeholderLabels = {
   noCreateTracks: 'Generator jest pusty. Utwory powstaja tylko raz; dalsza praca siedzi w szufladzie.',
   noDrafts: 'Brak draftow. Stworz pierwsza wersje w generatorze.',
   publishedLocked: 'Ten tytul byl juz opublikowany.',
-  rhythmLanesLabel: 'Zastepcze tory rytmiczne',
+  rhythmLanesLabel: 'Tory rytmiczne pod wokalem',
+  vocalMapLabel: 'Bitmapa wokalu',
   resultTitle: 'Wynik probnego wykonania',
   accuracy: 'dokladnosc',
   grade: 'ocena',
   level: 'Poziom',
   quality: 'Jakosc',
-  listenPlaceholder: 'Placeholder odsluchu bez audio syncu.',
+  listenPlaceholder: 'Scalony odsluch opublikowanego utworu.',
 };
 
 export const messengerTabs = {

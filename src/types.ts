@@ -2,11 +2,17 @@ export type Difficulty = 'Latwy' | 'Normalny' | 'Cybart';
 
 export type Track = {
   id: string;
+  order: number;
   title: string;
   artist: string;
   bpm: number;
   mood: string;
   difficulties: Difficulty[];
+  audio: {
+    instrumental: string;
+    vocals: string;
+    merged: string;
+  };
 };
 
 export type ChatMessage = {
@@ -57,6 +63,7 @@ export type GameState = {
   saveVersion: 1;
   stats: Stats;
   createdTrackIds: string[];
+  titleRevealByTrackId: Record<string, number>;
   drafts: DraftTrack[];
   publishedTracks: PublishedTrack[];
   publishedTrackIds: string[];

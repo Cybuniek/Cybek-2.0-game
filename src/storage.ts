@@ -19,6 +19,7 @@ export const defaultState: GameState = {
   saveVersion: 1,
   stats: initialStats,
   createdTrackIds: [],
+  titleRevealByTrackId: {},
   drafts: [],
   publishedTracks: [],
   publishedTrackIds: [],
@@ -76,6 +77,53 @@ export function applyStatDelta(stats: Stats, delta: Partial<Stats>): Stats {
     performance: clampStat(stats.performance + (delta.performance ?? 0)),
     cybart: clampStat(stats.cybart + (delta.cybart ?? 0)),
     chatPressure: clampStat(stats.chatPressure + (delta.chatPressure ?? 0)),
+  };
+}
+
+export function maskTrackTitle(title: string, reveal = 0.25) {
+  const normalizedReveal = Math.max(0.25, Math.min(1, reveal));
+  const revealableIndexes = Array.from(title)
+    .map((character, index) => (/[\p{L}\p{N}]/u.test(character) ? index : -1))
+    .filter((index) => index >= 0);
+  const visibleCount = Math.ceil(revealableIndexes.length * normalizedReveal);
+  const visibleIndexes = new Set(revealableIndexes.slice(0, visibleCount));
+
+  return Array.from(title)
+    .map((character, index) => {
+      if (!/[\p{L}\p{N}]/u.test(character)) return character;
+      return visibleIndexes.has(index) ? character : '█';
+    })
+    .join('');
+}
+
+export function getTitleReveal(
+  titleRevealByTrackId: GameState['titleRevealByTrackId'],
+  trackId: string,
+  isPublished = false,
+) {
+  if (isPublished) return 1;
+  return titleRevealByTrackId[trackId] ?? 0.25;
+}
+
+export function revealTitleByAccuracy(
+  titleRevealByTrackId: GameState['titleRevealByTrackId'],
+  trackId: string,
+  accuracy: number,
+) {
+  const current = getTitleReveal(titleRevealByTrackId, trackId);
+  return {
+    ...titleRevealByTrackId,
+    [trackId]: Math.min(1, current + accuracy / 400),
+  };
+}
+
+export function revealTitleFully(
+  titleRevealByTrackId: GameState['titleRevealByTrackId'],
+  trackId: string,
+) {
+  return {
+    ...titleRevealByTrackId,
+    [trackId]: 1,
   };
 }
 
@@ -169,6 +217,10 @@ function migrateState(
 
   const publishedTracks = saved.publishedTracks ?? [];
   const publishedTrackIds = saved.publishedTrackIds ?? publishedTracks.map((item) => item.trackId);
+  const titleRevealByTrackId = {
+    ...(saved.titleRevealByTrackId ?? {}),
+    ...Object.fromEntries(publishedTrackIds.map((trackId) => [trackId, 1])),
+  };
   const createdTrackIds = Array.from(
     new Set([...(saved.createdTrackIds ?? []), ...drafts.map((item) => item.trackId), ...publishedTrackIds]),
   );
@@ -178,6 +230,7 @@ function migrateState(
     ...saved,
     saveVersion: 1,
     createdTrackIds,
+    titleRevealByTrackId,
     drafts,
     publishedTracks,
     publishedTrackIds,
