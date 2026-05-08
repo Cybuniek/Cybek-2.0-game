@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { neuraComments } from './data/messages';
-import { chatAuthors, groupPublishMessage, pawelDraftMessage } from './data/chatReactions';
+import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
 import {
   addMessage,
@@ -18,6 +18,7 @@ import {
   addresses,
   appLabels,
   buttonLabels,
+  comparisonLabels,
   iconLabels,
   iconSymbols,
   messengerTabs,
@@ -26,17 +27,59 @@ import {
   statusLabels,
   windowLabels,
 } from './data/uiLabels';
-import type { Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, Track } from './types';
+import {
+  buildRhythmBeatmap,
+  createRhythmSession,
+  finishRhythmSession,
+  getRhythmSummary,
+  getVisibleRhythmNotes,
+  hitRhythmLane,
+  RHYTHM_HIT_LINE_PERCENT,
+  RHYTHM_LANES,
+  stepRhythmSession,
+  type RhythmJudgement,
+  type RhythmSession,
+} from './rhythm';
+import type { Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, RhythmLane, RhythmSummary, Track } from './types';
 
 type WindowId = 'messenger' | 'create' | 'me' | 'player' | null;
 type Screen = 'desktop' | 'rhythm' | 'results';
 type Point = { x: number; y: number };
+type NeuraPetMood = 'idle' | 'waving' | 'jumping' | 'failed' | 'waiting' | 'running' | 'review';
+
+type NeuraAnimation = {
+  row: number;
+  frames: number;
+  duration: string;
+  label: string;
+};
+
+const NEURA_SPRITESHEET_PATH = '/pets/neura/spritesheet.webp';
+const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
+  idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },
+  running: { row: 7, frames: 6, duration: '0.82s', label: 'przeciąganie' },
+  waving: { row: 3, frames: 4, duration: '0.84s', label: 'kontakt' },
+  jumping: { row: 4, frames: 5, duration: '0.92s', label: 'impuls' },
+  failed: { row: 5, frames: 8, duration: '1.28s', label: 'glitch' },
+  waiting: { row: 6, frames: 6, duration: '1.16s', label: 'nasłuch' },
+  review: { row: 8, frames: 6, duration: '1.22s', label: 'analiza' },
+};
+const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'jumping', 'review', 'failed', 'waiting'];
 
 type ActiveRun = {
   track: Track;
   difficulty: Difficulty;
   mode: 'create' | 'remix';
   draftId?: string;
+};
+
+type RemixComparison = {
+  previousAccuracy: number;
+  previousGrade: string;
+  nextAccuracy: number;
+  nextGrade: string;
+  accuracyDelta: number;
+  verdict: 'better' | 'same' | 'worse';
 };
 
 export default function App() {
@@ -66,6 +109,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (screen === 'rhythm') return;
+
     window.render_game_to_text = () =>
       JSON.stringify({
         screen,
@@ -97,6 +142,9 @@ export default function App() {
   );
 
   const selectedPublished = gameState.publishedTracks.find((track) => track.id === selectedPublishedId) ?? null;
+  const activeRemixDraft = activeRun?.mode === 'remix' && activeRun.draftId
+    ? gameState.drafts.find((draft) => draft.id === activeRun.draftId) ?? null
+    : null;
 
   function startCreate(track: Track) {
     startRun(track, track.difficulties[0], 'create');
@@ -114,9 +162,9 @@ export default function App() {
     setScreen('rhythm');
   }
 
-  function finishRun() {
+  function finishRun(summary: RhythmSummary) {
     if (!activeRun) return;
-    setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty));
+    setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty, summary));
     setScreen('results');
   }
 
@@ -194,11 +242,7 @@ export default function App() {
       drafts: state.drafts.filter((item) => item.trackId !== draft.trackId),
       publishedTracks: upsertPublished(state.publishedTracks, published),
       publishedTrackIds: addUnique(state.publishedTrackIds, draft.trackId),
-      groupMessages: addMessage(
-        state.groupMessages,
-        chatAuthors.cybek,
-        groupPublishMessage(published),
-      ),
+      groupMessages: [...state.groupMessages, ...groupPublishMessages(published)],
       stats: applyStatDelta(state.stats, getStatDelta(resultFromDraft(draft), 'publish')),
     }));
     returnToDesktop('messenger');
@@ -244,6 +288,7 @@ export default function App() {
       <ResultsScreen
         result={result}
         runMode={activeRun.mode}
+        remixComparison={activeRemixDraft ? createRemixComparison(activeRemixDraft, result) : null}
         alreadyPublished={gameState.publishedTrackIds.includes(result.trackId)}
         neuraComment={neuraComments[neuraIndex]}
         onSave={() => saveInitialDraft('inDrawer')}
@@ -367,8 +412,27 @@ function resultFromDraft(draft: DraftTrack): PerformanceResult {
     difficulty: draft.difficulty,
     accuracy: draft.bestAccuracy,
     grade: draft.bestGrade,
+    perfectHits: 0,
+    goodHits: 0,
+    misses: 0,
+    maxCombo: 0,
+    totalNotes: 0,
     createdAt: draft.updatedAt,
     status: draft.status,
+  };
+}
+
+function createRemixComparison(draft: DraftTrack, result: PerformanceResult): RemixComparison {
+  const accuracyDelta = result.accuracy - draft.bestAccuracy;
+  const verdict = accuracyDelta > 0 ? 'better' : accuracyDelta < 0 ? 'worse' : 'same';
+
+  return {
+    previousAccuracy: draft.bestAccuracy,
+    previousGrade: draft.bestGrade,
+    nextAccuracy: result.accuracy,
+    nextGrade: result.grade,
+    accuracyDelta,
+    verdict,
   };
 }
 
@@ -545,25 +609,175 @@ function RhythmScreen({
 }: {
   activeRun: ActiveRun;
   neuraComment: string;
-  onFinish: () => void;
+  onFinish: (summary: RhythmSummary) => void;
   onExit: () => void;
 }) {
+  const beatmap = useMemo(
+    () => buildRhythmBeatmap(activeRun.track, activeRun.difficulty),
+    [activeRun.difficulty, activeRun.track],
+  );
+  const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty));
+  const sessionRef = useRef(session);
+  const finishedRef = useRef(false);
+  const onFinishRef = useRef(onFinish);
+  const visibleNotes = getVisibleRhythmNotes(session);
+  const summary = getRhythmSummary(session);
+  const remainingSeconds = Math.max(0, Math.ceil((session.beatmap.durationMs - session.elapsedMs) / 1000));
+
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
+  useEffect(() => {
+    const nextSession = createRhythmSession(beatmap, activeRun.difficulty);
+    sessionRef.current = nextSession;
+    finishedRef.current = false;
+    setSession(nextSession);
+  }, [activeRun.difficulty, beatmap]);
+
+  const completeRun = useCallback((sessionToFinish: RhythmSession) => {
+    if (finishedRef.current) return;
+
+    const finalSession = finishRhythmSession(sessionToFinish);
+    sessionRef.current = finalSession;
+    finishedRef.current = true;
+    setSession(finalSession);
+    onFinishRef.current(getRhythmSummary(finalSession));
+  }, []);
+
+  const stepByMs = useCallback((ms: number) => {
+    if (finishedRef.current) return;
+
+    const nextSession = stepRhythmSession(sessionRef.current, ms);
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+
+    if (nextSession.isFinished) {
+      window.setTimeout(() => completeRun(nextSession), 0);
+    }
+  }, [completeRun]);
+
+  const pressLane = useCallback((lane: RhythmLane) => {
+    if (finishedRef.current) return;
+
+    const nextSession = hitRhythmLane(sessionRef.current, lane);
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+  }, []);
+
+  useEffect(() => {
+    let frameId = 0;
+    let lastFrame = performance.now();
+
+    function tick(now: number) {
+      stepByMs(Math.min(80, now - lastFrame));
+      lastFrame = now;
+      if (!finishedRef.current) frameId = window.requestAnimationFrame(tick);
+    }
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [stepByMs]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.repeat) return;
+
+      const lane = keyToLane(event.key);
+      if (!lane) return;
+
+      event.preventDefault();
+      pressLane(lane);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pressLane]);
+
+  useEffect(() => {
+    window.render_game_to_text = () => {
+      const currentSession = sessionRef.current;
+      const currentSummary = getRhythmSummary(currentSession);
+      const currentVisibleNotes = getVisibleRhythmNotes(currentSession);
+
+      return JSON.stringify({
+        screen: 'rhythm',
+        coordinateSystem: 'Tory nut: początek u góry, nuty spadają w dół do linii trafienia.',
+        activeRun: {
+          track: activeRun.track.title,
+          difficulty: activeRun.difficulty,
+          mode: activeRun.mode,
+        },
+        bpm: currentSession.beatmap.bpm,
+        elapsedMs: Math.round(currentSession.elapsedMs),
+        durationMs: currentSession.beatmap.durationMs,
+        combo: currentSession.combo,
+        lastJudgement: currentSession.lastJudgement,
+        score: currentSummary,
+        nextNotes: currentVisibleNotes.slice(0, 12).map((note) => ({
+          lane: note.lane,
+          timeToHitMs: note.timeToHitMs,
+          yPercent: Math.round(note.yPercent),
+        })),
+      });
+    };
+    window.advanceTime = stepByMs;
+
+    return () => {
+      window.advanceTime = () => undefined;
+    };
+  }, [activeRun, stepByMs]);
+
   return (
     <main className="stage-screen">
       <div className="stage-header">
         <button onClick={onExit}>{buttonLabels.backToDesktop}</button>
         <strong>{activeRun.track.title}</strong>
         <span>{placeholderLabels.level}: {activeRun.difficulty}</span>
+        <span>{activeRun.track.bpm} BPM</span>
       </div>
-      <section className="lanes" aria-label={placeholderLabels.rhythmLanesLabel}>
-        {['S', 'D', 'J', 'K'].map((key) => (
-          <div className="lane" key={key}>
-            <span className="note ghost" />
-            <kbd>{key}</kbd>
+
+      <section className="rhythm-hud" aria-label="Stan próby rytmicznej">
+        <RhythmStat label={placeholderLabels.timeLeft} value={`${remainingSeconds}s`} />
+        <RhythmStat label={placeholderLabels.combo} value={String(session.combo)} />
+        <RhythmStat label={placeholderLabels.accuracy} value={`${summary.accuracy}%`} />
+        <RhythmStat label={placeholderLabels.maxCombo} value={String(summary.maxCombo)} />
+      </section>
+
+      <p className={`judgement ${session.lastJudgement ?? ''}`}>{judgementLabel(session.lastJudgement)}</p>
+
+      <section
+        className="lanes"
+        aria-label={placeholderLabels.rhythmLanesLabel}
+        style={{ '--hit-line': `${RHYTHM_HIT_LINE_PERCENT}%` } as React.CSSProperties}
+      >
+        {RHYTHM_LANES.map((lane) => (
+          <div
+            className={`lane ${session.lastLane === lane ? 'active-lane' : ''}`}
+            key={lane}
+            onPointerDown={() => pressLane(lane)}
+            role="button"
+            tabIndex={0}
+          >
+            {visibleNotes
+              .filter((note) => note.lane === lane)
+              .map((note) => (
+                <span className="note" key={note.id} style={{ top: `${note.yPercent}%` }} />
+              ))}
+            <span className="hit-line" />
+            <kbd>{lane}</kbd>
           </div>
         ))}
       </section>
-      <button className="primary-action" onClick={onFinish}>
+
+      <section className="rhythm-counters" aria-label="Liczniki trafień">
+        <span>{placeholderLabels.perfect}: {summary.perfectHits}</span>
+        <span>{placeholderLabels.good}: {summary.goodHits}</span>
+        <span>{placeholderLabels.miss}: {summary.misses}</span>
+        <span>{placeholderLabels.notes}: {summary.totalNotes}</span>
+      </section>
+
+      <button className="primary-action" onClick={() => completeRun(sessionRef.current)}>
         {buttonLabels.finishTrial}
       </button>
       <PersistentOverlays comment={neuraComment} />
@@ -571,9 +785,32 @@ function RhythmScreen({
   );
 }
 
+function RhythmStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function keyToLane(key: string): RhythmLane | null {
+  const upperKey = key.toUpperCase();
+  return RHYTHM_LANES.includes(upperKey as RhythmLane) ? (upperKey as RhythmLane) : null;
+}
+
+function judgementLabel(judgement: RhythmJudgement | null) {
+  if (judgement === 'perfect') return 'Perfect';
+  if (judgement === 'good') return 'Good';
+  if (judgement === 'miss') return 'Miss';
+  if (judgement === 'empty') return 'Pusto';
+  return 'Złap rytm';
+}
+
 function ResultsScreen({
   result,
   runMode,
+  remixComparison,
   alreadyPublished,
   neuraComment,
   onSave,
@@ -584,6 +821,7 @@ function ResultsScreen({
 }: {
   result: PerformanceResult;
   runMode: ActiveRun['mode'];
+  remixComparison: RemixComparison | null;
   alreadyPublished: boolean;
   neuraComment: string;
   onSave: () => void;
@@ -603,6 +841,16 @@ function ResultsScreen({
           <span>{placeholderLabels.accuracy}</span>
           <span>{placeholderLabels.grade}</span>
         </div>
+        <div className="score-details">
+          <span>{placeholderLabels.perfect}: {result.perfectHits}</span>
+          <span>{placeholderLabels.good}: {result.goodHits}</span>
+          <span>{placeholderLabels.miss}: {result.misses}</span>
+          <span>{placeholderLabels.maxCombo}: {result.maxCombo}</span>
+          <span>{placeholderLabels.notes}: {result.totalNotes}</span>
+        </div>
+        {runMode === 'remix' && remixComparison && (
+          <RemixComparisonPanel comparison={remixComparison} />
+        )}
         <div className="result-actions">
           {runMode === 'create' ? (
             <>
@@ -620,6 +868,21 @@ function ResultsScreen({
       </section>
       <PersistentOverlays comment={neuraComment} />
     </main>
+  );
+}
+
+function RemixComparisonPanel({ comparison }: { comparison: RemixComparison }) {
+  const signedDelta = comparison.accuracyDelta > 0 ? `+${comparison.accuracyDelta}` : String(comparison.accuracyDelta);
+
+  return (
+    <section className={`remix-comparison ${comparison.verdict}`} aria-label={placeholderLabels.remixComparison}>
+      <strong>{comparisonLabels[comparison.verdict]}</strong>
+      <div>
+        <span>{placeholderLabels.currentDraft}: {comparison.previousAccuracy}% / {comparison.previousGrade}</span>
+        <span>{placeholderLabels.newTake}: {comparison.nextAccuracy}% / {comparison.nextGrade}</span>
+        <span>{placeholderLabels.accuracyDelta}: {signedDelta} pp</span>
+      </div>
+    </section>
   );
 }
 
@@ -668,16 +931,126 @@ function Stat({ label, value }: { label: string; value: number }) {
 }
 
 function NeuraPet({ comment }: { comment: string }) {
+  const [mood, setMood] = useState<NeuraPetMood>('idle');
+  const [position, setPosition] = useState<Point>(() => getDefaultNeuraPosition());
+  const dragRef = useRef<{ startX: number; startY: number; origin: Point; moved: boolean } | null>(null);
+  const reactionIndexRef = useRef(0);
+  const settleTimerRef = useRef<number | null>(null);
+  const animation = NEURA_ANIMATIONS[mood];
+
+  useEffect(() => {
+    function handleResize() {
+      setPosition((current) => clampNeuraPosition(current));
+    }
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => () => {
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+  }, []);
+
+  function settleMood(nextMood: NeuraPetMood, delayMs = 1500) {
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    setMood(nextMood);
+    settleTimerRef.current = window.setTimeout(() => {
+      setMood('idle');
+      settleTimerRef.current = null;
+    }, delayMs);
+  }
+
+  function cycleReaction() {
+    const nextMood = NEURA_REACTION_SEQUENCE[reactionIndexRef.current % NEURA_REACTION_SEQUENCE.length];
+    reactionIndexRef.current += 1;
+    settleMood(nextMood);
+  }
+
+  function beginDrag(event: React.PointerEvent<HTMLButtonElement>) {
+    dragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: position,
+      moved: false,
+    };
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    setMood('running');
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function drag(event: React.PointerEvent<HTMLButtonElement>) {
+    if (!dragRef.current) return;
+
+    const dx = event.clientX - dragRef.current.startX;
+    const dy = event.clientY - dragRef.current.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) dragRef.current.moved = true;
+    setPosition(clampNeuraPosition({ x: dragRef.current.origin.x + dx, y: dragRef.current.origin.y + dy }));
+  }
+
+  function endDrag(event: React.PointerEvent<HTMLButtonElement>) {
+    if (!dragRef.current) return;
+
+    const wasMoved = dragRef.current.moved;
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (wasMoved) {
+      settleMood('jumping', 900);
+      return;
+    }
+    cycleReaction();
+  }
+
+  const style = {
+    '--neura-x': `${position.x}px`,
+    '--neura-y': `${position.y}px`,
+    '--neura-row': animation.row,
+    '--neura-frames': animation.frames,
+    '--neura-duration': animation.duration,
+    '--neura-sprite': `url("${NEURA_SPRITESHEET_PATH}")`,
+  } as React.CSSProperties;
+
   return (
-    <aside className="neura">
-      <div className="neura-body">
-        <span className="eye" />
-        <span className="eye" />
-        <span className="mouth" />
+    <aside className={`neura neura-${mood}`} style={style} aria-live="polite">
+      <button
+        className="neura-sprite-pad"
+        type="button"
+        onPointerDown={beginDrag}
+        onPointerMove={drag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        aria-label="Neura: kliknij lub przeciągnij"
+        title="Kliknij lub przeciągnij Neurę"
+      >
+        <span className="neura-sprite" aria-hidden="true" />
+      </button>
+      <div className="neura-panel">
+        <div className="neura-status">
+          <strong>Neura</strong>
+          <span>{animation.label}</span>
+        </div>
+        <p>{comment}</p>
+        <div className="neura-actions" aria-label="Reakcje Neury">
+          <button type="button" onClick={() => settleMood('waving')}>Hej</button>
+          <button type="button" onClick={() => settleMood('review')}>Analiza</button>
+          <button type="button" onClick={() => settleMood('failed')}>Glitch</button>
+        </div>
       </div>
-      <p>{comment}</p>
     </aside>
   );
+}
+
+function getDefaultNeuraPosition(): Point {
+  return clampNeuraPosition({ x: window.innerWidth - 344, y: window.innerHeight - 242 });
+}
+
+function clampNeuraPosition(position: Point): Point {
+  const maxX = Math.max(24, window.innerWidth - 324);
+  const maxY = Math.max(66, window.innerHeight - 214);
+
+  return {
+    x: Math.max(24, Math.min(maxX, position.x)),
+    y: Math.max(66, Math.min(maxY, position.y)),
+  };
 }
 
 function CybekWebcam() {

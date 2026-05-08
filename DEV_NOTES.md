@@ -2,9 +2,10 @@
 
 ## Struktura projektu
 
-- `src/App.tsx` - glowny przeplyw prototypu: pulpit, okna, generator, szuflada, remix, publikacja, player i placeholder rytmiczny.
+- `src/App.tsx` - glowny przeplyw prototypu: pulpit, okna, generator, szuflada, remix, publikacja, player i ekran rytmiczny.
 - `src/styles.css` - prosty styl OS/CRT/neon/glitch.
-- `src/types.ts` - wspolne typy stanu, draftow, publikacji i wynikow.
+- `src/types.ts` - wspolne typy stanu, draftow, publikacji, wynikow i beatmap rytmicznych.
+- `src/rhythm.ts` - deterministyczny generator 60-sekundowych beatmap, stan proby rytmicznej, trafienia, missy, combo i ocena.
 - `src/storage.ts` - localStorage, migracja save'a, statystyki, jakosc publikacji i pomocnicze funkcje flow.
 - `src/data/tracks.ts` - lista utworow i ich poziomy trudnosci.
 - `src/data/uiLabels.ts` - etykiety UI: nazwy okien, aplikacji, ikon, przyciskow, statystyk, statusow i placeholderow.
@@ -20,7 +21,7 @@ Szuflada `anh://www.ustno.ai/me` pokazuje stworzone, nieopublikowane drafty. Dra
 - `inDrawer` - draft jest w szufladzie.
 - `sentToPawel` - draft zostal wyslany do Pawcia, ale nadal mozna go opublikowac lub remiksowac.
 
-Remix dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom draftu. Po remixie gracz moze nadpisac draft; dopiero nadpisanie przesuwa draft na wyzszy poziom.
+Remix dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom draftu. Po remixie ekran wynikow pokazuje porownanie obecnego draftu z nowa proba: poprzednia dokladnosc, nowa dokladnosc, roznica i werdykt. Gracz nadal moze nadpisac slabsza wersja, bo nieudany numer moze byc swiadoma decyzja fabularna.
 
 Publikacja jest jednorazowa per `trackId`. Po publikacji draft znika z szuflady, a na pulpicie pojawia sie ikona pliku. Klikniecie ikony otwiera `Annihilation player.exe`.
 
@@ -36,7 +37,19 @@ Publikacja jest jednorazowa per `trackId`. Po publikacji draft znika z szuflady,
 
 Przycisk `Odtworz` zmienia stan placeholdera na `Odtwarzanie...`. Nie ma jeszcze prawdziwego audio.
 
-## Jakosc wersji
+## Sekcja rytmiczna
+
+Ekran rytmiczny ma cztery tory na klawiszach `S`, `D`, `J`, `K`. Nuty spadają do linii trafienia, a wynik jest liczony z wejść gracza:
+
+- `perfect` - trafienie do 60 ms,
+- `good` - trafienie do 130 ms,
+- `miss` - nuta pominięta ponad 170 ms po czasie trafienia.
+
+Accuracy liczy się jako `(perfect + good * 0.65) / totalNotes * 100`. Grade nadal korzysta z progów `S/A/B/C`. Próba trwa 60 sekund i kończy się automatycznie, ale można ją przerwać przyciskiem końca próby.
+
+Beatmapy są na razie deterministycznie generowane z seedów w `src/data/tracks.ts`. Tymczasowe BPM-y developerskie: `90`, `160`, `220`.
+
+## Jakosc wersji i reakcje czatu
 
 Jakosc jest liczona w `getPublishedQuality` w `src/storage.ts` na podstawie poziomu trudnosci opublikowanej wersji:
 
@@ -44,7 +57,7 @@ Jakosc jest liczona w `getPublishedQuality` w `src/storage.ts` na podstawie pozi
 - poziom srodkowy: `lepsza wersja`,
 - najwyzszy poziom: `cudenko`.
 
-Jakosc jest widoczna w playerze i w wiadomosci publikacji na czacie glownym.
+Jakosc jest widoczna w playerze i w wiadomosci publikacji na czacie glownym. Po publikacji `groupPublishMessages` w `src/data/chatReactions.ts` dodaje tez reakcje czatu zalezne od jakosci pliku i dokladnosci wykonania. Slaby wynik nie blokuje historii, tylko zmienia ton komentarzy.
 
 ## Zapis stanu
 
@@ -76,8 +89,8 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 
 ## Elementy zastepcze
 
-- Gra rytmiczna nadal nie ma detekcji nut, muzyki, timingu ani punktacji opartej o input.
-- Wynik probnego wystepu jest losowany.
+- Gra rytmiczna nadal nie ma prawdziwego audio syncu, kalibracji input laga ani edytora beatmap.
+- Beatmapy są losowe, ale stabilne dla danego utworu, BPM-u, poziomu i seeda.
 - Remix jest tylko przeplywem logicznym po poziomach trudnosci.
 - Player nie odtwarza audio, tylko zmienia placeholder stanu.
 - Neura i WebCam Cybka sa prostymi figurami CSS, nie finalnymi assetami.
@@ -85,7 +98,5 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 
 ## Sugerowane kolejne kroki
 
-1. Dodac prosty model sekwencji nut bez audio syncu.
-2. Dodac porownanie wyniku remixu z obecnym draftem przed nadpisaniem.
-3. Rozbudowac reakcje czatu o warianty zalezne od jakosci publikacji.
-4. Zrobic wersjonowana migracje save'a, gdy model danych ustabilizuje sie bardziej.
+1. Podmienic generowane beatmapy na autorskie dane dla prawdziwych utworow.
+2. Zrobic wersjonowana migracje save'a, gdy model danych ustabilizuje sie bardziej.
