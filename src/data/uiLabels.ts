@@ -74,7 +74,7 @@ export const placeholderLabels = {
   grade: 'ocena',
   level: 'Poziom',
   quality: 'Jakość',
-  listenPlaceholder: 'Placeholder odsłuchu bez audio syncu.',
+  listenPlaceholder: 'Placeholder odsłuchu utworu bez audio syncu.',
   timeLeft: 'czas',
   combo: 'combo',
   maxCombo: 'max combo',

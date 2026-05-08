@@ -9,7 +9,9 @@
 - `src/storage.ts` - localStorage, migracja save'a, statystyki, jakosc publikacji i pomocnicze funkcje flow.
 - `src/data/tracks.ts` - lista utworow i ich poziomy trudnosci.
 - `src/data/uiLabels.ts` - etykiety UI: nazwy okien, aplikacji, ikon, przyciskow, statystyk, statusow i placeholderow.
-- `src/data/messages.ts` - startowe wiadomosci czatow i komentarze Neury.
+- `src/data/messages.ts` - startowe wiadomosci czatow.
+- `src/data/neuraVoiceLines.ts` - teksty, style i identyfikatory kwestii glosowych Neury.
+- `src/data/neuraVoiceAssets.ts` - manifest sciezek MP3 dla kwestii Neury.
 - `src/data/chatReactions.ts` - dynamiczne reakcje czatu po wyslaniu draftu i publikacji.
 
 ## Nowy model flow
@@ -36,6 +38,32 @@ Publikacja jest jednorazowa per `trackId`. Po publikacji draft znika z szuflady,
 - placeholder odsluchu.
 
 Przycisk `Odtworz` zmienia stan placeholdera na `Odtwarzanie...`. Nie ma jeszcze prawdziwego audio.
+
+## Glos Neury
+
+Neura ma osobny workflow glosowy oparty o statyczne pliki audio w `public/audio/neura`. Format podstawowy to OGG/Opus dla mniejszych plikow mowy, a fallbackiem jest MP3 dla kompatybilnosci. Aplikacja nie wywoluje ElevenLabs z przegladarki i nie zna klucza API. Pierwsze automatyczne odtworzenie komentarza jest ignorowane do czasu interakcji uzytkownika, zeby respektowac polityke autoplay przegladarki. Po kliknieciu Neury albo przycisku reakcji kolejne komentarze moga byc odtwarzane automatycznie. Odtwarzacz ma jeden aktywny glos i jeden slot kolejki dla komentarza systemowego. Reakcje wyzwalane przez gracza nie sa kolejkowane; jesli w danej chwili gra inna kwestia, kliknieta reakcja zostaje pominieta.
+
+Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wymaga:
+
+- dodania stabilnego `id`,
+- wpisania tekstu po polsku bez prefiksu mowcy, np. bez `Neura:`; UI tez pokazuje sama kwestie,
+- dobrania `styleTag` zgodnego z ElevenLabs V3,
+- ustawienia `trigger` na `comment` albo `reaction`.
+
+Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu.
+
+Generowanie glosow:
+
+- utworz lokalny `.env.local` na podstawie `.env.example`,
+- ustaw `ELEVENLABS_API_KEY`,
+- uruchom `npm run voice:neura:dry-run`, zeby zobaczyc plan dla OGG/Opus,
+- uruchom `npm run voice:neura`, zeby wygenerowac brakujace pliki OGG/Opus,
+- uzyj `npm run voice:neura:force`, zeby nadpisac OGG/Opus,
+- uzyj `npm run voice:neura:with-fallback`, jesli swiadomie chcesz wygenerowac OGG/Opus i MP3,
+- uzyj `npm run voice:neura:mp3`, jesli chcesz dogenerowac tylko fallback MP3,
+- opcjonalnie uruchom `node --experimental-strip-types scripts/generate-neura-voices.ts --only <id>`.
+
+Skrypt uzywa `voice_id` Neury, `model_id: eleven_v3`, `language_code: pl`, `output_format=opus_48000_32` dla OGG/Opus, `output_format=mp3_44100_128` dla fallbacku i kreatywnego profilu `voice_settings`. Klucza API nie wolno commitowac; `.env.local` jest ignorowany przez git. Klucz wklejony poza repo warto obrocic w panelu ElevenLabs.
 
 ## Sekcja rytmiczna
 
@@ -92,7 +120,7 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 - Gra rytmiczna nadal nie ma prawdziwego audio syncu, kalibracji input laga ani edytora beatmap.
 - Beatmapy są losowe, ale stabilne dla danego utworu, BPM-u, poziomu i seeda.
 - Remix jest tylko przeplywem logicznym po poziomach trudnosci.
-- Player nie odtwarza audio, tylko zmienia placeholder stanu.
+- Player nie odtwarza audio utworow, tylko zmienia placeholder stanu. Glos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
 - Neura i WebCam Cybka sa prostymi figurami CSS, nie finalnymi assetami.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
 

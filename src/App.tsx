@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { neuraComments } from './data/messages';
+import { neuraVoiceAssets } from './data/neuraVoiceAssets';
+import { neuraReactionVoiceLineIds, type NeuraVoiceLine, type NeuraVoiceLineId } from './data/neuraVoiceLines';
 import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
 import {
@@ -55,6 +57,7 @@ type NeuraAnimation = {
 };
 
 const NEURA_SPRITESHEET_PATH = '/pets/neura/spritesheet.webp';
+const NEURA_COMMENT_INTERVAL_MS = 27500;
 const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
   idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },
   running: { row: 7, frames: 6, duration: '0.82s', label: 'przeciąganie' },
@@ -64,7 +67,7 @@ const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
   waiting: { row: 6, frames: 6, duration: '1.16s', label: 'nasłuch' },
   review: { row: 8, frames: 6, duration: '1.22s', label: 'analiza' },
 };
-const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'jumping', 'review', 'failed', 'waiting'];
+const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'review', 'failed'];
 
 type ActiveRun = {
   track: Track;
@@ -104,7 +107,7 @@ export default function App() {
   useEffect(() => {
     const id = window.setInterval(() => {
       setNeuraIndex((current) => (current + 1) % neuraComments.length);
-    }, 5500);
+    }, NEURA_COMMENT_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, []);
 
@@ -608,7 +611,7 @@ function RhythmScreen({
   onExit,
 }: {
   activeRun: ActiveRun;
-  neuraComment: string;
+  neuraComment: NeuraVoiceLine;
   onFinish: (summary: RhythmSummary) => void;
   onExit: () => void;
 }) {
@@ -823,7 +826,7 @@ function ResultsScreen({
   runMode: ActiveRun['mode'];
   remixComparison: RemixComparison | null;
   alreadyPublished: boolean;
-  neuraComment: string;
+  neuraComment: NeuraVoiceLine;
   onSave: () => void;
   onSendToPawel: () => void;
   onPublish: () => void;
@@ -930,12 +933,77 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function NeuraPet({ comment }: { comment: string }) {
+function useNeuraVoice() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isUnlockedRef = useRef(false);
+  const canPlayOpusRef = useRef<boolean | null>(null);
+  const queuedLineIdRef = useRef<NeuraVoiceLineId | null>(null);
+
+  useEffect(() => () => {
+    audioRef.current?.pause();
+  }, []);
+
+  function canPlayOpus() {
+    if (canPlayOpusRef.current !== null) return canPlayOpusRef.current;
+    const audio = document.createElement('audio');
+    canPlayOpusRef.current = audio.canPlayType('audio/ogg; codecs="opus"') !== '';
+    return canPlayOpusRef.current;
+  }
+
+  const createAudio = useCallback((lineId: NeuraVoiceLineId) => {
+    const sources = neuraVoiceAssets[lineId];
+    if (!sources) return null;
+    return new Audio(canPlayOpus() ? sources.primary : sources.fallback);
+  }, []);
+
+  const playQueuedLine = useCallback(() => {
+    const queuedLineId = queuedLineIdRef.current;
+    queuedLineIdRef.current = null;
+    if (!queuedLineId) return;
+
+    const audio = createAudio(queuedLineId);
+    if (!audio) return;
+
+    audioRef.current = audio;
+    audio.addEventListener('ended', playQueuedLine, { once: true });
+    audio.addEventListener('error', playQueuedLine, { once: true });
+    audio.play().catch(() => {
+      const sources = neuraVoiceAssets[queuedLineId];
+      if (!sources || audio.src.endsWith(sources.fallback)) {
+        playQueuedLine();
+        return;
+      }
+      const fallbackAudio = new Audio(sources.fallback);
+      audioRef.current = fallbackAudio;
+      fallbackAudio.addEventListener('ended', playQueuedLine, { once: true });
+      fallbackAudio.addEventListener('error', playQueuedLine, { once: true });
+      fallbackAudio.play().catch(() => undefined);
+    });
+  }, [createAudio]);
+
+  return useCallback((lineId: NeuraVoiceLineId, source: 'comment' | 'reaction') => {
+    if (source === 'reaction') isUnlockedRef.current = true;
+    if (!isUnlockedRef.current) return;
+
+    const currentAudio = audioRef.current;
+    if (currentAudio && !currentAudio.paused && !currentAudio.ended) {
+      if (source === 'reaction') return;
+      queuedLineIdRef.current = lineId;
+      return;
+    }
+
+    queuedLineIdRef.current = lineId;
+    playQueuedLine();
+  }, [playQueuedLine]);
+}
+
+function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
   const [mood, setMood] = useState<NeuraPetMood>('idle');
   const [position, setPosition] = useState<Point>(() => getDefaultNeuraPosition());
   const dragRef = useRef<{ startX: number; startY: number; origin: Point; moved: boolean } | null>(null);
   const reactionIndexRef = useRef(0);
   const settleTimerRef = useRef<number | null>(null);
+  const playNeuraVoice = useNeuraVoice();
   const animation = NEURA_ANIMATIONS[mood];
 
   useEffect(() => {
@@ -951,6 +1019,10 @@ function NeuraPet({ comment }: { comment: string }) {
     if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
   }, []);
 
+  useEffect(() => {
+    playNeuraVoice(comment.id, 'comment');
+  }, [comment.id, playNeuraVoice]);
+
   function settleMood(nextMood: NeuraPetMood, delayMs = 1500) {
     if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
     setMood(nextMood);
@@ -960,10 +1032,16 @@ function NeuraPet({ comment }: { comment: string }) {
     }, delayMs);
   }
 
+  function playReaction(nextMood: NeuraPetMood) {
+    settleMood(nextMood);
+    const reactionLineId = neuraReactionVoiceLineIds[nextMood as keyof typeof neuraReactionVoiceLineIds];
+    if (reactionLineId) playNeuraVoice(reactionLineId, 'reaction');
+  }
+
   function cycleReaction() {
     const nextMood = NEURA_REACTION_SEQUENCE[reactionIndexRef.current % NEURA_REACTION_SEQUENCE.length];
     reactionIndexRef.current += 1;
-    settleMood(nextMood);
+    playReaction(nextMood);
   }
 
   function beginDrag(event: React.PointerEvent<HTMLButtonElement>) {
@@ -1028,11 +1106,11 @@ function NeuraPet({ comment }: { comment: string }) {
           <strong>Neura</strong>
           <span>{animation.label}</span>
         </div>
-        <p>{comment}</p>
+        <p>{comment.text}</p>
         <div className="neura-actions" aria-label="Reakcje Neury">
-          <button type="button" onClick={() => settleMood('waving')}>Hej</button>
-          <button type="button" onClick={() => settleMood('review')}>Analiza</button>
-          <button type="button" onClick={() => settleMood('failed')}>Glitch</button>
+          <button type="button" onClick={() => playReaction('waving')}>Hej</button>
+          <button type="button" onClick={() => playReaction('review')}>Analiza</button>
+          <button type="button" onClick={() => playReaction('failed')}>Glitch</button>
         </div>
       </div>
     </aside>
@@ -1076,7 +1154,7 @@ function CybekWebcam() {
   );
 }
 
-function PersistentOverlays({ comment }: { comment: string }) {
+function PersistentOverlays({ comment }: { comment: NeuraVoiceLine }) {
   return (
     <>
       <CybekWebcam />
