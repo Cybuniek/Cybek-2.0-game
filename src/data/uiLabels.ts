@@ -7,7 +7,7 @@ export const appLabels = {
 
 export const windowLabels = {
   messenger: 'Messenger',
-  create: 'Ustno.ai Utworz',
+  create: 'Ustno.ai Utwórz',
   me: 'Ustno.ai Me',
   player: 'Annihilation player.exe',
 };
@@ -19,7 +19,7 @@ export const addresses = {
 
 export const iconLabels = {
   messenger: 'Messenger',
-  create: 'Ustno.ai Utworz',
+  create: 'Ustno.ai Utwórz',
   me: 'Ustno.ai Ja',
   todo: 'todo.tmp',
   publishedFilePrefix: 'plik',
@@ -36,49 +36,66 @@ export const iconSymbols = {
 export const buttonLabels = {
   resetSave: 'Reset zapisu',
   close: 'x',
-  createFirstVersion: 'Stworz pierwsza wersje',
+  createFirstVersion: 'Stwórz pierwszą wersję',
   remix: '(Remix)',
-  publish: 'Opublikuj na czacie glownym',
-  sendToPawel: 'Wyslij wersje robocza do Pawcia',
+  publish: 'Opublikuj na czacie głównym',
+  sendToPawel: 'Wyślij wersję roboczą do Pawcia',
   saveDraft: 'Zapisz draft do szuflady',
   overwriteDraft: 'Nadpisz draft w szufladzie',
-  backToDesktop: 'Wyjdz do pulpitu',
-  finishTrial: 'Zakoncz probny wystep',
-  backWithoutSave: 'Wroc bez zapisu',
-  play: 'Odtworz',
+  backToDesktop: 'Wyjdź do pulpitu',
+  finishTrial: 'Zakończ próbny występ',
+  backWithoutSave: 'Wróć bez zapisu',
+  play: 'Odtwórz',
 };
 
 export const statLabels = {
-  performance: 'Wystep',
+  performance: 'Występ',
   cybart: 'Cybart.exe',
   chatPressure: 'Presja Czatu',
 };
 
 export const statusLabels = {
-  inDrawer: 'in drawer',
-  sentToPawel: 'sent to Pawel',
+  inDrawer: 'w szufladzie',
+  sentToPawel: 'wysłane do Pawła',
   playing: 'Odtwarzanie...',
-  stopped: 'Gotowe do odsluchu',
-  noRemix: 'Najlepsza dostepna wersja',
+  stopped: 'Gotowe do odsłuchu',
+  noRemix: 'Najlepsza dostępna wersja',
 };
 
 export const placeholderLabels = {
   todoTitle: 'ToDo / Cybek',
-  todoItems: ['sprawdzic drafty', 'nie karmic presji czatu', 'zostawic miejsce na prawdziwy rytm'],
-  noCreateTracks: 'Generator jest pusty. Utwory powstaja tylko raz; dalsza praca siedzi w szufladzie.',
-  noDrafts: 'Brak draftow. Stworz pierwsza wersje w generatorze.',
-  publishedLocked: 'Ten tytul byl juz opublikowany.',
+  todoItems: ['sprawdzić drafty', 'nie karmić presji czatu', 'zostawić miejsce na prawdziwy rytm'],
+  noCreateTracks: 'Generator jest pusty. Utwory powstają tylko raz; dalsza praca siedzi w szufladzie.',
+  noDrafts: 'Brak draftów. Stwórz pierwszą wersję w generatorze.',
+  publishedLocked: 'Ten tytuł był już opublikowany.',
   rhythmLanesLabel: 'Tory rytmiczne pod wokalem',
   vocalMapLabel: 'Bitmapa wokalu',
-  resultTitle: 'Wynik probnego wykonania',
-  accuracy: 'dokladnosc',
+  resultTitle: 'Wynik próbnego wykonania',
+  accuracy: 'dokładność',
   grade: 'ocena',
   level: 'Poziom',
-  quality: 'Jakosc',
-  listenPlaceholder: 'Scalony odsluch opublikowanego utworu.',
+  quality: 'Jakość',
+  listenPlaceholder: 'Scalony odsłuch opublikowanego utworu.',
+  timeLeft: 'czas',
+  combo: 'combo',
+  maxCombo: 'max combo',
+  perfect: 'perfect',
+  good: 'good',
+  miss: 'miss',
+  notes: 'nuty',
+  remixComparison: 'Porównanie remixu',
+  currentDraft: 'obecny draft',
+  newTake: 'nowa próba',
+  accuracyDelta: 'zmiana',
+};
+
+export const comparisonLabels = {
+  better: 'Nowa wersja jest lepsza.',
+  same: 'Nowa wersja trzyma poziom obecnego draftu.',
+  worse: 'Nowa wersja jest słabsza. Nadpisanie będzie świadomym ryzykiem.',
 };
 
 export const messengerTabs = {
-  pawel: 'Pawel',
-  group: 'Sztuka za Sztuke - Wystepy Cybarta',
+  pawel: 'Paweł',
+  group: 'Sztuka za Sztukę - Występy Cybarta',
 };

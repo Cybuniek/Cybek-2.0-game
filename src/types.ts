@@ -1,4 +1,29 @@
-export type Difficulty = 'Latwy' | 'Normalny' | 'Cybart';
+export type Difficulty = 'Łatwy' | 'Normalny' | 'Cybart';
+
+export type RhythmLane = 'S' | 'D' | 'J' | 'K';
+
+export type RhythmNote = {
+  id: string;
+  lane: RhythmLane;
+  timeMs: number;
+};
+
+export type RhythmBeatmap = {
+  trackId: string;
+  bpm: number;
+  durationMs: number;
+  notes: RhythmNote[];
+};
+
+export type RhythmSummary = {
+  accuracy: number;
+  grade: string;
+  perfectHits: number;
+  goodHits: number;
+  misses: number;
+  maxCombo: number;
+  totalNotes: number;
+};
 
 export type Track = {
   id: string;
@@ -7,6 +32,7 @@ export type Track = {
   artist: string;
   bpm: number;
   mood: string;
+  beatmapSeed: number;
   difficulties: Difficulty[];
   audio: {
     instrumental: string;
@@ -20,13 +46,11 @@ export type ChatMessage = {
   text: string;
 };
 
-export type PerformanceResult = {
+export type PerformanceResult = RhythmSummary & {
   id: string;
   trackId: string;
   trackTitle: string;
   difficulty: Difficulty;
-  accuracy: number;
-  grade: string;
   createdAt: string;
   status: 'inDrawer' | 'sentToPawel' | 'published';
 };

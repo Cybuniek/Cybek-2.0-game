@@ -1,6 +1,6 @@
 import { initialGroupMessages, initialPawelMessages } from './data/messages';
 import { tracks } from './data/tracks';
-import type { ChatMessage, Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, Stats } from './types';
+import type { ChatMessage, Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, RhythmSummary, Stats } from './types';
 
 const STORAGE_KEY = 'ustnik-2-state';
 
@@ -10,7 +10,8 @@ const initialStats: Stats = {
   chatPressure: 18,
 };
 
-type LegacyPerformanceResult = Omit<PerformanceResult, 'status'> & {
+type RhythmResultCounters = Pick<PerformanceResult, 'perfectHits' | 'goodHits' | 'misses' | 'maxCombo' | 'totalNotes'>;
+type LegacyPerformanceResult = Omit<PerformanceResult, 'status' | keyof RhythmResultCounters> & Partial<RhythmResultCounters> & {
   status: PerformanceResult['status'] | 'drawer';
 };
 type SavedDraft = LegacyPerformanceResult | DraftTrack;
@@ -131,17 +132,14 @@ export function createResult(
   trackId: string,
   trackTitle: string,
   difficulty: PerformanceResult['difficulty'],
+  summary: RhythmSummary,
 ): PerformanceResult {
-  const accuracy = Math.floor(62 + Math.random() * 37);
-  const grade = accuracy > 92 ? 'S' : accuracy > 84 ? 'A' : accuracy > 74 ? 'B' : 'C';
-
   return {
     id: crypto.randomUUID(),
     trackId,
     trackTitle,
     difficulty,
-    accuracy,
-    grade,
+    ...summary,
     createdAt: new Date().toISOString(),
     status: 'inDrawer',
   };
@@ -210,7 +208,15 @@ function migrateState(
       }
 
       return createDraftFromResult(
-        { ...item, status: item.status === 'sentToPawel' ? 'sentToPawel' : 'inDrawer' },
+        {
+          ...item,
+          status: item.status === 'sentToPawel' ? 'sentToPawel' : 'inDrawer',
+          perfectHits: item.perfectHits ?? 0,
+          goodHits: item.goodHits ?? 0,
+          misses: item.misses ?? 0,
+          maxCombo: item.maxCombo ?? 0,
+          totalNotes: item.totalNotes ?? 0,
+        },
         item.status === 'sentToPawel' ? 'sentToPawel' : 'inDrawer',
       );
     });

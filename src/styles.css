@@ -277,56 +277,110 @@ button:disabled {
 
 .neura {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: 300px;
-  min-height: 160px;
-  padding: 14px;
+  left: var(--neura-x);
+  top: var(--neura-y);
+  right: auto;
+  bottom: auto;
+  width: 320px;
+  min-height: 176px;
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
   z-index: 14;
   border-color: #8d41ff;
-  box-shadow: 0 0 22px rgba(255, 46, 221, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 0 22px rgba(255, 46, 221, 0.2), inset 0 0 18px rgba(57, 255, 224, 0.08);
 }
 
-.neura-body {
-  position: relative;
-  width: 96px;
-  height: 82px;
-  margin-bottom: 10px;
-  border: 2px solid #39ffe0;
-  border-radius: 8px 8px 18px 18px;
-  background: #101827;
-  box-shadow: 0 0 18px rgba(255, 46, 136, 0.35);
+.neura-sprite-pad {
+  width: 132px;
+  height: 150px;
+  min-height: 150px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-color: #39ffe0;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(57, 255, 224, 0.13), rgba(255, 46, 136, 0.08)),
+    #070b13;
+  cursor: grab;
+  touch-action: none;
+  box-shadow: inset 0 0 22px rgba(57, 255, 224, 0.1);
 }
 
-.eye {
-  position: absolute;
-  top: 24px;
-  width: 14px;
-  height: 14px;
-  background: #ff2e88;
+.neura-sprite-pad:active {
+  cursor: grabbing;
 }
 
-.eye:first-child {
-  left: 24px;
+.neura-sprite {
+  width: 120px;
+  height: 130px;
+  background-image: var(--neura-sprite);
+  background-repeat: no-repeat;
+  background-size: 960px 1170px;
+  background-position-y: calc(var(--neura-row) * -130px);
+  image-rendering: pixelated;
+  animation: neura-atlas var(--neura-duration) steps(var(--neura-frames)) infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 46, 221, 0.36));
 }
 
-.eye:nth-child(2) {
-  right: 24px;
+.neura-jumping .neura-sprite {
+  transform: translateY(-5px);
 }
 
-.mouth {
-  position: absolute;
-  left: 32px;
-  bottom: 20px;
-  width: 32px;
-  height: 2px;
-  background: #39ffe0;
+.neura-failed {
+  border-color: #ff5e8f;
+}
+
+.neura-review {
+  border-color: #39ffe0;
+}
+
+.neura-panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.neura-status {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neura-status strong {
+  color: #ff5ee7;
+}
+
+.neura-status span {
+  color: #39ffe0;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
 .neura p {
   margin: 0;
   color: #94fff0;
+  font-size: 13px;
   line-height: 1.35;
+}
+
+.neura-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neura-actions button {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
 }
 
 .stage-screen,
@@ -383,21 +437,83 @@ button:disabled {
   box-shadow: 0 0 10px rgba(57, 255, 224, 0.22);
 }
 
+.rhythm-hud,
+.rhythm-counters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+  max-width: 820px;
+  margin: 0 auto 12px;
+}
+
+.rhythm-hud div,
+.rhythm-counters span {
+  border: 1px solid #263f4a;
+  background: rgba(7, 11, 19, 0.82);
+  padding: 10px;
+}
+
+.rhythm-hud span {
+  display: block;
+  color: #a8b7c7;
+  font-size: 12px;
+}
+
+.rhythm-hud strong {
+  color: #39ffe0;
+  font-size: 24px;
+}
+
+.judgement {
+  width: 180px;
+  min-height: 34px;
+  margin: 0 auto 12px;
+  border: 1px solid #263f4a;
+  background: rgba(7, 11, 19, 0.78);
+  color: #a8b7c7;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.judgement.perfect {
+  color: #39ffe0;
+  border-color: #39ffe0;
+  box-shadow: 0 0 18px rgba(57, 255, 224, 0.32);
+}
+
+.judgement.good {
+  color: #ffdf6e;
+  border-color: #ffdf6e;
+}
+
+.judgement.miss {
+  color: #ff5e8f;
+  border-color: #ff5e8f;
+}
+
 .lanes {
   position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(120px, 1fr));
   gap: 14px;
-  height: 46vh;
+  height: 54vh;
   max-width: 820px;
-  margin: 0 auto 22px;
+  margin: 0 auto 12px;
 }
 
 .lane {
   position: relative;
   border: 1px solid #39ffe0;
   background: linear-gradient(to bottom, rgba(57, 255, 224, 0.1), rgba(255, 46, 136, 0.06));
+  cursor: pointer;
   overflow: hidden;
+}
+
+.lane.active-lane {
+  border-color: #ffdf6e;
+  box-shadow: inset 0 0 24px rgba(255, 223, 110, 0.18);
 }
 
 .note {
@@ -406,10 +522,11 @@ button:disabled {
   top: 10%;
   width: 34px;
   height: 18px;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   border: 1px solid #ff2e88;
   background: #39ffe0;
   z-index: 2;
+  box-shadow: 0 0 16px rgba(57, 255, 224, 0.48);
 }
 
 .note.hold,
@@ -446,14 +563,25 @@ button:disabled {
   animation: fall 1.8s infinite linear;
 }
 
+.hit-line {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: var(--hit-line);
+  height: 2px;
+  background: #ffdf6e;
+  box-shadow: 0 0 14px rgba(255, 223, 110, 0.8);
+}
+
 .lane kbd {
   position: absolute;
   left: 50%;
-  bottom: 22px;
+  top: calc(var(--hit-line) + 22px);
   transform: translateX(-50%);
   min-width: 52px;
   padding: 10px;
   border: 1px solid #e8fff9;
+  background: rgba(7, 11, 19, 0.9);
   text-align: center;
   font-size: 24px;
 }
@@ -640,12 +768,78 @@ button:disabled {
   color: #a8b7c7;
 }
 
+.score-details {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(70px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+  color: #a8b7c7;
+  font-size: 13px;
+}
+
+.score-details span {
+  border: 1px solid #263f4a;
+  padding: 8px;
+  background: rgba(7, 11, 19, 0.72);
+}
+
+.remix-comparison {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid #263f4a;
+  background: rgba(7, 11, 19, 0.82);
+}
+
+.remix-comparison strong {
+  color: #39ffe0;
+}
+
+.remix-comparison div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 8px;
+  color: #a8b7c7;
+  font-size: 13px;
+}
+
+.remix-comparison span {
+  border: 1px solid #263f4a;
+  padding: 8px;
+}
+
+.remix-comparison.better {
+  border-color: #39ffe0;
+}
+
+.remix-comparison.same {
+  border-color: #ffdf6e;
+}
+
+.remix-comparison.worse {
+  border-color: #ff5e8f;
+}
+
+.remix-comparison.worse strong {
+  color: #ff5e8f;
+}
+
 @keyframes fall {
   from {
     top: 10%;
   }
   to {
     top: 74%;
+  }
+}
+
+@keyframes neura-atlas {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: calc(var(--neura-frames) * -120px);
   }
 }
 

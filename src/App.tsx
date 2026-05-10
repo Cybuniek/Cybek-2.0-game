@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 import { neuraComments } from './data/messages';
-import { chatAuthors, groupPublishMessage, pawelDraftMessage } from './data/chatReactions';
+import { neuraVoiceAssets } from './data/neuraVoiceAssets';
+import { neuraReactionVoiceLineIds, type NeuraVoiceLine, type NeuraVoiceLineId } from './data/neuraVoiceLines';
+import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
 import {
   addMessage,
@@ -23,6 +25,7 @@ import {
   addresses,
   appLabels,
   buttonLabels,
+  comparisonLabels,
   iconLabels,
   iconSymbols,
   messengerTabs,
@@ -31,11 +34,45 @@ import {
   statusLabels,
   windowLabels,
 } from './data/uiLabels';
-import type { Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, Track } from './types';
+import {
+  buildRhythmBeatmap,
+  createRhythmSession,
+  finishRhythmSession,
+  getRhythmSummary,
+  getVisibleRhythmNotes,
+  hitRhythmLane,
+  RHYTHM_HIT_LINE_PERCENT,
+  RHYTHM_LANES,
+  stepRhythmSession,
+  type RhythmJudgement,
+  type RhythmSession,
+} from './rhythm';
+import type { Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, RhythmLane, RhythmSummary, Track } from './types';
 
 type WindowId = 'messenger' | 'create' | 'me' | 'player' | null;
 type Screen = 'desktop' | 'rhythm' | 'results';
 type Point = { x: number; y: number };
+type NeuraPetMood = 'idle' | 'waving' | 'jumping' | 'failed' | 'waiting' | 'running' | 'review';
+
+type NeuraAnimation = {
+  row: number;
+  frames: number;
+  duration: string;
+  label: string;
+};
+
+const NEURA_SPRITESHEET_PATH = '/pets/neura/spritesheet.webp';
+const NEURA_COMMENT_INTERVAL_MS = 27500;
+const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
+  idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },
+  running: { row: 7, frames: 6, duration: '0.82s', label: 'przeciąganie' },
+  waving: { row: 3, frames: 4, duration: '0.84s', label: 'kontakt' },
+  jumping: { row: 4, frames: 5, duration: '0.92s', label: 'impuls' },
+  failed: { row: 5, frames: 8, duration: '1.28s', label: 'glitch' },
+  waiting: { row: 6, frames: 6, duration: '1.16s', label: 'nasłuch' },
+  review: { row: 8, frames: 6, duration: '1.22s', label: 'analiza' },
+};
+const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'review', 'failed'];
 
 type ActiveRun = {
   track: Track;
@@ -44,23 +81,13 @@ type ActiveRun = {
   draftId?: string;
 };
 
-type RhythmNote = {
-  id: string;
-  lane: number;
-  delay: number;
-  duration: number;
-  opacity: number;
-  kind: 'tap' | 'hold' | 'smash';
-  lengthBeats?: number;
-};
-
-type RhythmLink = {
-  id: string;
-  fromLane: number;
-  toLane: number;
-  delay: number;
-  duration: number;
-  opacity: number;
+type RemixComparison = {
+  previousAccuracy: number;
+  previousGrade: string;
+  nextAccuracy: number;
+  nextGrade: string;
+  accuracyDelta: number;
+  verdict: 'better' | 'same' | 'worse';
 };
 
 export default function App() {
@@ -84,11 +111,13 @@ export default function App() {
   useEffect(() => {
     const id = window.setInterval(() => {
       setNeuraIndex((current) => (current + 1) % neuraComments.length);
-    }, 5500);
+    }, NEURA_COMMENT_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
+    if (screen === 'rhythm') return;
+
     window.render_game_to_text = () =>
       JSON.stringify({
         screen,
@@ -123,6 +152,9 @@ export default function App() {
   const selectedPublishedTrack = selectedPublished
     ? tracks.find((track) => track.id === selectedPublished.trackId) ?? null
     : null;
+  const activeRemixDraft = activeRun?.mode === 'remix' && activeRun.draftId
+    ? gameState.drafts.find((draft) => draft.id === activeRun.draftId) ?? null
+    : null;
 
   function getDisplayTitle(trackId: string, title: string) {
     const isPublished = gameState.publishedTrackIds.includes(trackId);
@@ -145,9 +177,9 @@ export default function App() {
     setScreen('rhythm');
   }
 
-  function finishRun() {
+  function finishRun(summary: RhythmSummary) {
     if (!activeRun) return;
-    setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty));
+    setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty, summary));
     setScreen('results');
   }
 
@@ -229,11 +261,7 @@ export default function App() {
       drafts: state.drafts.filter((item) => item.trackId !== draft.trackId),
       publishedTracks: upsertPublished(state.publishedTracks, published),
       publishedTrackIds: addUnique(state.publishedTrackIds, draft.trackId),
-      groupMessages: addMessage(
-        state.groupMessages,
-        chatAuthors.cybek,
-        groupPublishMessage(published),
-      ),
+      groupMessages: [...state.groupMessages, ...groupPublishMessages(published)],
       stats: applyStatDelta(state.stats, getStatDelta(resultFromDraft(draft), 'publish')),
     }));
     returnToDesktop('messenger');
@@ -279,6 +307,7 @@ export default function App() {
         result={result}
         displayTitle={getDisplayTitle(result.trackId, result.trackTitle)}
         runMode={activeRun.mode}
+        remixComparison={activeRemixDraft ? createRemixComparison(activeRemixDraft, result) : null}
         alreadyPublished={gameState.publishedTrackIds.includes(result.trackId)}
         neuraComment={neuraComments[neuraIndex]}
         onSave={() => saveInitialDraft('inDrawer')}
@@ -413,8 +442,27 @@ function resultFromDraft(draft: DraftTrack): PerformanceResult {
     difficulty: draft.difficulty,
     accuracy: draft.bestAccuracy,
     grade: draft.bestGrade,
+    perfectHits: 0,
+    goodHits: 0,
+    misses: 0,
+    maxCombo: 0,
+    totalNotes: 0,
     createdAt: draft.updatedAt,
     status: draft.status,
+  };
+}
+
+function createRemixComparison(draft: DraftTrack, result: PerformanceResult): RemixComparison {
+  const accuracyDelta = result.accuracy - draft.bestAccuracy;
+  const verdict = accuracyDelta > 0 ? 'better' : accuracyDelta < 0 ? 'worse' : 'same';
+
+  return {
+    previousAccuracy: draft.bestAccuracy,
+    previousGrade: draft.bestGrade,
+    nextAccuracy: result.accuracy,
+    nextGrade: result.grade,
+    accuracyDelta,
+    verdict,
   };
 }
 
@@ -447,14 +495,14 @@ function Window({
 }: {
   title: string;
   address?: string;
-  children: React.ReactNode;
+  children: ReactNode;
   position: Point;
   onMove: (position: Point) => void;
   onClose: () => void;
 }) {
   const dragRef = useRef<{ startX: number; startY: number; origin: Point } | null>(null);
 
-  function beginDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function beginDrag(event: PointerEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).tagName === 'BUTTON') return;
     dragRef.current = {
       startX: event.clientX,
@@ -464,7 +512,7 @@ function Window({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function drag(event: React.PointerEvent<HTMLDivElement>) {
+  function drag(event: PointerEvent<HTMLDivElement>) {
     if (!dragRef.current) return;
     const next = {
       x: Math.max(120, Math.min(window.innerWidth - 360, dragRef.current.origin.x + event.clientX - dragRef.current.startX)),
@@ -616,22 +664,57 @@ function RhythmScreen({
 }: {
   activeRun: ActiveRun;
   displayTitle: string;
-  neuraComment: string;
-  onFinish: () => void;
+  neuraComment: NeuraVoiceLine;
+  onFinish: (summary: RhythmSummary) => void;
   onExit: () => void;
 }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(activeRun.track.bpm));
-  const notePattern = useMemo(
-    () => buildNotePattern(vocalPeaks, activeRun.track.bpm),
-    [activeRun.track.bpm, vocalPeaks],
+  const beatmap = useMemo(
+    () => buildRhythmBeatmap(activeRun.track, activeRun.difficulty),
+    [activeRun.difficulty, activeRun.track],
   );
+  const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty));
+  const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(activeRun.track.bpm));
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sessionRef = useRef(session);
+  const finishedRef = useRef(false);
+  const onFinishRef = useRef(onFinish);
+  const visibleNotes = getVisibleRhythmNotes(session);
+  const summary = getRhythmSummary(session);
+  const remainingSeconds = Math.max(0, Math.ceil((session.beatmap.durationMs - session.elapsedMs) / 1000));
+  const vocalAudioSource = activeRun.track.audio?.vocals;
+  const instrumentalAudioSource = activeRun.track.audio?.instrumental;
 
   useEffect(() => {
-    let cancelled = false;
-    const audioContext = new AudioContext();
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
 
-    fetch(activeRun.track.audio.vocals)
+  useEffect(() => {
+    const nextSession = createRhythmSession(beatmap, activeRun.difficulty);
+    sessionRef.current = nextSession;
+    finishedRef.current = false;
+    setSession(nextSession);
+    setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+  }, [activeRun.difficulty, activeRun.track.bpm, beatmap]);
+
+  useEffect(() => {
+    void audioRef.current?.play().catch(() => undefined);
+  }, [instrumentalAudioSource]);
+
+  useEffect(() => {
+    if (!vocalAudioSource) {
+      setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+      return;
+    }
+
+    let cancelled = false;
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) {
+      setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+      return;
+    }
+    const audioContext = new AudioContextCtor();
+
+    fetch(vocalAudioSource)
       .then((response) => {
         if (!response.ok) throw new Error('Nie udało się pobrać wokalu.');
         return response.arrayBuffer();
@@ -647,12 +730,103 @@ function RhythmScreen({
         void audioContext.close();
       });
 
-    void audioRef.current?.play().catch(() => undefined);
-
     return () => {
       cancelled = true;
     };
-  }, [activeRun.track.audio.vocals, activeRun.track.bpm]);
+  }, [activeRun.track.bpm, vocalAudioSource]);
+
+  const completeRun = useCallback((sessionToFinish: RhythmSession) => {
+    if (finishedRef.current) return;
+
+    const finalSession = finishRhythmSession(sessionToFinish);
+    sessionRef.current = finalSession;
+    finishedRef.current = true;
+    setSession(finalSession);
+    onFinishRef.current(getRhythmSummary(finalSession));
+  }, []);
+
+  const stepByMs = useCallback((ms: number) => {
+    if (finishedRef.current) return;
+
+    const nextSession = stepRhythmSession(sessionRef.current, ms);
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+
+    if (nextSession.isFinished) {
+      window.setTimeout(() => completeRun(nextSession), 0);
+    }
+  }, [completeRun]);
+
+  const pressLane = useCallback((lane: RhythmLane) => {
+    if (finishedRef.current) return;
+
+    const nextSession = hitRhythmLane(sessionRef.current, lane);
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+  }, []);
+
+  useEffect(() => {
+    let frameId = 0;
+    let lastFrame = performance.now();
+
+    function tick(now: number) {
+      stepByMs(Math.min(80, now - lastFrame));
+      lastFrame = now;
+      if (!finishedRef.current) frameId = window.requestAnimationFrame(tick);
+    }
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [stepByMs]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.repeat) return;
+
+      const lane = keyToLane(event.key);
+      if (!lane) return;
+
+      event.preventDefault();
+      pressLane(lane);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pressLane]);
+
+  useEffect(() => {
+    window.render_game_to_text = () => {
+      const currentSession = sessionRef.current;
+      const currentSummary = getRhythmSummary(currentSession);
+      const currentVisibleNotes = getVisibleRhythmNotes(currentSession);
+
+      return JSON.stringify({
+        screen: 'rhythm',
+        coordinateSystem: 'Tory nut: początek u góry, nuty spadają w dół do linii trafienia.',
+        activeRun: {
+          track: activeRun.track.title,
+          difficulty: activeRun.difficulty,
+          mode: activeRun.mode,
+        },
+        bpm: currentSession.beatmap.bpm,
+        elapsedMs: Math.round(currentSession.elapsedMs),
+        durationMs: currentSession.beatmap.durationMs,
+        combo: currentSession.combo,
+        lastJudgement: currentSession.lastJudgement,
+        score: currentSummary,
+        nextNotes: currentVisibleNotes.slice(0, 12).map((note) => ({
+          lane: note.lane,
+          timeToHitMs: note.timeToHitMs,
+          yPercent: Math.round(note.yPercent),
+        })),
+      });
+    };
+    window.advanceTime = stepByMs;
+
+    return () => {
+      window.advanceTime = () => undefined;
+    };
+  }, [activeRun, stepByMs]);
 
   return (
     <main className="stage-screen">
@@ -660,15 +834,20 @@ function RhythmScreen({
         <button onClick={onExit}>{buttonLabels.backToDesktop}</button>
         <strong>{displayTitle}</strong>
         <span>{placeholderLabels.level}: {activeRun.difficulty}</span>
+        <span>{activeRun.track.bpm} BPM</span>
       </div>
-      <audio
-        ref={audioRef}
-        className="stage-audio"
-        src={activeRun.track.audio.instrumental}
-        autoPlay
-        controls
-        preload="auto"
-      />
+
+      {instrumentalAudioSource && (
+        <audio
+          ref={audioRef}
+          className="stage-audio"
+          src={instrumentalAudioSource}
+          autoPlay
+          controls
+          preload="auto"
+        />
+      )}
+
       <section className="vocal-map" aria-label={placeholderLabels.vocalMapLabel}>
         <div className="vocal-waveform">
           {vocalPeaks.map((peak, index) => (
@@ -679,41 +858,48 @@ function RhythmScreen({
           ))}
         </div>
       </section>
-      <section className="lanes" aria-label={placeholderLabels.rhythmLanesLabel}>
-        {notePattern.links.map((link) => (
-          <span
-            className="note-link ghost"
-            key={link.id}
-            style={{
-              left: `${(link.fromLane + 0.5) * 25}%`,
-              width: `${(link.toLane - link.fromLane) * 25}%`,
-              animationDelay: `${link.delay}s`,
-              animationDuration: `${link.duration}s`,
-              opacity: link.opacity,
-            } as CSSProperties}
-          />
-        ))}
-        {['S', 'D', 'J', 'K'].map((key, laneIndex) => (
-          <div className="lane" key={key}>
-            {notePattern.notes
-              .filter((note) => note.lane === laneIndex)
+
+      <section className="rhythm-hud" aria-label="Stan próby rytmicznej">
+        <RhythmStat label={placeholderLabels.timeLeft} value={`${remainingSeconds}s`} />
+        <RhythmStat label={placeholderLabels.combo} value={String(session.combo)} />
+        <RhythmStat label={placeholderLabels.accuracy} value={`${summary.accuracy}%`} />
+        <RhythmStat label={placeholderLabels.maxCombo} value={String(summary.maxCombo)} />
+      </section>
+
+      <p className={`judgement ${session.lastJudgement ?? ''}`}>{judgementLabel(session.lastJudgement)}</p>
+
+      <section
+        className="lanes"
+        aria-label={placeholderLabels.rhythmLanesLabel}
+        style={{ '--hit-line': `${RHYTHM_HIT_LINE_PERCENT}%` } as CSSProperties}
+      >
+        {RHYTHM_LANES.map((lane) => (
+          <div
+            className={`lane ${session.lastLane === lane ? 'active-lane' : ''}`}
+            key={lane}
+            onPointerDown={() => pressLane(lane)}
+            role="button"
+            tabIndex={0}
+          >
+            {visibleNotes
+              .filter((note) => note.lane === lane)
               .map((note) => (
-                <span
-                  className={`note ${note.kind} ghost`}
-                  key={note.id}
-                  style={{
-                    '--length-beats': note.lengthBeats ?? 1,
-                    animationDelay: `${note.delay}s`,
-                    animationDuration: `${note.duration}s`,
-                    opacity: note.opacity,
-                  } as CSSProperties}
-                />
+                <span className="note" key={note.id} style={{ top: `${note.yPercent}%` }} />
               ))}
-            <kbd>{key}</kbd>
+            <span className="hit-line" />
+            <kbd>{lane}</kbd>
           </div>
         ))}
       </section>
-      <button className="primary-action" onClick={onFinish}>
+
+      <section className="rhythm-counters" aria-label="Liczniki trafień">
+        <span>{placeholderLabels.perfect}: {summary.perfectHits}</span>
+        <span>{placeholderLabels.good}: {summary.goodHits}</span>
+        <span>{placeholderLabels.miss}: {summary.misses}</span>
+        <span>{placeholderLabels.notes}: {summary.totalNotes}</span>
+      </section>
+
+      <button className="primary-action" onClick={() => completeRun(sessionRef.current)}>
         {buttonLabels.finishTrial}
       </button>
       <PersistentOverlays comment={neuraComment} />
@@ -721,10 +907,34 @@ function RhythmScreen({
   );
 }
 
+
+function RhythmStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function keyToLane(key: string): RhythmLane | null {
+  const upperKey = key.toUpperCase();
+  return RHYTHM_LANES.includes(upperKey as RhythmLane) ? (upperKey as RhythmLane) : null;
+}
+
+function judgementLabel(judgement: RhythmJudgement | null) {
+  if (judgement === 'perfect') return 'Perfect';
+  if (judgement === 'good') return 'Good';
+  if (judgement === 'miss') return 'Miss';
+  if (judgement === 'empty') return 'Pusto';
+  return 'Złap rytm';
+}
+
 function ResultsScreen({
   result,
   displayTitle,
   runMode,
+  remixComparison,
   alreadyPublished,
   neuraComment,
   onSave,
@@ -736,8 +946,9 @@ function ResultsScreen({
   result: PerformanceResult;
   displayTitle: string;
   runMode: ActiveRun['mode'];
+  remixComparison: RemixComparison | null;
   alreadyPublished: boolean;
-  neuraComment: string;
+  neuraComment: NeuraVoiceLine;
   onSave: () => void;
   onSendToPawel: () => void;
   onPublish: () => void;
@@ -755,6 +966,16 @@ function ResultsScreen({
           <span>{placeholderLabels.accuracy}</span>
           <span>{placeholderLabels.grade}</span>
         </div>
+        <div className="score-details">
+          <span>{placeholderLabels.perfect}: {result.perfectHits}</span>
+          <span>{placeholderLabels.good}: {result.goodHits}</span>
+          <span>{placeholderLabels.miss}: {result.misses}</span>
+          <span>{placeholderLabels.maxCombo}: {result.maxCombo}</span>
+          <span>{placeholderLabels.notes}: {result.totalNotes}</span>
+        </div>
+        {runMode === 'remix' && remixComparison && (
+          <RemixComparisonPanel comparison={remixComparison} />
+        )}
         <div className="result-actions">
           {runMode === 'create' ? (
             <>
@@ -772,6 +993,21 @@ function ResultsScreen({
       </section>
       <PersistentOverlays comment={neuraComment} />
     </main>
+  );
+}
+
+function RemixComparisonPanel({ comparison }: { comparison: RemixComparison }) {
+  const signedDelta = comparison.accuracyDelta > 0 ? `+${comparison.accuracyDelta}` : String(comparison.accuracyDelta);
+
+  return (
+    <section className={`remix-comparison ${comparison.verdict}`} aria-label={placeholderLabels.remixComparison}>
+      <strong>{comparisonLabels[comparison.verdict]}</strong>
+      <div>
+        <span>{placeholderLabels.currentDraft}: {comparison.previousAccuracy}% / {comparison.previousGrade}</span>
+        <span>{placeholderLabels.newTake}: {comparison.nextAccuracy}% / {comparison.nextGrade}</span>
+        <span>{placeholderLabels.accuracyDelta}: {signedDelta} pp</span>
+      </div>
+    </section>
   );
 }
 
@@ -818,68 +1054,6 @@ function createFallbackPeaks(bpm: number, bins = 64) {
   });
 }
 
-function buildNotePattern(peaks: number[], bpm: number): { notes: RhythmNote[]; links: RhythmLink[] } {
-  const beatSeconds = 60 / bpm;
-  const phraseBeats = 16;
-  const phraseLanes = [0, 1, 2, 3, 3, 2, 1, 0, 1, 2, 3, 0, 0, 3, 2, 1];
-  const peakGroupSize = Math.max(1, Math.floor(peaks.length / phraseBeats));
-  const holdBeats = new Map([
-    [4, 2],
-    [12, 2],
-  ]);
-  const smashBeats = new Map([
-    [8, 2],
-  ]);
-  const linkedBeats = new Map([
-    [3, [0, 3]],
-    [11, [1, 2]],
-  ]);
-
-  const notes: RhythmNote[] = Array.from({ length: phraseBeats }, (_, beatIndex) => {
-    const groupStart = beatIndex * peakGroupSize;
-    const group = peaks.slice(groupStart, groupStart + peakGroupSize);
-    const peak = group.length ? Math.max(...group) : peaks[beatIndex % peaks.length] ?? 0.5;
-    const isDownbeat = beatIndex % 4 === 0;
-    const linkedLanes = linkedBeats.get(beatIndex);
-    const lengthBeats = smashBeats.get(beatIndex) ?? holdBeats.get(beatIndex) ?? 1;
-    const kind: RhythmNote['kind'] = smashBeats.has(beatIndex) ? 'smash' : holdBeats.has(beatIndex) ? 'hold' : 'tap';
-
-    return {
-      id: `beat-${beatIndex}`,
-      lane: linkedLanes?.[0] ?? phraseLanes[beatIndex],
-      delay: Number((beatIndex * beatSeconds).toFixed(2)),
-      duration: Number(Math.max(1.15, beatSeconds * 3.2).toFixed(2)),
-      opacity: Number(Math.max(isDownbeat ? 0.72 : 0.5, Math.min(0.92, peak * 0.88)).toFixed(2)),
-      kind,
-      lengthBeats,
-    };
-  });
-
-  linkedBeats.forEach(([fromLane, toLane], beatIndex) => {
-    const source = notes[beatIndex];
-    const groupStart = beatIndex * peakGroupSize;
-    const group = peaks.slice(groupStart, groupStart + peakGroupSize);
-    const peak = group.length ? Math.max(...group) : 0.68;
-    notes.push({
-      ...source,
-      id: `beat-${beatIndex}-linked`,
-      lane: toLane,
-      opacity: Number(Math.max(0.62, Math.min(0.92, peak * 0.9)).toFixed(2)),
-    });
-  });
-
-  const links: RhythmLink[] = Array.from(linkedBeats, ([beatIndex, [fromLane, toLane]]) => ({
-    id: `link-${beatIndex}`,
-    fromLane: Math.min(fromLane, toLane),
-    toLane: Math.max(fromLane, toLane),
-    delay: Number((beatIndex * beatSeconds).toFixed(2)),
-    duration: Number(Math.max(1.15, beatSeconds * 3.2).toFixed(2)),
-    opacity: 0.7,
-  }));
-
-  return { notes, links };
-}
-
 function StatsPanel({ stats }: { stats: GameState['stats'] }) {
   return (
     <aside className="stats-panel">
@@ -900,17 +1074,202 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function NeuraPet({ comment }: { comment: string }) {
+function useNeuraVoice() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isUnlockedRef = useRef(false);
+  const canPlayOpusRef = useRef<boolean | null>(null);
+  const queuedLineIdRef = useRef<NeuraVoiceLineId | null>(null);
+
+  useEffect(() => () => {
+    audioRef.current?.pause();
+  }, []);
+
+  function canPlayOpus() {
+    if (canPlayOpusRef.current !== null) return canPlayOpusRef.current;
+    const audio = document.createElement('audio');
+    canPlayOpusRef.current = audio.canPlayType('audio/ogg; codecs="opus"') !== '';
+    return canPlayOpusRef.current;
+  }
+
+  const createAudio = useCallback((lineId: NeuraVoiceLineId) => {
+    const sources = neuraVoiceAssets[lineId];
+    if (!sources) return null;
+    return new Audio(canPlayOpus() ? sources.primary : sources.fallback);
+  }, []);
+
+  const playQueuedLine = useCallback(() => {
+    const queuedLineId = queuedLineIdRef.current;
+    queuedLineIdRef.current = null;
+    if (!queuedLineId) return;
+
+    const audio = createAudio(queuedLineId);
+    if (!audio) return;
+
+    audioRef.current = audio;
+    audio.addEventListener('ended', playQueuedLine, { once: true });
+    audio.addEventListener('error', playQueuedLine, { once: true });
+    audio.play().catch(() => {
+      const sources = neuraVoiceAssets[queuedLineId];
+      if (!sources || audio.src.endsWith(sources.fallback)) {
+        playQueuedLine();
+        return;
+      }
+      const fallbackAudio = new Audio(sources.fallback);
+      audioRef.current = fallbackAudio;
+      fallbackAudio.addEventListener('ended', playQueuedLine, { once: true });
+      fallbackAudio.addEventListener('error', playQueuedLine, { once: true });
+      fallbackAudio.play().catch(() => undefined);
+    });
+  }, [createAudio]);
+
+  return useCallback((lineId: NeuraVoiceLineId, source: 'comment' | 'reaction') => {
+    if (source === 'reaction') isUnlockedRef.current = true;
+    if (!isUnlockedRef.current) return;
+
+    const currentAudio = audioRef.current;
+    if (currentAudio && !currentAudio.paused && !currentAudio.ended) {
+      if (source === 'reaction') return;
+      queuedLineIdRef.current = lineId;
+      return;
+    }
+
+    queuedLineIdRef.current = lineId;
+    playQueuedLine();
+  }, [playQueuedLine]);
+}
+
+function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
+  const [mood, setMood] = useState<NeuraPetMood>('idle');
+  const [position, setPosition] = useState<Point>(() => getDefaultNeuraPosition());
+  const dragRef = useRef<{ startX: number; startY: number; origin: Point; moved: boolean } | null>(null);
+  const reactionIndexRef = useRef(0);
+  const settleTimerRef = useRef<number | null>(null);
+  const playNeuraVoice = useNeuraVoice();
+  const animation = NEURA_ANIMATIONS[mood];
+
+  useEffect(() => {
+    function handleResize() {
+      setPosition((current) => clampNeuraPosition(current));
+    }
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => () => {
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    playNeuraVoice(comment.id, 'comment');
+  }, [comment.id, playNeuraVoice]);
+
+  function settleMood(nextMood: NeuraPetMood, delayMs = 1500) {
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    setMood(nextMood);
+    settleTimerRef.current = window.setTimeout(() => {
+      setMood('idle');
+      settleTimerRef.current = null;
+    }, delayMs);
+  }
+
+  function playReaction(nextMood: NeuraPetMood) {
+    settleMood(nextMood);
+    const reactionLineId = neuraReactionVoiceLineIds[nextMood as keyof typeof neuraReactionVoiceLineIds];
+    if (reactionLineId) playNeuraVoice(reactionLineId, 'reaction');
+  }
+
+  function cycleReaction() {
+    const nextMood = NEURA_REACTION_SEQUENCE[reactionIndexRef.current % NEURA_REACTION_SEQUENCE.length];
+    reactionIndexRef.current += 1;
+    playReaction(nextMood);
+  }
+
+  function beginDrag(event: PointerEvent<HTMLButtonElement>) {
+    dragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: position,
+      moved: false,
+    };
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    setMood('running');
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function drag(event: PointerEvent<HTMLButtonElement>) {
+    if (!dragRef.current) return;
+
+    const dx = event.clientX - dragRef.current.startX;
+    const dy = event.clientY - dragRef.current.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) dragRef.current.moved = true;
+    setPosition(clampNeuraPosition({ x: dragRef.current.origin.x + dx, y: dragRef.current.origin.y + dy }));
+  }
+
+  function endDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (!dragRef.current) return;
+
+    const wasMoved = dragRef.current.moved;
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (wasMoved) {
+      settleMood('jumping', 900);
+      return;
+    }
+    cycleReaction();
+  }
+
+  const style = {
+    '--neura-x': `${position.x}px`,
+    '--neura-y': `${position.y}px`,
+    '--neura-row': animation.row,
+    '--neura-frames': animation.frames,
+    '--neura-duration': animation.duration,
+    '--neura-sprite': `url("${NEURA_SPRITESHEET_PATH}")`,
+  } as CSSProperties;
+
   return (
-    <aside className="neura">
-      <div className="neura-body">
-        <span className="eye" />
-        <span className="eye" />
-        <span className="mouth" />
+    <aside className={`neura neura-${mood}`} style={style} aria-live="polite">
+      <button
+        className="neura-sprite-pad"
+        type="button"
+        onPointerDown={beginDrag}
+        onPointerMove={drag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        aria-label="Neura: kliknij lub przeciągnij"
+        title="Kliknij lub przeciągnij Neurę"
+      >
+        <span className="neura-sprite" aria-hidden="true" />
+      </button>
+      <div className="neura-panel">
+        <div className="neura-status">
+          <strong>Neura</strong>
+          <span>{animation.label}</span>
+        </div>
+        <p>{comment.text}</p>
+        <div className="neura-actions" aria-label="Reakcje Neury">
+          <button type="button" onClick={() => playReaction('waving')}>Hej</button>
+          <button type="button" onClick={() => playReaction('review')}>Analiza</button>
+          <button type="button" onClick={() => playReaction('failed')}>Glitch</button>
+        </div>
       </div>
-      <p>{comment}</p>
     </aside>
   );
+}
+
+function getDefaultNeuraPosition(): Point {
+  return clampNeuraPosition({ x: window.innerWidth - 344, y: window.innerHeight - 242 });
+}
+
+function clampNeuraPosition(position: Point): Point {
+  const maxX = Math.max(24, window.innerWidth - 324);
+  const maxY = Math.max(66, window.innerHeight - 214);
+
+  return {
+    x: Math.max(24, Math.min(maxX, position.x)),
+    y: Math.max(66, Math.min(maxY, position.y)),
+  };
 }
 
 function CybekWebcam() {
@@ -936,7 +1295,7 @@ function CybekWebcam() {
   );
 }
 
-function PersistentOverlays({ comment }: { comment: string }) {
+function PersistentOverlays({ comment }: { comment: NeuraVoiceLine }) {
   return (
     <>
       <CybekWebcam />
@@ -949,5 +1308,6 @@ declare global {
   interface Window {
     render_game_to_text?: () => string;
     advanceTime?: (ms: number) => void;
+    webkitAudioContext?: typeof AudioContext;
   }
 }

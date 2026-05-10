@@ -5,6 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test:rhythm": "node --experimental-strip-types scripts/rhythm.dev-test.ts",
+    "voice:neura:dry-run": "node --experimental-strip-types scripts/generate-neura-voices.ts --dry-run",
+    "voice:neura": "node --experimental-strip-types scripts/generate-neura-voices.ts",
+    "voice:neura:force": "node --experimental-strip-types scripts/generate-neura-voices.ts --force",
+    "voice:neura:with-fallback": "node --experimental-strip-types scripts/generate-neura-voices.ts --with-fallback",
+    "voice:neura:mp3": "node --experimental-strip-types scripts/generate-neura-voices.ts --mp3-only",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

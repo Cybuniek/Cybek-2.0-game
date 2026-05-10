@@ -2,13 +2,16 @@
 
 ## Struktura projektu
 
-- `src/App.tsx` - glowny przeplyw prototypu: pulpit, okna, generator, szuflada, remix, publikacja, player i placeholder rytmiczny.
+- `src/App.tsx` - glowny przeplyw prototypu: pulpit, okna, generator, szuflada, remix, publikacja, player i ekran rytmiczny.
 - `src/styles.css` - prosty styl OS/CRT/neon/glitch.
-- `src/types.ts` - wspolne typy stanu, draftow, publikacji i wynikow.
+- `src/types.ts` - wspolne typy stanu, draftow, publikacji, wynikow i beatmap rytmicznych.
+- `src/rhythm.ts` - deterministyczny generator 60-sekundowych beatmap, stan proby rytmicznej, trafienia, missy, combo i ocena.
 - `src/storage.ts` - localStorage, migracja save'a, statystyki, jakosc publikacji i pomocnicze funkcje flow.
 - `src/data/tracks.ts` - lista utworow i ich poziomy trudnosci.
 - `src/data/uiLabels.ts` - etykiety UI: nazwy okien, aplikacji, ikon, przyciskow, statystyk, statusow i placeholderow.
-- `src/data/messages.ts` - startowe wiadomosci czatow i komentarze Neury.
+- `src/data/messages.ts` - startowe wiadomosci czatow.
+- `src/data/neuraVoiceLines.ts` - teksty, style i identyfikatory kwestii glosowych Neury.
+- `src/data/neuraVoiceAssets.ts` - manifest sciezek MP3 dla kwestii Neury.
 - `src/data/chatReactions.ts` - dynamiczne reakcje czatu po wyslaniu draftu i publikacji.
 
 ## Nowy model flow
@@ -20,7 +23,7 @@ Szuflada `anh://www.ustno.ai/me` pokazuje stworzone, nieopublikowane drafty. Dra
 - `inDrawer` - draft jest w szufladzie.
 - `sentToPawel` - draft zostal wyslany do Pawcia, ale nadal mozna go opublikowac lub remiksowac.
 
-Remix dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom draftu. Po remixie gracz moze nadpisac draft; dopiero nadpisanie przesuwa draft na wyzszy poziom.
+Remix dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom draftu. Po remixie ekran wynikow pokazuje porownanie obecnego draftu z nowa proba: poprzednia dokladnosc, nowa dokladnosc, roznica i werdykt. Gracz nadal moze nadpisac slabsza wersja, bo nieudany numer moze byc swiadoma decyzja fabularna.
 
 Publikacja jest jednorazowa per `trackId`. Po publikacji draft znika z szuflady, a na pulpicie pojawia sie ikona pliku. Klikniecie ikony otwiera `Annihilation player.exe`.
 
@@ -36,7 +39,45 @@ Publikacja jest jednorazowa per `trackId`. Po publikacji draft znika z szuflady,
 
 Przycisk `Odtworz` zmienia stan placeholdera na `Odtwarzanie...`. Nie ma jeszcze prawdziwego audio.
 
-## Jakosc wersji
+## Glos Neury
+
+Neura ma osobny workflow glosowy oparty o statyczne pliki audio w `public/audio/neura`. Format podstawowy to OGG/Opus dla mniejszych plikow mowy, a fallbackiem jest MP3 dla kompatybilnosci. Aplikacja nie wywoluje ElevenLabs z przegladarki i nie zna klucza API. Pierwsze automatyczne odtworzenie komentarza jest ignorowane do czasu interakcji uzytkownika, zeby respektowac polityke autoplay przegladarki. Po kliknieciu Neury albo przycisku reakcji kolejne komentarze moga byc odtwarzane automatycznie. Odtwarzacz ma jeden aktywny glos i jeden slot kolejki dla komentarza systemowego. Reakcje wyzwalane przez gracza nie sa kolejkowane; jesli w danej chwili gra inna kwestia, kliknieta reakcja zostaje pominieta.
+
+Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wymaga:
+
+- dodania stabilnego `id`,
+- wpisania tekstu po polsku bez prefiksu mowcy, np. bez `Neura:`; UI tez pokazuje sama kwestie,
+- dobrania `styleTag` zgodnego z ElevenLabs V3,
+- ustawienia `trigger` na `comment` albo `reaction`.
+
+Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu.
+
+Generowanie glosow:
+
+- utworz lokalny `.env.local` na podstawie `.env.example`,
+- ustaw `ELEVENLABS_API_KEY`,
+- uruchom `npm run voice:neura:dry-run`, zeby zobaczyc plan dla OGG/Opus,
+- uruchom `npm run voice:neura`, zeby wygenerowac brakujace pliki OGG/Opus,
+- uzyj `npm run voice:neura:force`, zeby nadpisac OGG/Opus,
+- uzyj `npm run voice:neura:with-fallback`, jesli swiadomie chcesz wygenerowac OGG/Opus i MP3,
+- uzyj `npm run voice:neura:mp3`, jesli chcesz dogenerowac tylko fallback MP3,
+- opcjonalnie uruchom `node --experimental-strip-types scripts/generate-neura-voices.ts --only <id>`.
+
+Skrypt uzywa `voice_id` Neury, `model_id: eleven_v3`, `language_code: pl`, `output_format=opus_48000_32` dla OGG/Opus, `output_format=mp3_44100_128` dla fallbacku i kreatywnego profilu `voice_settings`. Klucza API nie wolno commitowac; `.env.local` jest ignorowany przez git. Klucz wklejony poza repo warto obrocic w panelu ElevenLabs.
+
+## Sekcja rytmiczna
+
+Ekran rytmiczny ma cztery tory na klawiszach `S`, `D`, `J`, `K`. Nuty spadają do linii trafienia, a wynik jest liczony z wejść gracza:
+
+- `perfect` - trafienie do 60 ms,
+- `good` - trafienie do 130 ms,
+- `miss` - nuta pominięta ponad 170 ms po czasie trafienia.
+
+Accuracy liczy się jako `(perfect + good * 0.65) / totalNotes * 100`. Grade nadal korzysta z progów `S/A/B/C`. Próba trwa 60 sekund i kończy się automatycznie, ale można ją przerwać przyciskiem końca próby.
+
+Beatmapy są na razie deterministycznie generowane z seedów w `src/data/tracks.ts`. Tymczasowe BPM-y developerskie: `90`, `160`, `220`.
+
+## Jakosc wersji i reakcje czatu
 
 Jakosc jest liczona w `getPublishedQuality` w `src/storage.ts` na podstawie poziomu trudnosci opublikowanej wersji:
 
@@ -44,7 +85,7 @@ Jakosc jest liczona w `getPublishedQuality` w `src/storage.ts` na podstawie pozi
 - poziom srodkowy: `lepsza wersja`,
 - najwyzszy poziom: `cudenko`.
 
-Jakosc jest widoczna w playerze i w wiadomosci publikacji na czacie glownym.
+Jakosc jest widoczna w playerze i w wiadomosci publikacji na czacie glownym. Po publikacji `groupPublishMessages` w `src/data/chatReactions.ts` dodaje tez reakcje czatu zalezne od jakosci pliku i dokladnosci wykonania. Slaby wynik nie blokuje historii, tylko zmienia ton komentarzy.
 
 ## Zapis stanu
 
@@ -76,16 +117,14 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 
 ## Elementy zastepcze
 
-- Gra rytmiczna nadal nie ma detekcji nut, muzyki, timingu ani punktacji opartej o input.
-- Wynik probnego wystepu jest losowany.
+- Gra rytmiczna nadal nie ma prawdziwego audio syncu, kalibracji input laga ani edytora beatmap.
+- Beatmapy są losowe, ale stabilne dla danego utworu, BPM-u, poziomu i seeda.
 - Remix jest tylko przeplywem logicznym po poziomach trudnosci.
-- Player nie odtwarza audio, tylko zmienia placeholder stanu.
+- Player nie odtwarza audio utworow, tylko zmienia placeholder stanu. Glos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
 - Neura i WebCam Cybka sa prostymi figurami CSS, nie finalnymi assetami.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
 
 ## Sugerowane kolejne kroki
 
-1. Dodac prosty model sekwencji nut bez audio syncu.
-2. Dodac porownanie wyniku remixu z obecnym draftem przed nadpisaniem.
-3. Rozbudowac reakcje czatu o warianty zalezne od jakosci publikacji.
-4. Zrobic wersjonowana migracje save'a, gdy model danych ustabilizuje sie bardziej.
+1. Podmienic generowane beatmapy na autorskie dane dla prawdziwych utworow.
+2. Zrobic wersjonowana migracje save'a, gdy model danych ustabilizuje sie bardziej.
