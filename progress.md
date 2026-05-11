@@ -3,7 +3,7 @@ Original prompt: Stworz minimalny, grywalny szkielet dla prototypu webowego o na
 Postep:
 - Utworzono szkielet React + TypeScript + Vite.
 - Dodano pulpit Cybek OS, Neure, okna Messenger/Ustno.ai, placeholder rytmiczny, wyniki, localStorage i DEV_NOTES.md.
-- Zaimplementowano pierwszą grywalną sekcję rytmiczną: tory `S/D/J/K`, 60-sekundowe deterministyczne beatmapy, BPM-y 90/160/220, trafienia perfect/good/miss, combo i wynik liczony z wejść gracza.
+- Zaimplementowano grywalną sekcję rytmiczną: tory `S/D/K/L`, czas próby zależny od długości bazowego audio lub metadanych ładowanego utworu, BPM pobierany z pełnej wersji utworu, poziomy trudności sterujące gęstością nut przez mnożniki `Łatwy=0.5`, `Normalny=0.7`, `Cybart=1.0`, feedback `Too fast/Good/Great/Perfect/Too late/Miss`, combo z mnożnikiem jakości i wynik w tierach `F/E/D/C/B/A/S`.
 - Dodano developerski test logiki rytmu uruchamiany przez `npm run test:rhythm`.
 - Dodano porównanie remixu z obecnym draftem przed nadpisaniem: poprzedni wynik, nowy wynik, różnica i werdykt ryzyka.
 - Rozbudowano publikację o reakcje czatu zależne od jakości pliku i dokładności wykonania.
@@ -13,3 +13,4 @@ Postep:
 
 TODO:
 - Jeśli projekt ma dalej korzystać z testów przeglądarkowych z umiejętności `develop-web-game`, dodać `playwright` jako dev dependency albo wskazać wspólną instalację.
+- Kolejny krok rytmu: dopracować ręcznie beatmapy dla konkretnych utworów i ewentualną kalibrację input laga.

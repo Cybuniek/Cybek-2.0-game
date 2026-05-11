@@ -52,36 +52,6 @@ const unsortedTracks: Track[] = [
     difficulties: ['Normalny', 'Cybart'],
     audio: audioFiles(vlogFolder, 'Vlog Wildforest Rave – ANHO27'),
   },
-  {
-    id: 'szum-w-klatce',
-    order: 90,
-    title: 'Szum w klatce',
-    artist: 'Cybek feat. Neura',
-    bpm: 90,
-    mood: 'zimny neon, szybki oddech czatu',
-    beatmapSeed: 91290,
-    difficulties: ['Łatwy', 'Normalny', 'Cybart'],
-  },
-  {
-    id: 'wystep-roboczy',
-    order: 160,
-    title: 'Występ roboczy 03',
-    artist: 'Ustno.ai Draft Band',
-    bpm: 160,
-    mood: 'demo z folderu, połamany refren',
-    beatmapSeed: 316160,
-    difficulties: ['Łatwy', 'Normalny'],
-  },
-  {
-    id: 'anh-loop',
-    order: 220,
-    title: 'anh://loop_pawla',
-    artist: 'Cybek',
-    bpm: 220,
-    mood: 'glitch-pop z komunikatora',
-    beatmapSeed: 722220,
-    difficulties: ['Normalny', 'Cybart'],
-  },
 ];
 
 export const tracks: Track[] = [...unsortedTracks].sort((left, right) => left.order - right.order);

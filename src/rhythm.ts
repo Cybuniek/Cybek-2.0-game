@@ -1,25 +1,30 @@
-import type { Difficulty, RhythmBeatmap, RhythmLane, RhythmNote, RhythmSummary, Track } from './types';
+import type { Difficulty, QualityTier, RhythmBeatmap, RhythmLane, RhythmNote, RhythmSummary, Track } from './types';
 
-export const RHYTHM_LANES: RhythmLane[] = ['S', 'D', 'J', 'K'];
-export const RHYTHM_DURATION_MS = 60000;
-export const PERFECT_WINDOW_MS = 60;
+export const RHYTHM_LANES: RhythmLane[] = ['S', 'D', 'K', 'L'];
+export const FALLBACK_BEATS_PER_TRACK = 96;
+export const PERFECT_WINDOW_MS = 45;
+export const GREAT_WINDOW_MS = 85;
 export const GOOD_WINDOW_MS = 130;
 export const MISS_WINDOW_MS = 170;
+export const MISS_FADE_MS = 620;
+export const EMPTY_PRESS_GRACE_COUNT = 2;
+export const EMPTY_PRESS_SPAM_WINDOW_MS = 1000;
 export const RHYTHM_HIT_LINE_PERCENT = 82;
 
 type DifficultyConfig = {
-  density: number;
+  densityMultiplier: number;
   doubleChance: number;
   travelMs: number;
+  qualityMultiplier: number;
 };
 
-const difficultyConfig: Record<Difficulty, DifficultyConfig> = {
-  Łatwy: { density: 0.44, doubleChance: 0, travelMs: 1750 },
-  Normalny: { density: 0.62, doubleChance: 0.06, travelMs: 1400 },
-  Cybart: { density: 0.78, doubleChance: 0.14, travelMs: 1120 },
+export const difficultyConfig: Record<Difficulty, DifficultyConfig> = {
+  Łatwy: { densityMultiplier: 0.5, doubleChance: 0, travelMs: 1750, qualityMultiplier: 0.85 },
+  Normalny: { densityMultiplier: 0.7, doubleChance: 0.06, travelMs: 1400, qualityMultiplier: 1 },
+  Cybart: { densityMultiplier: 1, doubleChance: 0.14, travelMs: 1120, qualityMultiplier: 1.15 },
 };
 
-export type RhythmJudgement = 'perfect' | 'good' | 'miss' | 'empty';
+export type RhythmJudgement = 'perfect' | 'great' | 'good' | 'too_fast' | 'too_late' | 'miss' | 'empty';
 
 export type RuntimeRhythmNote = RhythmNote & {
   judged: boolean;
@@ -29,6 +34,7 @@ export type RuntimeRhythmNote = RhythmNote & {
 export type VisibleRhythmNote = RuntimeRhythmNote & {
   timeToHitMs: number;
   yPercent: number;
+  opacity: number;
 };
 
 export type RhythmSession = {
@@ -38,8 +44,12 @@ export type RhythmSession = {
   travelMs: number;
   notes: RuntimeRhythmNote[];
   perfectHits: number;
+  greatHits: number;
   goodHits: number;
   misses: number;
+  emptyPresses: number;
+  emptyPressStreak: number;
+  lastEmptyPressMs: number;
   combo: number;
   maxCombo: number;
   isFinished: boolean;
@@ -51,17 +61,25 @@ export function getRhythmDifficultyConfig(difficulty: Difficulty) {
   return difficultyConfig[difficulty];
 }
 
-export function buildRhythmBeatmap(track: Track, difficulty: Difficulty): RhythmBeatmap {
+export function estimateRhythmDurationMs(track: Pick<Track, 'bpm' | 'durationMs'>) {
+  return track.durationMs ?? Math.round((FALLBACK_BEATS_PER_TRACK * 60000) / track.bpm);
+}
+
+export function buildRhythmBeatmap(
+  track: Track,
+  difficulty: Difficulty,
+  durationMs = estimateRhythmDurationMs(track),
+): RhythmBeatmap {
   const config = difficultyConfig[difficulty];
   const beatMs = 60000 / track.bpm;
-  const random = createRandom(hashSeed(track.beatmapSeed, track.id, difficulty, track.bpm));
+  const random = createRandom(hashSeed(track.beatmapSeed, track.id, difficulty, track.bpm, durationMs));
   const notes: RhythmNote[] = [];
   const lastLaneTimes = new Map<RhythmLane, number>();
   const firstNoteMs = 1000;
-  const lastNoteMs = RHYTHM_DURATION_MS - 850;
+  const lastNoteMs = Math.max(firstNoteMs, durationMs - 850);
 
   for (let timeMs = firstNoteMs, beatIndex = 0; timeMs <= lastNoteMs; timeMs += beatMs, beatIndex += 1) {
-    const shouldPlace = random() < config.density || beatIndex % 8 === 0;
+    const shouldPlace = random() < config.densityMultiplier || beatIndex % 8 === 0;
     if (!shouldPlace) continue;
 
     const lane = pickLane(random, lastLaneTimes, timeMs);
@@ -78,7 +96,7 @@ export function buildRhythmBeatmap(track: Track, difficulty: Difficulty): Rhythm
   return {
     trackId: track.id,
     bpm: track.bpm,
-    durationMs: RHYTHM_DURATION_MS,
+    durationMs,
     notes: notes.sort((left, right) => left.timeMs - right.timeMs || left.lane.localeCompare(right.lane)),
   };
 }
@@ -91,8 +109,12 @@ export function createRhythmSession(beatmap: RhythmBeatmap, difficulty: Difficul
     travelMs: difficultyConfig[difficulty].travelMs,
     notes: beatmap.notes.map((note) => ({ ...note, judged: false })),
     perfectHits: 0,
+    greatHits: 0,
     goodHits: 0,
     misses: 0,
+    emptyPresses: 0,
+    emptyPressStreak: 0,
+    lastEmptyPressMs: -Infinity,
     combo: 0,
     maxCombo: 0,
     isFinished: false,
@@ -104,9 +126,15 @@ export function createRhythmSession(beatmap: RhythmBeatmap, difficulty: Difficul
 export function stepRhythmSession(session: RhythmSession, deltaMs: number): RhythmSession {
   if (session.isFinished) return session;
 
-  const elapsedMs = Math.min(session.beatmap.durationMs, session.elapsedMs + Math.max(0, deltaMs));
-  const stepped = markMissedNotes({ ...session, elapsedMs });
-  return elapsedMs >= session.beatmap.durationMs ? finishRhythmSession(stepped) : stepped;
+  return syncRhythmSessionToElapsed(session, session.elapsedMs + Math.max(0, deltaMs));
+}
+
+export function syncRhythmSessionToElapsed(session: RhythmSession, elapsedMs: number): RhythmSession {
+  if (session.isFinished) return session;
+
+  const nextElapsedMs = Math.min(session.beatmap.durationMs, Math.max(session.elapsedMs, elapsedMs, 0));
+  const stepped = markMissedNotes({ ...session, elapsedMs: nextElapsedMs });
+  return nextElapsedMs >= session.beatmap.durationMs ? finishRhythmSession(stepped) : stepped;
 }
 
 export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmSession {
@@ -114,12 +142,23 @@ export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmS
 
   const candidateIndex = findBestCandidate(session, lane);
   if (candidateIndex === -1) {
-    return { ...session, lastJudgement: 'empty', lastLane: lane };
+    return recordEmptyPress(session, lane);
   }
 
   const note = session.notes[candidateIndex];
-  const offsetMs = Math.abs(session.elapsedMs - note.timeMs);
-  const judgement: Exclude<RhythmJudgement, 'empty'> = offsetMs <= PERFECT_WINDOW_MS ? 'perfect' : 'good';
+  const signedOffsetMs = session.elapsedMs - note.timeMs;
+  const offsetMs = Math.abs(signedOffsetMs);
+  const judgement = judgementFromOffset(signedOffsetMs);
+
+  if (judgement === 'too_fast' || judgement === 'too_late') {
+    return {
+      ...session,
+      combo: 0,
+      lastJudgement: judgement,
+      lastLane: lane,
+    };
+  }
+
   const nextCombo = session.combo + 1;
   const notes = session.notes.map((item, index) =>
     index === candidateIndex ? { ...item, judged: true, judgement } : item,
@@ -129,7 +168,9 @@ export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmS
     ...session,
     notes,
     perfectHits: session.perfectHits + (judgement === 'perfect' ? 1 : 0),
+    greatHits: session.greatHits + (judgement === 'great' ? 1 : 0),
     goodHits: session.goodHits + (judgement === 'good' ? 1 : 0),
+    emptyPressStreak: 0,
     combo: nextCombo,
     maxCombo: Math.max(session.maxCombo, nextCombo),
     lastJudgement: judgement,
@@ -153,16 +194,27 @@ export function finishRhythmSession(session: RhythmSession): RhythmSession {
 
 export function getRhythmSummary(session: RhythmSession): RhythmSummary {
   const totalNotes = session.notes.length;
+  const rawAccuracy = totalNotes === 0
+    ? 0
+    : ((session.perfectHits + session.greatHits * 0.85 + session.goodHits * 0.65) / totalNotes) * 100;
+  const comboRatio = totalNotes === 0 ? 0 : session.maxCombo / totalNotes;
+  const comboMultiplier = roundTo(1 + Math.min(0.5, comboRatio * 0.5), 2);
+  const difficultyMultiplier = difficultyConfig[session.difficulty].qualityMultiplier;
+  const qualityProgress = Math.round(rawAccuracy * difficultyMultiplier * comboMultiplier);
   const accuracy = totalNotes === 0
     ? 0
-    : Math.round(((session.perfectHits + session.goodHits * 0.65) / totalNotes) * 100);
+    : Math.round(rawAccuracy);
 
   return {
     accuracy,
-    grade: gradeFromAccuracy(accuracy),
+    grade: tierFromQualityProgress(qualityProgress),
+    qualityProgress,
+    comboMultiplier,
     perfectHits: session.perfectHits,
+    greatHits: session.greatHits,
     goodHits: session.goodHits,
     misses: session.misses,
+    emptyPresses: session.emptyPresses,
     maxCombo: session.maxCombo,
     totalNotes,
   };
@@ -170,25 +222,31 @@ export function getRhythmSummary(session: RhythmSession): RhythmSummary {
 
 export function getVisibleRhythmNotes(session: RhythmSession): VisibleRhythmNote[] {
   return session.notes
-    .filter((note) => !note.judged)
+    .filter((note) => !note.judged || (note.judgement === 'miss' && session.elapsedMs - note.timeMs <= MISS_FADE_MS))
     .map((note) => {
       const timeToHitMs = note.timeMs - session.elapsedMs;
       const progress = 1 - timeToHitMs / session.travelMs;
+      const lateMs = Math.max(0, session.elapsedMs - note.timeMs);
+      const missProgress = note.judgement === 'miss' ? lateMs / MISS_FADE_MS : 0;
       return {
         ...note,
         timeToHitMs: Math.round(timeToHitMs),
-        yPercent: clamp(progress * RHYTHM_HIT_LINE_PERCENT, 0, 96),
+        yPercent: clamp(progress * RHYTHM_HIT_LINE_PERCENT + missProgress * 20, 0, 104),
+        opacity: note.judgement === 'miss' ? roundTo(1 - missProgress, 2) : 1,
       };
     })
-    .filter((note) => note.timeToHitMs <= session.travelMs && note.timeToHitMs >= -MISS_WINDOW_MS)
+    .filter((note) => note.timeToHitMs <= session.travelMs && note.timeToHitMs >= -MISS_FADE_MS)
     .sort((left, right) => left.timeMs - right.timeMs);
 }
 
-export function gradeFromAccuracy(accuracy: number) {
-  if (accuracy > 92) return 'S';
-  if (accuracy > 84) return 'A';
-  if (accuracy > 74) return 'B';
-  return 'C';
+export function tierFromQualityProgress(progress: number): QualityTier {
+  if (progress >= 540) return 'S';
+  if (progress >= 400) return 'A';
+  if (progress >= 280) return 'B';
+  if (progress >= 160) return 'C';
+  if (progress >= 90) return 'D';
+  if (progress >= 30) return 'E';
+  return 'F';
 }
 
 function markMissedNotes(session: RhythmSession): RhythmSession {
@@ -218,13 +276,36 @@ function findBestCandidate(session: RhythmSession, lane: RhythmLane) {
     if (note.judged || note.lane !== lane) return;
 
     const offset = Math.abs(session.elapsedMs - note.timeMs);
-    if (offset <= GOOD_WINDOW_MS && offset < candidateOffset) {
+    if (offset <= MISS_WINDOW_MS && offset < candidateOffset) {
       candidateIndex = index;
       candidateOffset = offset;
     }
   });
 
   return candidateIndex;
+}
+
+function judgementFromOffset(signedOffsetMs: number): Exclude<RhythmJudgement, 'empty' | 'miss'> {
+  const offsetMs = Math.abs(signedOffsetMs);
+  if (offsetMs <= PERFECT_WINDOW_MS) return 'perfect';
+  if (offsetMs <= GREAT_WINDOW_MS) return 'great';
+  if (offsetMs <= GOOD_WINDOW_MS) return 'good';
+  return signedOffsetMs < 0 ? 'too_fast' : 'too_late';
+}
+
+function recordEmptyPress(session: RhythmSession, lane: RhythmLane): RhythmSession {
+  const isSpamWindow = session.elapsedMs - session.lastEmptyPressMs <= EMPTY_PRESS_SPAM_WINDOW_MS;
+  const emptyPressStreak = isSpamWindow ? session.emptyPressStreak + 1 : 1;
+
+  return {
+    ...session,
+    emptyPresses: session.emptyPresses + 1,
+    emptyPressStreak,
+    lastEmptyPressMs: session.elapsedMs,
+    combo: emptyPressStreak > EMPTY_PRESS_GRACE_COUNT ? 0 : session.combo,
+    lastJudgement: 'empty',
+    lastLane: lane,
+  };
 }
 
 function createNote(trackId: string, difficulty: Difficulty, beatIndex: number, lane: RhythmLane, timeMs: number): RhythmNote {
@@ -252,9 +333,9 @@ function pickLane(
   return RHYTHM_LANES[startIndex];
 }
 
-function hashSeed(baseSeed: number, trackId: string, difficulty: Difficulty, bpm: number) {
-  let hash = (baseSeed ^ bpm) >>> 0;
-  const source = `${trackId}:${difficulty}:${bpm}`;
+function hashSeed(baseSeed: number, trackId: string, difficulty: Difficulty, bpm: number, durationMs: number) {
+  let hash = (baseSeed ^ bpm ^ durationMs) >>> 0;
+  const source = `${trackId}:${difficulty}:${bpm}:${durationMs}`;
 
   for (let index = 0; index < source.length; index += 1) {
     hash = Math.imul(hash ^ source.charCodeAt(index), 2654435761) >>> 0;
@@ -277,4 +358,9 @@ function createRandom(seed: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+function roundTo(value: number, decimals: number) {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
 }

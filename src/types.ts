@@ -1,6 +1,7 @@
 export type Difficulty = 'Łatwy' | 'Normalny' | 'Cybart';
 
-export type RhythmLane = 'S' | 'D' | 'J' | 'K';
+export type RhythmLane = 'S' | 'D' | 'K' | 'L';
+export type QualityTier = 'F' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 
 export type RhythmNote = {
   id: string;
@@ -17,10 +18,14 @@ export type RhythmBeatmap = {
 
 export type RhythmSummary = {
   accuracy: number;
-  grade: string;
+  grade: QualityTier;
+  qualityProgress: number;
+  comboMultiplier: number;
   perfectHits: number;
+  greatHits: number;
   goodHits: number;
   misses: number;
+  emptyPresses: number;
   maxCombo: number;
   totalNotes: number;
 };
@@ -31,6 +36,7 @@ export type Track = {
   title: string;
   artist: string;
   bpm: number;
+  durationMs?: number;
   mood: string;
   beatmapSeed: number;
   difficulties: Difficulty[];
@@ -61,7 +67,8 @@ export type DraftTrack = {
   trackTitle: string;
   difficulty: Difficulty;
   bestAccuracy: number;
-  bestGrade: string;
+  bestGrade: QualityTier;
+  qualityProgress: number;
   status: 'inDrawer' | 'sentToPawel';
   updatedAt: string;
 };
@@ -72,7 +79,8 @@ export type PublishedTrack = {
   trackTitle: string;
   difficulty: Difficulty;
   accuracy: number;
-  grade: string;
+  grade: QualityTier;
+  qualityProgress: number;
   quality: 'slaba wersja' | 'lepsza wersja' | 'cudenko';
   publishedAt: string;
 };

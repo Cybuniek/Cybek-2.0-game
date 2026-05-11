@@ -15,6 +15,7 @@ import {
   getNextDifficulty,
   getStatDelta,
   getTitleReveal,
+  improveDraftWithResult,
   loadState,
   maskTrackTitle,
   revealTitleByAccuracy,
@@ -37,13 +38,15 @@ import {
 import {
   buildRhythmBeatmap,
   createRhythmSession,
+  estimateRhythmDurationMs,
   finishRhythmSession,
+  getRhythmDifficultyConfig,
   getRhythmSummary,
   getVisibleRhythmNotes,
   hitRhythmLane,
   RHYTHM_HIT_LINE_PERCENT,
   RHYTHM_LANES,
-  stepRhythmSession,
+  syncRhythmSessionToElapsed,
   type RhythmJudgement,
   type RhythmSession,
 } from './rhythm';
@@ -81,6 +84,8 @@ type ActiveRun = {
   draftId?: string;
 };
 
+type RhythmPhase = 'loading' | 'countdown' | 'playing';
+
 type RemixComparison = {
   previousAccuracy: number;
   previousGrade: string;
@@ -98,6 +103,7 @@ export default function App() {
   const [result, setResult] = useState<PerformanceResult | null>(null);
   const [messengerTab, setMessengerTab] = useState<'pawel' | 'group'>('pawel');
   const [neuraIndex, setNeuraIndex] = useState(0);
+  const [corruptionTick, setCorruptionTick] = useState(0);
   const [selectedPublishedId, setSelectedPublishedId] = useState<string | null>(null);
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
@@ -112,6 +118,13 @@ export default function App() {
     const id = window.setInterval(() => {
       setNeuraIndex((current) => (current + 1) % neuraComments.length);
     }, NEURA_COMMENT_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setCorruptionTick((current) => current + 1);
+    }, 170);
     return () => window.clearInterval(id);
   }, []);
 
@@ -158,7 +171,7 @@ export default function App() {
 
   function getDisplayTitle(trackId: string, title: string) {
     const isPublished = gameState.publishedTrackIds.includes(trackId);
-    return maskTrackTitle(title, getTitleReveal(gameState.titleRevealByTrackId, trackId, isPublished));
+    return maskTrackTitle(title, getTitleReveal(gameState.titleRevealByTrackId, trackId, isPublished), trackId, corruptionTick);
   }
 
   function startCreate(track: Track) {
@@ -197,7 +210,15 @@ export default function App() {
           ? addMessage(
               state.pawelMessages,
               chatAuthors.cybek,
-              pawelDraftMessage(result),
+              pawelDraftMessage(
+                result,
+                maskTrackTitle(
+                  result.trackTitle,
+                  getTitleReveal(state.titleRevealByTrackId, result.trackId, state.publishedTrackIds.includes(result.trackId)),
+                  result.trackId,
+                  corruptionTick,
+                ),
+              ),
             )
           : state.pawelMessages,
       stats: applyStatDelta(state.stats, getStatDelta(result, status === 'sentToPawel' ? 'sendToPawel' : 'saveDraft')),
@@ -214,14 +235,7 @@ export default function App() {
 
     setGameState((state) => ({
       ...state,
-      drafts: upsertDraft(state.drafts, {
-        ...current,
-        difficulty: result.difficulty,
-        bestAccuracy: result.accuracy,
-        bestGrade: result.grade,
-        status: 'inDrawer',
-        updatedAt: new Date().toISOString(),
-      }),
+      drafts: upsertDraft(state.drafts, improveDraftWithResult(current, result)),
       titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, result.trackId, result.accuracy),
       stats: applyStatDelta(state.stats, getStatDelta(result, 'saveDraft')),
     }));
@@ -237,7 +251,15 @@ export default function App() {
       pawelMessages: addMessage(
         state.pawelMessages,
         chatAuthors.cybek,
-        pawelDraftMessage(draft),
+        pawelDraftMessage(
+          draft,
+          maskTrackTitle(
+            draft.trackTitle,
+            getTitleReveal(state.titleRevealByTrackId, draft.trackId, state.publishedTrackIds.includes(draft.trackId)),
+            draft.trackId,
+            corruptionTick,
+          ),
+        ),
       ),
       stats: applyStatDelta(state.stats, getStatDelta(resultLike, 'sendToPawel')),
     }));
@@ -381,6 +403,7 @@ export default function App() {
             tracks={availableCreateTracks}
             titleRevealByTrackId={gameState.titleRevealByTrackId}
             publishedTrackIds={gameState.publishedTrackIds}
+            corruptionTick={corruptionTick}
             onCreate={startCreate}
           />
         </Window>
@@ -398,6 +421,7 @@ export default function App() {
             drafts={gameState.drafts}
             titleRevealByTrackId={gameState.titleRevealByTrackId}
             publishedTrackIds={gameState.publishedTrackIds}
+            corruptionTick={corruptionTick}
             onRemix={startRemix}
             onSendToPawel={sendDraftToPawel}
             onPublish={publishDraft}
@@ -442,9 +466,13 @@ function resultFromDraft(draft: DraftTrack): PerformanceResult {
     difficulty: draft.difficulty,
     accuracy: draft.bestAccuracy,
     grade: draft.bestGrade,
+    qualityProgress: draft.qualityProgress,
+    comboMultiplier: 1,
     perfectHits: 0,
+    greatHits: 0,
     goodHits: 0,
     misses: 0,
+    emptyPresses: 0,
     maxCombo: 0,
     totalNotes: 0,
     createdAt: draft.updatedAt,
@@ -575,11 +603,13 @@ function CreateWindow({
   tracks: createTracks,
   titleRevealByTrackId,
   publishedTrackIds,
+  corruptionTick,
   onCreate,
 }: {
   tracks: Track[];
   titleRevealByTrackId: GameState['titleRevealByTrackId'];
   publishedTrackIds: string[];
+  corruptionTick: number;
   onCreate: (track: Track) => void;
 }) {
   if (createTracks.length === 0) return <p className="empty">{placeholderLabels.noCreateTracks}</p>;
@@ -590,11 +620,13 @@ function CreateWindow({
         const displayTitle = maskTrackTitle(
           track.title,
           getTitleReveal(titleRevealByTrackId, track.id, publishedTrackIds.includes(track.id)),
+          track.id,
+          corruptionTick,
         );
         return (
           <article className="track-row" key={track.id}>
             <div>
-              <strong>{displayTitle}</strong>
+              <strong className="masked-title">{displayTitle}</strong>
               <span>{track.artist} / {track.bpm} BPM / {track.mood}</span>
               <em>{placeholderLabels.level}: {track.difficulties[0]}</em>
             </div>
@@ -610,6 +642,7 @@ function MeWindow({
   drafts,
   titleRevealByTrackId,
   publishedTrackIds,
+  corruptionTick,
   onRemix,
   onSendToPawel,
   onPublish,
@@ -617,6 +650,7 @@ function MeWindow({
   drafts: DraftTrack[];
   titleRevealByTrackId: GameState['titleRevealByTrackId'];
   publishedTrackIds: string[];
+  corruptionTick: number;
   onRemix: (draft: DraftTrack) => void;
   onSendToPawel: (draft: DraftTrack) => void;
   onPublish: (draft: DraftTrack) => void;
@@ -630,12 +664,14 @@ function MeWindow({
         const displayTitle = maskTrackTitle(
           draft.trackTitle,
           getTitleReveal(titleRevealByTrackId, draft.trackId, publishedTrackIds.includes(draft.trackId)),
+          draft.trackId,
+          corruptionTick,
         );
         return (
           <article className="track-row" key={draft.id}>
             <div>
-              <strong>{displayTitle}</strong>
-              <span>{draft.difficulty} / {draft.bestAccuracy}% / {placeholderLabels.grade} {draft.bestGrade}</span>
+              <strong className="masked-title">{displayTitle}</strong>
+              <span>{draft.difficulty} / {draft.bestAccuracy}% / {placeholderLabels.grade} {draft.bestGrade} / {draft.qualityProgress} pkt</span>
               <em>Status: {statusLabels[draft.status]}</em>
               {!nextDifficulty && <em>{statusLabels.noRemix}</em>}
             </div>
@@ -655,6 +691,55 @@ function MeWindow({
   );
 }
 
+function useArcadeSfx() {
+  const contextRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => () => {
+    void contextRef.current?.close();
+  }, []);
+
+  return useCallback((kind: 'keyboard' | 'hit') => {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    const context = contextRef.current ?? new AudioContextCtor();
+    contextRef.current = context;
+    if (context.state === 'suspended') void context.resume();
+
+    const now = context.currentTime;
+    if (kind === 'hit') {
+      playTone(context, now, 660, 0.055, 0.06, 'square');
+      playTone(context, now + 0.055, 990, 0.06, 0.05, 'triangle');
+      return;
+    }
+
+    for (let index = 0; index < 4; index += 1) {
+      playTone(context, now + index * 0.018, 170 + index * 28, 0.014, 0.035, 'square');
+    }
+  }, []);
+}
+
+function playTone(
+  context: AudioContext,
+  startTime: number,
+  frequency: number,
+  duration: number,
+  gainValue: number,
+  type: OscillatorType,
+) {
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, startTime);
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(gainValue, startTime + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  oscillator.connect(gain).connect(context.destination);
+  oscillator.start(startTime);
+  oscillator.stop(startTime + duration + 0.01);
+}
+
 function RhythmScreen({
   activeRun,
   displayTitle,
@@ -668,9 +753,13 @@ function RhythmScreen({
   onFinish: (summary: RhythmSummary) => void;
   onExit: () => void;
 }) {
+  const initialDurationMs = estimateRhythmDurationMs(activeRun.track);
+  const [audioDurationMs, setAudioDurationMs] = useState(initialDurationMs);
+  const [phase, setPhase] = useState<RhythmPhase>(() => (activeRun.track.audio?.instrumental ? 'loading' : 'countdown'));
+  const [countdownMs, setCountdownMs] = useState(3000);
   const beatmap = useMemo(
-    () => buildRhythmBeatmap(activeRun.track, activeRun.difficulty),
-    [activeRun.difficulty, activeRun.track],
+    () => buildRhythmBeatmap(activeRun.track, activeRun.difficulty, audioDurationMs),
+    [activeRun.difficulty, activeRun.track, audioDurationMs],
   );
   const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty));
   const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(activeRun.track.bpm));
@@ -678,15 +767,28 @@ function RhythmScreen({
   const sessionRef = useRef(session);
   const finishedRef = useRef(false);
   const onFinishRef = useRef(onFinish);
+  const phaseRef = useRef<RhythmPhase>(phase);
+  const countdownRef = useRef(countdownMs);
+  const gameClockFallbackMsRef = useRef(0);
+  const playSfx = useArcadeSfx();
   const visibleNotes = getVisibleRhythmNotes(session);
   const summary = getRhythmSummary(session);
   const remainingSeconds = Math.max(0, Math.ceil((session.beatmap.durationMs - session.elapsedMs) / 1000));
   const vocalAudioSource = activeRun.track.audio?.vocals;
   const instrumentalAudioSource = activeRun.track.audio?.instrumental;
+  const densityConfig = getRhythmDifficultyConfig(activeRun.difficulty);
 
   useEffect(() => {
     onFinishRef.current = onFinish;
   }, [onFinish]);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    countdownRef.current = countdownMs;
+  }, [countdownMs]);
 
   useEffect(() => {
     const nextSession = createRhythmSession(beatmap, activeRun.difficulty);
@@ -694,11 +796,28 @@ function RhythmScreen({
     finishedRef.current = false;
     setSession(nextSession);
     setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+    gameClockFallbackMsRef.current = 0;
   }, [activeRun.difficulty, activeRun.track.bpm, beatmap]);
 
   useEffect(() => {
-    void audioRef.current?.play().catch(() => undefined);
-  }, [instrumentalAudioSource]);
+    setAudioDurationMs(estimateRhythmDurationMs(activeRun.track));
+    setPhase(instrumentalAudioSource ? 'loading' : 'countdown');
+    setCountdownMs(3000);
+  }, [activeRun.track, instrumentalAudioSource]);
+
+  useEffect(() => {
+    if (!instrumentalAudioSource || phase !== 'loading') return;
+
+    const id = window.setTimeout(() => {
+      setPhase('countdown');
+    }, 1500);
+
+    return () => window.clearTimeout(id);
+  }, [instrumentalAudioSource, phase]);
+
+  useEffect(() => () => {
+    audioRef.current?.pause();
+  }, []);
 
   useEffect(() => {
     if (!vocalAudioSource) {
@@ -745,10 +864,10 @@ function RhythmScreen({
     onFinishRef.current(getRhythmSummary(finalSession));
   }, []);
 
-  const stepByMs = useCallback((ms: number) => {
+  const syncToElapsed = useCallback((elapsedMs: number) => {
     if (finishedRef.current) return;
 
-    const nextSession = stepRhythmSession(sessionRef.current, ms);
+    const nextSession = syncRhythmSessionToElapsed(sessionRef.current, elapsedMs);
     sessionRef.current = nextSession;
     setSession(nextSession);
 
@@ -757,13 +876,49 @@ function RhythmScreen({
     }
   }, [completeRun]);
 
-  const pressLane = useCallback((lane: RhythmLane) => {
+  const startPlayback = useCallback(() => {
+    if (finishedRef.current || phaseRef.current === 'playing') return;
+
+    phaseRef.current = 'playing';
+    setPhase('playing');
+    gameClockFallbackMsRef.current = 0;
+    const audio = audioRef.current;
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().catch(() => undefined);
+    }
+    syncToElapsed(0);
+  }, [syncToElapsed]);
+
+  const stepByMs = useCallback((ms: number) => {
     if (finishedRef.current) return;
+
+    if (phaseRef.current === 'countdown') {
+      const nextCountdown = Math.max(0, countdownRef.current - Math.max(0, ms));
+      countdownRef.current = nextCountdown;
+      setCountdownMs(nextCountdown);
+      if (nextCountdown <= 0) startPlayback();
+      return;
+    }
+
+    if (phaseRef.current !== 'playing') return;
+
+    gameClockFallbackMsRef.current += Math.max(0, ms);
+    const audio = audioRef.current;
+    const clockElapsedMs = audio && !audio.paused ? audio.currentTime * 1000 : gameClockFallbackMsRef.current;
+    gameClockFallbackMsRef.current = Math.max(gameClockFallbackMsRef.current, clockElapsedMs);
+    syncToElapsed(Math.max(sessionRef.current.elapsedMs, clockElapsedMs));
+  }, [startPlayback, syncToElapsed]);
+
+  const pressLane = useCallback((lane: RhythmLane) => {
+    if (finishedRef.current || phaseRef.current !== 'playing') return;
 
     const nextSession = hitRhythmLane(sessionRef.current, lane);
     sessionRef.current = nextSession;
     setSession(nextSession);
-  }, []);
+    playSfx('keyboard');
+    if (['perfect', 'great', 'good'].includes(nextSession.lastJudgement ?? '')) playSfx('hit');
+  }, [playSfx]);
 
   useEffect(() => {
     let frameId = 0;
@@ -809,9 +964,12 @@ function RhythmScreen({
           mode: activeRun.mode,
         },
         bpm: currentSession.beatmap.bpm,
+        phase: phaseRef.current,
+        countdownMs: Math.round(countdownRef.current),
         elapsedMs: Math.round(currentSession.elapsedMs),
         durationMs: currentSession.beatmap.durationMs,
         combo: currentSession.combo,
+        comboMultiplier: currentSummary.comboMultiplier,
         lastJudgement: currentSession.lastJudgement,
         score: currentSummary,
         nextNotes: currentVisibleNotes.slice(0, 12).map((note) => ({
@@ -832,9 +990,10 @@ function RhythmScreen({
     <main className="stage-screen">
       <div className="stage-header">
         <button onClick={onExit}>{buttonLabels.backToDesktop}</button>
-        <strong>{displayTitle}</strong>
+        <strong className="masked-title">{displayTitle}</strong>
         <span>{placeholderLabels.level}: {activeRun.difficulty}</span>
         <span>{activeRun.track.bpm} BPM</span>
+        <span>{placeholderLabels.density}: {densityConfig.densityMultiplier}</span>
       </div>
 
       {instrumentalAudioSource && (
@@ -842,8 +1001,14 @@ function RhythmScreen({
           ref={audioRef}
           className="stage-audio"
           src={instrumentalAudioSource}
-          autoPlay
-          controls
+          onLoadedMetadata={(event) => {
+            const duration = event.currentTarget.duration;
+            if (Number.isFinite(duration) && duration > 0) {
+              setAudioDurationMs(Math.round(duration * 1000));
+              setPhase((current) => (current === 'loading' ? 'countdown' : current));
+            }
+          }}
+          onEnded={() => syncToElapsed(audioDurationMs)}
           preload="auto"
         />
       )}
@@ -863,10 +1028,15 @@ function RhythmScreen({
         <RhythmStat label={placeholderLabels.timeLeft} value={`${remainingSeconds}s`} />
         <RhythmStat label={placeholderLabels.combo} value={String(session.combo)} />
         <RhythmStat label={placeholderLabels.accuracy} value={`${summary.accuracy}%`} />
-        <RhythmStat label={placeholderLabels.maxCombo} value={String(summary.maxCombo)} />
+        <RhythmStat label={placeholderLabels.comboMultiplier} value={`x${summary.comboMultiplier}`} />
       </section>
 
       <p className={`judgement ${session.lastJudgement ?? ''}`}>{judgementLabel(session.lastJudgement)}</p>
+      {phase !== 'playing' && (
+        <div className="countdown-overlay" aria-live="polite">
+          {phase === 'loading' ? placeholderLabels.loadingAudio : Math.ceil(countdownMs / 1000)}
+        </div>
+      )}
 
       <section
         className="lanes"
@@ -884,7 +1054,11 @@ function RhythmScreen({
             {visibleNotes
               .filter((note) => note.lane === lane)
               .map((note) => (
-                <span className="note" key={note.id} style={{ top: `${note.yPercent}%` }} />
+                <span
+                  className={`note ${note.judgement === 'miss' ? 'missed-note' : ''}`}
+                  key={note.id}
+                  style={{ top: `${note.yPercent}%`, opacity: note.opacity }}
+                />
               ))}
             <span className="hit-line" />
             <kbd>{lane}</kbd>
@@ -894,8 +1068,10 @@ function RhythmScreen({
 
       <section className="rhythm-counters" aria-label="Liczniki trafień">
         <span>{placeholderLabels.perfect}: {summary.perfectHits}</span>
+        <span>{placeholderLabels.great}: {summary.greatHits}</span>
         <span>{placeholderLabels.good}: {summary.goodHits}</span>
         <span>{placeholderLabels.miss}: {summary.misses}</span>
+        <span>{placeholderLabels.emptyPresses}: {summary.emptyPresses}</span>
         <span>{placeholderLabels.notes}: {summary.totalNotes}</span>
       </section>
 
@@ -924,9 +1100,12 @@ function keyToLane(key: string): RhythmLane | null {
 
 function judgementLabel(judgement: RhythmJudgement | null) {
   if (judgement === 'perfect') return 'Perfect';
+  if (judgement === 'great') return 'Great';
   if (judgement === 'good') return 'Good';
+  if (judgement === 'too_fast') return 'Too fast';
+  if (judgement === 'too_late') return 'Too late';
   if (judgement === 'miss') return 'Miss';
-  if (judgement === 'empty') return 'Pusto';
+  if (judgement === 'empty') return 'Klik';
   return 'Złap rytm';
 }
 
@@ -959,7 +1138,7 @@ function ResultsScreen({
     <main className="results-screen">
       <section className="results-panel">
         <span>{placeholderLabels.resultTitle}</span>
-        <h1>{displayTitle}</h1>
+        <h1 className="masked-title">{displayTitle}</h1>
         <div className="score-grid">
           <strong>{result.accuracy}%</strong>
           <strong>{result.grade}</strong>
@@ -968,9 +1147,13 @@ function ResultsScreen({
         </div>
         <div className="score-details">
           <span>{placeholderLabels.perfect}: {result.perfectHits}</span>
+          <span>{placeholderLabels.great}: {result.greatHits}</span>
           <span>{placeholderLabels.good}: {result.goodHits}</span>
           <span>{placeholderLabels.miss}: {result.misses}</span>
+          <span>{placeholderLabels.emptyPresses}: {result.emptyPresses}</span>
           <span>{placeholderLabels.maxCombo}: {result.maxCombo}</span>
+          <span>{placeholderLabels.comboMultiplier}: x{result.comboMultiplier}</span>
+          <span>{placeholderLabels.qualityProgress}: {result.qualityProgress}</span>
           <span>{placeholderLabels.notes}: {result.totalNotes}</span>
         </div>
         {runMode === 'remix' && remixComparison && (
@@ -1023,6 +1206,7 @@ function PlayerWindow({
       <h2>{published.trackTitle}</h2>
       <p>{placeholderLabels.level}: {published.difficulty}</p>
       <p>{placeholderLabels.grade}: {published.grade} / {published.accuracy}%</p>
+      <p>{placeholderLabels.qualityProgress}: {published.qualityProgress}</p>
       <p>{placeholderLabels.quality}: {published.quality}</p>
       <audio className="player-audio" src={track.audio.merged} controls preload="metadata" />
     </div>

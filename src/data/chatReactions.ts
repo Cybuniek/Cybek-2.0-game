@@ -7,10 +7,10 @@ export const chatAuthors = {
   pawel: 'Paweł',
 };
 
-export function pawelDraftMessage(result: PerformanceResult | DraftTrack) {
+export function pawelDraftMessage(result: PerformanceResult | DraftTrack, displayTitle = result.trackTitle) {
   const accuracy = 'accuracy' in result ? result.accuracy : result.bestAccuracy;
   const grade = 'grade' in result ? result.grade : result.bestGrade;
-  return `Wysyłam draft: ${result.trackTitle} (${accuracy}%, ${grade}).`;
+  return `Wysyłam draft: ${displayTitle} (${accuracy}%, ${grade}).`;
 }
 
 export function groupPublishMessage(published: PublishedTrack) {

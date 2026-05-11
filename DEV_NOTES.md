@@ -5,7 +5,7 @@
 - `src/App.tsx` - glowny przeplyw prototypu: pulpit, okna, generator, szuflada, remix, publikacja, player i ekran rytmiczny.
 - `src/styles.css` - prosty styl OS/CRT/neon/glitch.
 - `src/types.ts` - wspolne typy stanu, draftow, publikacji, wynikow i beatmap rytmicznych.
-- `src/rhythm.ts` - deterministyczny generator 60-sekundowych beatmap, stan proby rytmicznej, trafienia, missy, combo i ocena.
+- `src/rhythm.ts` - deterministyczny generator beatmap wedlug dlugosci audio, stan proby rytmicznej, trafienia, missy, combo i tier jakosci.
 - `src/storage.ts` - localStorage, migracja save'a, statystyki, jakosc publikacji i pomocnicze funkcje flow.
 - `src/data/tracks.ts` - lista utworow i ich poziomy trudnosci.
 - `src/data/uiLabels.ts` - etykiety UI: nazwy okien, aplikacji, ikon, przyciskow, statystyk, statusow i placeholderow.
@@ -67,23 +67,24 @@ Skrypt uzywa `voice_id` Neury, `model_id: eleven_v3`, `language_code: pl`, `outp
 
 ## Sekcja rytmiczna
 
-Ekran rytmiczny ma cztery tory na klawiszach `S`, `D`, `J`, `K`. Nuty spadają do linii trafienia, a wynik jest liczony z wejść gracza:
+Ekran rytmiczny ma cztery tory na klawiszach `S`, `D`, `K`, `L`. Nuty spadają do linii trafienia, a wynik jest liczony z wejść gracza:
 
-- `perfect` - trafienie do 60 ms,
+- `perfect` - trafienie do 45 ms,
+- `great` - trafienie do 85 ms,
 - `good` - trafienie do 130 ms,
 - `miss` - nuta pominięta ponad 170 ms po czasie trafienia.
 
-Accuracy liczy się jako `(perfect + good * 0.65) / totalNotes * 100`. Grade nadal korzysta z progów `S/A/B/C`. Próba trwa 60 sekund i kończy się automatycznie, ale można ją przerwać przyciskiem końca próby.
+Accuracy liczy się jako `(perfect + great * 0.85 + good * 0.65) / totalNotes * 100`. Grade jest tierem jakości `F/E/D/C/B/A/S`, wyliczanym z jakości próby, poziomu trudności i mnożnika combo. Próba trwa tyle, ile bazowy plik audio; jeśli metadane audio nie są jeszcze dostępne, runtime używa estymacji z BPM i liczby beatów tylko jako fallbacku.
 
-Beatmapy są na razie deterministycznie generowane z seedów w `src/data/tracks.ts`. Tymczasowe BPM-y developerskie: `90`, `160`, `220`.
+Beatmapy są na razie deterministycznie generowane z seedów w `src/data/tracks.ts`. BPM pochodzi z pełnej wersji bazowego utworu, a poziomy trudności nie zmieniają BPM-u, tylko gęstość nut: `Łatwy=0.5`, `Normalny=0.7`, `Cybart=1.0`.
 
 ## Jakosc wersji i reakcje czatu
 
-Jakosc jest liczona w `getPublishedQuality` w `src/storage.ts` na podstawie poziomu trudnosci opublikowanej wersji:
+Jakosc tieru jest liczona w `src/rhythm.ts` i kumulowana w `src/storage.ts` na podstawie poprzedniego stanu draftu, wyniku podejścia, poziomu trudności oraz combo. Tekstowa jakosc publikacji w `getPublishedQuality` jest teraz pochodną tieru:
 
-- pierwszy/najniszy poziom: `slaba wersja`,
-- poziom srodkowy: `lepsza wersja`,
-- najwyzszy poziom: `cudenko`.
+- `F/E/D`: `slaba wersja`,
+- `C/B`: `lepsza wersja`,
+- `A/S`: `cudenko`.
 
 Jakosc jest widoczna w playerze i w wiadomosci publikacji na czacie glownym. Po publikacji `groupPublishMessages` w `src/data/chatReactions.ts` dodaje tez reakcje czatu zalezne od jakosci pliku i dokladnosci wykonania. Slaby wynik nie blokuje historii, tylko zmienia ton komentarzy.
 
@@ -117,10 +118,10 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 
 ## Elementy zastepcze
 
-- Gra rytmiczna nadal nie ma prawdziwego audio syncu, kalibracji input laga ani edytora beatmap.
-- Beatmapy są losowe, ale stabilne dla danego utworu, BPM-u, poziomu i seeda.
-- Remix jest tylko przeplywem logicznym po poziomach trudnosci.
-- Player nie odtwarza audio utworow, tylko zmienia placeholder stanu. Glos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
+- Gra rytmiczna ma ukryty element audio, countdown i synchronizuje nuty względem czasu audio, ale nadal nie ma kalibracji input laga ani edytora beatmap.
+- Beatmapy są losowe, ale stabilne dla danego utworu, BPM-u, długości audio, poziomu i seeda.
+- Remix kumuluje progres tieru jakości zamiast zaczynać każdą próbę od zera.
+- Player opublikowanego utworu odtwarza scalony plik audio. Głos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
 - Neura i WebCam Cybka sa prostymi figurami CSS, nie finalnymi assetami.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
 

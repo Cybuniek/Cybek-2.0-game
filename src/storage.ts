@@ -1,6 +1,7 @@
 import { initialGroupMessages, initialPawelMessages } from './data/messages';
 import { tracks } from './data/tracks';
-import type { ChatMessage, Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, RhythmSummary, Stats } from './types';
+import { tierFromQualityProgress } from './rhythm';
+import type { ChatMessage, Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, QualityTier, RhythmSummary, Stats } from './types';
 
 const STORAGE_KEY = 'ustnik-2-state';
 
@@ -10,11 +11,15 @@ const initialStats: Stats = {
   chatPressure: 18,
 };
 
-type RhythmResultCounters = Pick<PerformanceResult, 'perfectHits' | 'goodHits' | 'misses' | 'maxCombo' | 'totalNotes'>;
-type LegacyPerformanceResult = Omit<PerformanceResult, 'status' | keyof RhythmResultCounters> & Partial<RhythmResultCounters> & {
+type RhythmResultCounters = Pick<PerformanceResult, 'perfectHits' | 'greatHits' | 'goodHits' | 'misses' | 'emptyPresses' | 'maxCombo' | 'totalNotes'>;
+type LegacyPerformanceResult = Omit<PerformanceResult, 'status' | keyof RhythmResultCounters | 'qualityProgress' | 'comboMultiplier'> & Partial<RhythmResultCounters> & {
   status: PerformanceResult['status'] | 'drawer';
+  qualityProgress?: number;
+  comboMultiplier?: number;
 };
 type SavedDraft = LegacyPerformanceResult | DraftTrack;
+const INITIAL_TITLE_REVEAL = 0.05;
+const CORRUPTED_CHARACTERS = ['#', '%', '&', '?', '@', 'X', '+', '=', '*', '~'];
 
 export const defaultState: GameState = {
   saveVersion: 1,
@@ -81,18 +86,22 @@ export function applyStatDelta(stats: Stats, delta: Partial<Stats>): Stats {
   };
 }
 
-export function maskTrackTitle(title: string, reveal = 0.25) {
-  const normalizedReveal = Math.max(0.25, Math.min(1, reveal));
+export function maskTrackTitle(title: string, reveal = INITIAL_TITLE_REVEAL, seed = title, corruptionTick = 0) {
+  const normalizedReveal = Math.max(INITIAL_TITLE_REVEAL, Math.min(1, reveal));
   const revealableIndexes = Array.from(title)
     .map((character, index) => (/[\p{L}\p{N}]/u.test(character) ? index : -1))
     .filter((index) => index >= 0);
-  const visibleCount = Math.ceil(revealableIndexes.length * normalizedReveal);
-  const visibleIndexes = new Set(revealableIndexes.slice(0, visibleCount));
+  const visibleCount = Math.max(1, Math.ceil(revealableIndexes.length * normalizedReveal));
+  const visibleIndexes = new Set(
+    [...revealableIndexes]
+      .sort((left, right) => stableRandom(`${seed}:visible:${left}`) - stableRandom(`${seed}:visible:${right}`))
+      .slice(0, visibleCount),
+  );
 
   return Array.from(title)
     .map((character, index) => {
       if (!/[\p{L}\p{N}]/u.test(character)) return character;
-      return visibleIndexes.has(index) ? character : '█';
+      return visibleIndexes.has(index) ? character : corruptedCharacter(seed, index, corruptionTick);
     })
     .join('');
 }
@@ -103,7 +112,7 @@ export function getTitleReveal(
   isPublished = false,
 ) {
   if (isPublished) return 1;
-  return titleRevealByTrackId[trackId] ?? 0.25;
+  return titleRevealByTrackId[trackId] ?? INITIAL_TITLE_REVEAL;
 }
 
 export function revealTitleByAccuracy(
@@ -114,7 +123,7 @@ export function revealTitleByAccuracy(
   const current = getTitleReveal(titleRevealByTrackId, trackId);
   return {
     ...titleRevealByTrackId,
-    [trackId]: Math.min(1, current + accuracy / 400),
+    [trackId]: Math.min(1, current + accuracy / 420),
   };
 }
 
@@ -153,7 +162,22 @@ export function createDraftFromResult(result: PerformanceResult, status: DraftTr
     difficulty: result.difficulty,
     bestAccuracy: result.accuracy,
     bestGrade: result.grade,
+    qualityProgress: result.qualityProgress,
     status,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function improveDraftWithResult(draft: DraftTrack, result: PerformanceResult): DraftTrack {
+  const qualityProgress = draft.qualityProgress + result.qualityProgress;
+
+  return {
+    ...draft,
+    difficulty: result.difficulty,
+    bestAccuracy: Math.max(draft.bestAccuracy, result.accuracy),
+    bestGrade: tierFromQualityProgress(qualityProgress),
+    qualityProgress,
+    status: 'inDrawer',
     updatedAt: new Date().toISOString(),
   };
 }
@@ -166,14 +190,10 @@ export function getNextDifficulty(trackId: string, difficulty: Difficulty): Diff
   return track.difficulties[currentIndex + 1] ?? null;
 }
 
-export function getPublishedQuality(trackId: string, difficulty: Difficulty): PublishedTrack['quality'] {
-  const track = tracks.find((item) => item.id === trackId);
-  const index = track?.difficulties.indexOf(difficulty) ?? 0;
-  const lastIndex = Math.max(0, (track?.difficulties.length ?? 1) - 1);
-
-  if (index <= 0) return 'slaba wersja';
-  if (index >= lastIndex) return 'cudenko';
-  return 'lepsza wersja';
+export function getPublishedQuality(tier: QualityTier): PublishedTrack['quality'] {
+  if (tier === 'S' || tier === 'A') return 'cudenko';
+  if (tier === 'B' || tier === 'C') return 'lepsza wersja';
+  return 'slaba wersja';
 }
 
 export function createPublishedTrack(draft: DraftTrack): PublishedTrack {
@@ -184,7 +204,8 @@ export function createPublishedTrack(draft: DraftTrack): PublishedTrack {
     difficulty: draft.difficulty,
     accuracy: draft.bestAccuracy,
     grade: draft.bestGrade,
-    quality: getPublishedQuality(draft.trackId, draft.difficulty),
+    qualityProgress: draft.qualityProgress,
+    quality: getPublishedQuality(draft.bestGrade),
     publishedAt: new Date().toISOString(),
   };
 }
@@ -204,6 +225,8 @@ function migrateState(
         return {
           ...item,
           status: item.status === 'sentToPawel' ? 'sentToPawel' : 'inDrawer',
+          bestGrade: normalizeTier(item.bestGrade),
+          qualityProgress: item.qualityProgress ?? estimateLegacyProgress(item.bestAccuracy),
         };
       }
 
@@ -211,9 +234,14 @@ function migrateState(
         {
           ...item,
           status: item.status === 'sentToPawel' ? 'sentToPawel' : 'inDrawer',
+          grade: normalizeTier(item.grade),
+          qualityProgress: item.qualityProgress ?? estimateLegacyProgress(item.accuracy),
+          comboMultiplier: item.comboMultiplier ?? 1,
           perfectHits: item.perfectHits ?? 0,
+          greatHits: item.greatHits ?? 0,
           goodHits: item.goodHits ?? 0,
           misses: item.misses ?? 0,
+          emptyPresses: item.emptyPresses ?? 0,
           maxCombo: item.maxCombo ?? 0,
           totalNotes: item.totalNotes ?? 0,
         },
@@ -221,7 +249,15 @@ function migrateState(
       );
     });
 
-  const publishedTracks = saved.publishedTracks ?? [];
+  const publishedTracks = (saved.publishedTracks ?? []).map((item) => {
+    const grade = normalizeTier(item.grade);
+    return {
+      ...item,
+      grade,
+      qualityProgress: item.qualityProgress ?? estimateLegacyProgress(item.accuracy),
+      quality: item.quality ?? getPublishedQuality(grade),
+    };
+  });
   const publishedTrackIds = saved.publishedTrackIds ?? publishedTracks.map((item) => item.trackId);
   const titleRevealByTrackId = {
     ...(saved.titleRevealByTrackId ?? {}),
@@ -241,4 +277,27 @@ function migrateState(
     publishedTracks,
     publishedTrackIds,
   };
+}
+
+function corruptedCharacter(seed: string, index: number, corruptionTick: number) {
+  const characterIndex = Math.floor(stableRandom(`${seed}:mask:${index}:${corruptionTick}`) * CORRUPTED_CHARACTERS.length);
+  return CORRUPTED_CHARACTERS[characterIndex] ?? '#';
+}
+
+function stableRandom(source: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967296;
+}
+
+function estimateLegacyProgress(accuracy: number) {
+  return Math.round(Math.max(0, Math.min(100, accuracy)));
+}
+
+function normalizeTier(value: string): QualityTier {
+  if (['F', 'E', 'D', 'C', 'B', 'A', 'S'].includes(value)) return value as QualityTier;
+  return 'C';
 }
