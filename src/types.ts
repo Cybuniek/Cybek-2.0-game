@@ -2,17 +2,25 @@ export type Difficulty = 'Łatwy' | 'Normalny' | 'Cybart';
 
 export type RhythmLane = 'S' | 'D' | 'K' | 'L';
 export type QualityTier = 'F' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+export type RhythmNoteKind = 'tap' | 'hold' | 'smash';
 
 export type RhythmNote = {
   id: string;
   lane: RhythmLane;
   timeMs: number;
+  kind?: RhythmNoteKind;
+  durationMs?: number;
+  requiredPresses?: number;
 };
 
 export type RhythmBeatmap = {
   trackId: string;
   bpm: number;
+  sourceStartMs?: number;
+  sourceEndMs?: number;
+  audioDurationMs?: number;
   durationMs: number;
+  source?: 'manual' | 'generated';
   notes: RhythmNote[];
 };
 
@@ -39,6 +47,8 @@ export type Track = {
   durationMs?: number;
   mood: string;
   beatmapSeed: number;
+  audioFolder?: string;
+  audioTitle?: string;
   difficulties: Difficulty[];
   audio: {
     instrumental: string;

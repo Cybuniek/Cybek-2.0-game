@@ -187,6 +187,8 @@ export function getNextDifficulty(trackId: string, difficulty: Difficulty): Diff
   if (!track) return null;
 
   const currentIndex = track.difficulties.indexOf(difficulty);
+  if (currentIndex === -1) return null;
+
   return track.difficulties[currentIndex + 1] ?? null;
 }
 

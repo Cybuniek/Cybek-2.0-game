@@ -23,9 +23,11 @@ Szuflada `anh://www.ustno.ai/me` pokazuje stworzone, nieopublikowane drafty. Dra
 - `inDrawer` - draft jest w szufladzie.
 - `sentToPawel` - draft zostal wyslany do Pawcia, ale nadal mozna go opublikowac lub remiksowac.
 
-Remix dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom draftu. Po remixie ekran wynikow pokazuje porownanie obecnego draftu z nowa proba: poprzednia dokladnosc, nowa dokladnosc, roznica i werdykt. Gracz nadal moze nadpisac slabsza wersja, bo nieudany numer moze byc swiadoma decyzja fabularna.
+Remix dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom draftu. Jesli stary albo recznie zmieniony save zawiera poziom spoza listy poziomow danego utworu, aplikacja nie przeskakuje do pierwszego poziomu, tylko blokuje kolejny remix. Po remixie ekran wynikow pokazuje porownanie obecnego draftu z nowa proba: poprzednia dokladnosc, nowa dokladnosc, roznica i werdykt. Gracz nadal moze nadpisac slabsza wersja, bo nieudany numer moze byc swiadoma decyzja fabularna.
 
 Publikacja jest jednorazowa per `trackId`. Po publikacji draft znika z szuflady, a na pulpicie pojawia sie ikona pliku. Klikniecie ikony otwiera `Annihilation player.exe`.
+
+Szuflada dodatkowo blokuje przycisk publikacji dla tytulu, ktory w zapisie jest juz oznaczony jako opublikowany. Sama funkcja publikacji sprawdza to ponownie wewnatrz aktualizacji stanu, zeby szybkie podwojne klikniecie nie dopisalo drugi raz reakcji czatu.
 
 ## Player
 
@@ -74,9 +76,17 @@ Ekran rytmiczny ma cztery tory na klawiszach `S`, `D`, `K`, `L`. Nuty spadają d
 - `good` - trafienie do 130 ms,
 - `miss` - nuta pominięta ponad 170 ms po czasie trafienia.
 
+Obsługiwane typy nut:
+
+- `tap` - pojedyncze trafienie, także domyślny typ dla starszych beatmap bez pola `kind`,
+- `hold` - trafienie początku i trzymanie klawisza do końca `durationMs`,
+- `smash` - trafienie początku i mash tego samego klawisza do osiągnięcia `requiredPresses`.
+
 Accuracy liczy się jako `(perfect + great * 0.85 + good * 0.65) / totalNotes * 100`. Grade jest tierem jakości `F/E/D/C/B/A/S`, wyliczanym z jakości próby, poziomu trudności i mnożnika combo. Próba trwa tyle, ile bazowy plik audio; jeśli metadane audio nie są jeszcze dostępne, runtime używa estymacji z BPM i liczby beatów tylko jako fallbacku.
 
-Beatmapy są na razie deterministycznie generowane z seedów w `src/data/tracks.ts`. BPM pochodzi z pełnej wersji bazowego utworu, a poziomy trudności nie zmieniają BPM-u, tylko gęstość nut: `Łatwy=0.5`, `Normalny=0.7`, `Cybart=1.0`.
+Beatmapy mogą być ręczne albo generowane. Runtime najpierw próbuje wczytać mapę z `src/data/manualBeatmaps.json`, a jeśli jej brakuje albo nie przechodzi walidacji, używa deterministycznego generatora z seedów w `src/data/tracks.ts`. Format ręczny `schemaVersion: 2` obsługuje `sourceStartMs` i `sourceEndMs` per poziom trudności. Nuty są liczone od początku wycinka, więc `timeMs: 0` oznacza `sourceStartMs` w pliku audio. Stare mapy bez jawnego zakresu nie mogą przypadkiem skrócić utworu samym `durationMs`; runtime migruje je do pełnego czasu audio. BPM pochodzi z pełnej wersji bazowego utworu, a poziomy trudności nie zmieniają BPM-u, tylko gęstość nut: `Łatwy=0.5`, `Normalny=0.7`, `Cybart=1.0`.
+
+`RhythmSectionEditor` jest narzędziem developerskim WinUI. Obsługuje zakres start/koniec z playhead, puste mapy z przyciskiem generowania bazy, backupy eksportu w `backups/manualBeatmaps`, blokadę eksportu przy poważnych problemach, prosty playtest `S/D/K/L` oraz formularz importu istniejących plików audio do katalogu gry i `src/data/tracks.ts`.
 
 ## Jakosc wersji i reakcje czatu
 
@@ -118,12 +128,28 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 
 ## Elementy zastepcze
 
-- Gra rytmiczna ma ukryty element audio, countdown i synchronizuje nuty względem czasu audio, ale nadal nie ma kalibracji input laga ani edytora beatmap.
-- Beatmapy są losowe, ale stabilne dla danego utworu, BPM-u, długości audio, poziomu i seeda.
+- Gra rytmiczna ma ukryty element audio, countdown i synchronizuje nuty względem czasu audio, ale nadal nie ma kalibracji input laga.
+- Beatmapy generowane są losowe, ale stabilne dla danego utworu, BPM-u, długości audio, poziomu i seeda.
 - Remix kumuluje progres tieru jakości zamiast zaczynać każdą próbę od zera.
 - Player opublikowanego utworu odtwarza scalony plik audio. Głos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
 - Neura i WebCam Cybka sa prostymi figurami CSS, nie finalnymi assetami.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
+
+## Patrol repozytorium 2026-05-12
+
+Zakres patrolu byl maly i bez rozszerzania gry. Sprawdzone zostaly: generator `anh://www.ustno.ai/create`, szuflada `anh://www.ustno.ai/me`, remix +1, jednorazowa publikacja, pliki publikacji na pulpicie, `Annihilation player.exe`, slowniki etykiet oraz zgodnosc typow z aktualna logika.
+
+Naprawione:
+
+- guard publikacji wewnatrz `setGameState`, zeby jednorazowa publikacja nie zalezala tylko od stanu z renderu,
+- blokada przycisku publikacji w szufladzie dla tytulow juz opublikowanych,
+- bezpieczne `getNextDifficulty`: nie zwraca pierwszego poziomu, gdy draft ma poziom spoza listy utworu.
+
+Celowo odlozone:
+
+- warianty audio zalezne od poziomu publikacji,
+- pelna walidacja i czyszczenie historycznych save'ow,
+- wieksze testy przegladarkowe z Playwright.
 
 ## Sugerowane kolejne kroki
 

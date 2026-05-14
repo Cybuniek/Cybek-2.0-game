@@ -1,0 +1,167 @@
+{
+  "package_name": "codex_video_reference_pack",
+  "purpose": "Lekki zestaw referencyjny dla Agenta Codex: analiza pętli desktop + rhythm + publikacja + reakcje świata oraz tutoriala typów nut.",
+  "source_videos": [
+    {
+      "filename": "game-loop.mp4",
+      "included_in_zip": false,
+      "duration_seconds": 311.13,
+      "resolution": "1920x1080",
+      "fps": 60,
+      "summary": "Pełna pętla gry: desktop hub, wybór utworu, rozgrywka rytmiczna, wybór treści do publikacji, wynik/ranga, reakcja społeczna, powrót do huba."
+    },
+    {
+      "filename": "nuty-tutorial.mp4",
+      "included_in_zip": false,
+      "duration_seconds": 46.83,
+      "resolution": "1920x1080",
+      "fps": 60,
+      "summary": "Samouczek typów nut: pojedyncze, długie i pędzące/rapid."
+    }
+  ],
+  "key_timeline": [
+    {
+      "video": "game-loop.mp4",
+      "time": "00:10",
+      "phase": "desktop_hub",
+      "frame": "assets/frames_selected/game-loop_00-10_desktop-hub.jpg",
+      "notes": ["Desktop jako diegetyczny hub", "ikony aplikacji", "TODO box", "panel statystyk", "okno postaci/AI i dialog"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "00:20",
+      "phase": "song_select_confirm",
+      "frame": "assets/frames_selected/game-loop_00-20_song-select-confirm.jpg",
+      "notes": ["lista utworów", "panel informacji o tracku", "zakładki trudności", "modal potwierdzenia startu"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "00:30",
+      "phase": "rhythm_start",
+      "frame": "assets/frames_selected/game-loop_00-30_rhythm-start-lanes.jpg",
+      "notes": ["cztery tory S/D/K/L", "receptory", "postać centralna", "panele score/profil/trudność"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "00:40",
+      "phase": "rhythm_feedback",
+      "frame": "assets/frames_selected/game-loop_00-40_rhythm-short-note-perfect.jpg",
+      "notes": ["feedback PERFECT", "combo", "score", "dialog równoległy do gameplayu"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "01:00",
+      "phase": "rhythm_boost_dialogue",
+      "frame": "assets/frames_selected/game-loop_01-00_rhythm-boost-dialogue.jpg",
+      "notes": ["boost x1", "dialog/subtitle box", "pasek postępu utworu"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "02:00",
+      "phase": "rhythm_boost_x5",
+      "frame": "assets/frames_selected/game-loop_02-00_rhythm-boost-x5.jpg",
+      "notes": ["boost x5", "długi ciąg combo", "efekty wizualne narastające wraz z przebiegiem"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "03:10",
+      "phase": "post_song_card_selection",
+      "frame": "assets/frames_selected/game-loop_03-10_post-song-card-selection.jpg",
+      "notes": ["wybór 3 treści/kart po utworze", "karty z kategoriami i gwiazdkami", "sloty wyboru", "tryb automat/polecane"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "03:20",
+      "phase": "generated_text_selection",
+      "frame": "assets/frames_selected/game-loop_03-20_generated-text-selection.jpg",
+      "notes": ["lista wygenerowanych tekstów", "poziomy i gwiazdki", "wpływ na parametry", "akcja publikacji"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "03:50",
+      "phase": "result_rank_summary",
+      "frame": "assets/frames_selected/game-loop_03-50_result-rank-summary.jpg",
+      "notes": ["score", "perfect/great/good/miss", "fast/late", "max combo", "timing error", "ranga C/B/A/S"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "04:00",
+      "phase": "social_interpretation_map",
+      "frame": "assets/frames_selected/game-loop_04-00_social-interpretation-map.jpg",
+      "notes": ["reakcja świata", "mapa", "wybór interpretacji społecznej"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "04:10",
+      "phase": "full_combo_results",
+      "frame": "assets/frames_selected/game-loop_04-10_full-combo-results.jpg",
+      "notes": ["FULL COMBO", "rate/accuracy", "rekord", "achievementy"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "04:20",
+      "phase": "desktop_dialogue_news",
+      "frame": "assets/frames_selected/game-loop_04-20_desktop-dialogue-news.jpg",
+      "notes": ["powrót do desktopu", "dialogi", "news overlay", "reakcje/system support"]
+    },
+    {
+      "video": "game-loop.mp4",
+      "time": "05:00",
+      "phase": "training_list_unlocks",
+      "frame": "assets/frames_selected/game-loop_05-00_training-list-unlocks.jpg",
+      "notes": ["lista treningów/treści", "poziomy", "gwiazdki", "oznaczenia NEW", "zaktualizowane statystyki"]
+    },
+    {
+      "video": "nuty-tutorial.mp4",
+      "time": "00:03",
+      "phase": "tutorial_tap_notes",
+      "frame": "assets/frames_selected/nuty-tutorial_00-03_single-notes.jpg",
+      "notes": ["pojedyncze nuty", "wciśnięcie odpowiedniego klawisza przy linii trafienia"]
+    },
+    {
+      "video": "nuty-tutorial.mp4",
+      "time": "00:18",
+      "phase": "tutorial_hold_notes",
+      "frame": "assets/frames_selected/nuty-tutorial_00-18_hold-notes.jpg",
+      "notes": ["długie nuty", "przytrzymanie klawisza przez czas trwania nuty"]
+    },
+    {
+      "video": "nuty-tutorial.mp4",
+      "time": "00:33",
+      "phase": "tutorial_rapid_notes",
+      "frame": "assets/frames_selected/nuty-tutorial_00-33_rapid-notes.jpg",
+      "notes": ["pędzące nuty", "wielokrotne uderzanie w klawisz określoną liczbę razy"]
+    },
+    {
+      "video": "nuty-tutorial.mp4",
+      "time": "00:45",
+      "phase": "tutorial_exit_confirmation",
+      "frame": "assets/frames_selected/nuty-tutorial_00-45_exit-confirmation.jpg",
+      "notes": ["modal potwierdzenia zakończenia samouczka"]
+    }
+  ],
+  "recommended_modules": [
+    "DesktopHub",
+    "SongSelect",
+    "RhythmGame",
+    "TutorialOverlay",
+    "PostSongSelection",
+    "ResultSummary",
+    "SocialReaction",
+    "NarrativeAftermath"
+  ],
+  "rhythm_note_types": [
+    {
+      "id": "tap",
+      "description": "Krótkie naciśnięcie odpowiedniego klawisza w oknie trafienia."
+    },
+    {
+      "id": "hold",
+      "description": "Przytrzymanie klawisza przez czas trwania nuty."
+    },
+    {
+      "id": "rapid",
+      "description": "Wielokrotne uderzenie klawisza wymaganą liczbę razy podczas trwania segmentu."
+    }
+  ]
+}

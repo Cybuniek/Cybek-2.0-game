@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "RhythmSectionEditor (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "RhythmSectionEditor (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

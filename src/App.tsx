@@ -5,6 +5,7 @@ import { neuraVoiceAssets } from './data/neuraVoiceAssets';
 import { neuraReactionVoiceLineIds, type NeuraVoiceLine, type NeuraVoiceLineId } from './data/neuraVoiceLines';
 import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
+import { BeatmapEditor } from './editor/BeatmapEditor';
 import {
   addMessage,
   applyStatDelta,
@@ -36,14 +37,17 @@ import {
   windowLabels,
 } from './data/uiLabels';
 import {
-  buildRhythmBeatmap,
   createRhythmSession,
   estimateRhythmDurationMs,
   finishRhythmSession,
+  getRhythmNoteKind,
   getRhythmDifficultyConfig,
   getRhythmSummary,
   getVisibleRhythmNotes,
+  holdRhythmLane,
   hitRhythmLane,
+  releaseRhythmLane,
+  resolveRhythmBeatmap,
   RHYTHM_HIT_LINE_PERCENT,
   RHYTHM_LANES,
   syncRhythmSessionToElapsed,
@@ -53,9 +57,15 @@ import {
 import type { Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, RhythmLane, RhythmSummary, Track } from './types';
 
 type WindowId = 'messenger' | 'create' | 'me' | 'player' | null;
-type Screen = 'desktop' | 'rhythm' | 'results';
+type Screen = 'desktop' | 'rhythm' | 'results' | 'editor';
 type Point = { x: number; y: number };
 type NeuraPetMood = 'idle' | 'waving' | 'jumping' | 'failed' | 'waiting' | 'running' | 'review';
+type HitFeedback = {
+  id: number;
+  lane: RhythmLane;
+  label: string;
+  judgement: 'perfect' | 'great' | 'good' | 'miss';
+};
 
 type NeuraAnimation = {
   row: number;
@@ -98,7 +108,7 @@ type RemixComparison = {
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
   const [activeWindow, setActiveWindow] = useState<WindowId>('messenger');
-  const [screen, setScreen] = useState<Screen>('desktop');
+  const [screen, setScreen] = useState<Screen>(() => (window.location.hash === '#editor' ? 'editor' : 'desktop'));
   const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
   const [result, setResult] = useState<PerformanceResult | null>(null);
   const [messengerTab, setMessengerTab] = useState<'pawel' | 'group'>('pawel');
@@ -276,16 +286,20 @@ export default function App() {
     if (gameState.publishedTrackIds.includes(draft.trackId)) return;
 
     const published = createPublishedTrack(draft);
-    setGameState((state) => ({
-      ...state,
-      createdTrackIds: addUnique(state.createdTrackIds, draft.trackId),
-      titleRevealByTrackId: revealTitleFully(state.titleRevealByTrackId, draft.trackId),
-      drafts: state.drafts.filter((item) => item.trackId !== draft.trackId),
-      publishedTracks: upsertPublished(state.publishedTracks, published),
-      publishedTrackIds: addUnique(state.publishedTrackIds, draft.trackId),
-      groupMessages: [...state.groupMessages, ...groupPublishMessages(published)],
-      stats: applyStatDelta(state.stats, getStatDelta(resultFromDraft(draft), 'publish')),
-    }));
+    setGameState((state) => {
+      if (state.publishedTrackIds.includes(draft.trackId)) return state;
+
+      return {
+        ...state,
+        createdTrackIds: addUnique(state.createdTrackIds, draft.trackId),
+        titleRevealByTrackId: revealTitleFully(state.titleRevealByTrackId, draft.trackId),
+        drafts: state.drafts.filter((item) => item.trackId !== draft.trackId),
+        publishedTracks: upsertPublished(state.publishedTracks, published),
+        publishedTrackIds: addUnique(state.publishedTrackIds, draft.trackId),
+        groupMessages: [...state.groupMessages, ...groupPublishMessages(published)],
+        stats: applyStatDelta(state.stats, getStatDelta(resultFromDraft(draft), 'publish')),
+      };
+    });
     returnToDesktop('messenger');
     setMessengerTab('group');
   }
@@ -323,6 +337,13 @@ export default function App() {
     );
   }
 
+  if (screen === 'editor') {
+    return <BeatmapEditor onExit={() => {
+      window.history.replaceState(null, '', window.location.pathname);
+      setScreen('desktop');
+    }} />;
+  }
+
   if (screen === 'results' && result && activeRun) {
     return (
       <ResultsScreen
@@ -347,6 +368,10 @@ export default function App() {
       <header className="topbar">
         <strong>{appLabels.desktopTitle}</strong>
         <span>{appLabels.prototypeTitle}</span>
+        <button onClick={() => {
+          window.history.replaceState(null, '', '#editor');
+          setScreen('editor');
+        }}>Beatmap Editor</button>
         <button onClick={resetPrototype}>{buttonLabels.resetSave}</button>
       </header>
 
@@ -682,7 +707,9 @@ function MeWindow({
               {draft.status === 'inDrawer' && (
                 <button onClick={() => onSendToPawel(draft)}>{buttonLabels.sendToPawel}</button>
               )}
-              <button onClick={() => onPublish(draft)}>{buttonLabels.publish}</button>
+              <button disabled={publishedTrackIds.includes(draft.trackId)} onClick={() => onPublish(draft)}>
+                {publishedTrackIds.includes(draft.trackId) ? placeholderLabels.publishedLocked : buttonLabels.publish}
+              </button>
             </div>
           </article>
         );
@@ -757,14 +784,17 @@ function RhythmScreen({
   const [audioDurationMs, setAudioDurationMs] = useState(initialDurationMs);
   const [phase, setPhase] = useState<RhythmPhase>(() => (activeRun.track.audio?.instrumental ? 'loading' : 'countdown'));
   const [countdownMs, setCountdownMs] = useState(3000);
+  const [debugMode, setDebugMode] = useState<'panel' | 'window' | null>(null);
   const beatmap = useMemo(
-    () => buildRhythmBeatmap(activeRun.track, activeRun.difficulty, audioDurationMs),
+    () => resolveRhythmBeatmap(activeRun.track, activeRun.difficulty, audioDurationMs),
     [activeRun.difficulty, activeRun.track, audioDurationMs],
   );
   const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty));
   const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(activeRun.track.bpm));
+  const [hitFeedbacks, setHitFeedbacks] = useState<HitFeedback[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef(session);
+  const heldLanesRef = useRef<Set<RhythmLane>>(new Set());
   const finishedRef = useRef(false);
   const onFinishRef = useRef(onFinish);
   const phaseRef = useRef<RhythmPhase>(phase);
@@ -796,6 +826,8 @@ function RhythmScreen({
     finishedRef.current = false;
     setSession(nextSession);
     setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+    setHitFeedbacks([]);
+    heldLanesRef.current.clear();
     gameClockFallbackMsRef.current = 0;
   }, [activeRun.difficulty, activeRun.track.bpm, beatmap]);
 
@@ -867,7 +899,10 @@ function RhythmScreen({
   const syncToElapsed = useCallback((elapsedMs: number) => {
     if (finishedRef.current) return;
 
-    const nextSession = syncRhythmSessionToElapsed(sessionRef.current, elapsedMs);
+    let nextSession = syncRhythmSessionToElapsed(sessionRef.current, elapsedMs);
+    heldLanesRef.current.forEach((lane) => {
+      nextSession = holdRhythmLane(nextSession, lane);
+    });
     sessionRef.current = nextSession;
     setSession(nextSession);
 
@@ -884,7 +919,7 @@ function RhythmScreen({
     gameClockFallbackMsRef.current = 0;
     const audio = audioRef.current;
     if (audio) {
-      audio.currentTime = 0;
+      audio.currentTime = (sessionRef.current.beatmap.sourceStartMs ?? 0) / 1000;
       audio.play().catch(() => undefined);
     }
     syncToElapsed(0);
@@ -905,20 +940,79 @@ function RhythmScreen({
 
     gameClockFallbackMsRef.current += Math.max(0, ms);
     const audio = audioRef.current;
-    const clockElapsedMs = audio && !audio.paused ? audio.currentTime * 1000 : gameClockFallbackMsRef.current;
+    const currentBeatmap = sessionRef.current.beatmap;
+    const sourceStartMs = currentBeatmap.sourceStartMs ?? 0;
+    const sourceEndMs = currentBeatmap.sourceEndMs ?? sourceStartMs + currentBeatmap.durationMs;
+    if (audio && !audio.paused && audio.currentTime * 1000 >= sourceEndMs) {
+      audio.pause();
+      syncToElapsed(currentBeatmap.durationMs);
+      return;
+    }
+
+    const clockElapsedMs = audio && !audio.paused
+      ? Math.max(0, audio.currentTime * 1000 - sourceStartMs)
+      : gameClockFallbackMsRef.current;
     gameClockFallbackMsRef.current = Math.max(gameClockFallbackMsRef.current, clockElapsedMs);
     syncToElapsed(Math.max(sessionRef.current.elapsedMs, clockElapsedMs));
   }, [startPlayback, syncToElapsed]);
 
+  const showHitFeedback = useCallback((nextSession: RhythmSession) => {
+    const judgement = nextSession.lastJudgement;
+    const lane = nextSession.lastLane;
+    if (!lane || !judgement || !['perfect', 'great', 'good', 'miss'].includes(judgement)) return;
+
+    const activeSmash = nextSession.notes.some((note) =>
+      note.lane === lane
+      && !note.judged
+      && note.startedAtMs !== undefined
+      && getRhythmNoteKind(note) === 'smash'
+    );
+    const feedback: HitFeedback = {
+      id: Date.now() + Math.random(),
+      lane,
+      label: activeSmash && judgement === 'good' ? 'Mash' : judgementLabel(judgement),
+      judgement: judgement as HitFeedback['judgement'],
+    };
+
+    setHitFeedbacks((items) => [...items.slice(-7), feedback]);
+    window.setTimeout(() => {
+      setHitFeedbacks((items) => items.filter((item) => item.id !== feedback.id));
+    }, 520);
+  }, []);
+
   const pressLane = useCallback((lane: RhythmLane) => {
     if (finishedRef.current || phaseRef.current !== 'playing') return;
 
+    heldLanesRef.current.add(lane);
     const nextSession = hitRhythmLane(sessionRef.current, lane);
     sessionRef.current = nextSession;
     setSession(nextSession);
     playSfx('keyboard');
+    showHitFeedback(nextSession);
     if (['perfect', 'great', 'good'].includes(nextSession.lastJudgement ?? '')) playSfx('hit');
-  }, [playSfx]);
+  }, [playSfx, showHitFeedback]);
+
+  const releaseLane = useCallback((lane: RhythmLane) => {
+    if (finishedRef.current || phaseRef.current !== 'playing') return;
+
+    heldLanesRef.current.delete(lane);
+    const nextSession = releaseRhythmLane(sessionRef.current, lane);
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+    showHitFeedback(nextSession);
+  }, [showHitFeedback]);
+
+  const pressPointerLane = useCallback((event: PointerEvent<HTMLDivElement>, lane: RhythmLane) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pressLane(lane);
+  }, [pressLane]);
+
+  const releasePointerLane = useCallback((event: PointerEvent<HTMLDivElement>, lane: RhythmLane) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    releaseLane(lane);
+  }, [releaseLane]);
 
   useEffect(() => {
     let frameId = 0;
@@ -936,6 +1030,18 @@ function RhythmScreen({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'F8') {
+        event.preventDefault();
+        setDebugMode((current) => (current === 'panel' ? null : 'panel'));
+        return;
+      }
+
+      if (event.key === 'F9') {
+        event.preventDefault();
+        setDebugMode((current) => (current === 'window' ? null : 'window'));
+        return;
+      }
+
       if (event.repeat) return;
 
       const lane = keyToLane(event.key);
@@ -945,9 +1051,21 @@ function RhythmScreen({
       pressLane(lane);
     }
 
+    function handleKeyUp(event: KeyboardEvent) {
+      const lane = keyToLane(event.key);
+      if (!lane) return;
+
+      event.preventDefault();
+      releaseLane(lane);
+    }
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pressLane]);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [pressLane, releaseLane]);
 
   useEffect(() => {
     window.render_game_to_text = () => {
@@ -957,7 +1075,7 @@ function RhythmScreen({
 
       return JSON.stringify({
         screen: 'rhythm',
-        coordinateSystem: 'Tory nut: początek u góry, nuty spadają w dół do linii trafienia.',
+        coordinateSystem: 'Nuty spadają w dół do linii trafienia. Długie nuty: yPercent to głowa/start/kolizja, visualTopPercent to ogon/end nad głową.',
         activeRun: {
           track: activeRun.track.title,
           difficulty: activeRun.difficulty,
@@ -968,14 +1086,25 @@ function RhythmScreen({
         countdownMs: Math.round(countdownRef.current),
         elapsedMs: Math.round(currentSession.elapsedMs),
         durationMs: currentSession.beatmap.durationMs,
+        audioDurationMs,
+        sourceStartMs: currentSession.beatmap.sourceStartMs ?? 0,
+        sourceEndMs: currentSession.beatmap.sourceEndMs ?? currentSession.beatmap.durationMs,
+        beatmapDurationMs: currentSession.beatmap.durationMs,
+        beatmapSource: currentSession.beatmap.source ?? 'generated',
         combo: currentSession.combo,
         comboMultiplier: currentSummary.comboMultiplier,
         lastJudgement: currentSession.lastJudgement,
         score: currentSummary,
         nextNotes: currentVisibleNotes.slice(0, 12).map((note) => ({
           lane: note.lane,
+          kind: getRhythmNoteKind(note),
           timeToHitMs: note.timeToHitMs,
+          durationMs: note.durationMs ?? 0,
+          requiredPresses: note.requiredPresses ?? 0,
+          endTimeToHitMs: note.endTimeToHitMs,
           yPercent: Math.round(note.yPercent),
+          visualTopPercent: Math.round(note.visualTopPercent),
+          durationPercent: note.durationPercent,
         })),
       });
     };
@@ -984,7 +1113,16 @@ function RhythmScreen({
     return () => {
       window.advanceTime = () => undefined;
     };
-  }, [activeRun, stepByMs]);
+  }, [activeRun, audioDurationMs, stepByMs]);
+
+  const debugPayload = {
+    audioDurationMs,
+    sourceStartMs: beatmap.sourceStartMs ?? 0,
+    sourceEndMs: beatmap.sourceEndMs ?? beatmap.durationMs,
+    beatmapDurationMs: beatmap.durationMs,
+    beatmapSource: beatmap.source ?? 'generated',
+    notes: beatmap.notes.length,
+  };
 
   return (
     <main className="stage-screen">
@@ -994,7 +1132,11 @@ function RhythmScreen({
         <span>{placeholderLabels.level}: {activeRun.difficulty}</span>
         <span>{activeRun.track.bpm} BPM</span>
         <span>{placeholderLabels.density}: {densityConfig.densityMultiplier}</span>
+        <button onClick={() => setDebugMode((current) => (current === 'window' ? null : 'window'))}>Rhythm debug</button>
       </div>
+
+      {debugMode === 'panel' && <RhythmDebugPanel payload={debugPayload} compact />}
+      {debugMode === 'window' && <RhythmDebugPanel payload={debugPayload} />}
 
       {instrumentalAudioSource && (
         <audio
@@ -1008,7 +1150,7 @@ function RhythmScreen({
               setPhase((current) => (current === 'loading' ? 'countdown' : current));
             }
           }}
-          onEnded={() => syncToElapsed(audioDurationMs)}
+          onEnded={() => syncToElapsed(sessionRef.current.beatmap.durationMs)}
           preload="auto"
         />
       )}
@@ -1047,18 +1189,47 @@ function RhythmScreen({
           <div
             className={`lane ${session.lastLane === lane ? 'active-lane' : ''}`}
             key={lane}
-            onPointerDown={() => pressLane(lane)}
+            onPointerDown={(event) => pressPointerLane(event, lane)}
+            onPointerUp={(event) => releasePointerLane(event, lane)}
+            onPointerCancel={(event) => releasePointerLane(event, lane)}
             role="button"
             tabIndex={0}
           >
             {visibleNotes
               .filter((note) => note.lane === lane)
-              .map((note) => (
-                <span
-                  className={`note ${note.judgement === 'miss' ? 'missed-note' : ''}`}
-                  key={note.id}
-                  style={{ top: `${note.yPercent}%`, opacity: note.opacity }}
-                />
+              .map((note) => {
+                const kind = getRhythmNoteKind(note);
+                const isLong = kind === 'hold' || kind === 'smash';
+                return (
+                  <span
+                    className={[
+                      'note',
+                      isLong ? kind : '',
+                      note.startedAtMs !== undefined && !note.judged ? 'active-note' : '',
+                      note.judgement === 'miss' ? 'missed-note' : '',
+                    ].filter(Boolean).join(' ')}
+                    key={note.id}
+                    style={{
+                      top: `${isLong ? note.visualTopPercent : note.yPercent}%`,
+                      opacity: note.opacity,
+                      ...(isLong ? { '--note-height': `${note.durationPercent}%` } : {}),
+                      ...(kind === 'smash' ? { '--smash-progress-height': `${Math.round(note.smashProgress * 100)}%` } : {}),
+                    } as CSSProperties}
+                  >
+                    {kind === 'smash' && (
+                      <span className="smash-progress">
+                        {note.presses ?? 0}
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            {hitFeedbacks
+              .filter((feedback) => feedback.lane === lane)
+              .map((feedback) => (
+                <span className={`hit-feedback ${feedback.judgement}`} key={feedback.id}>
+                  {feedback.label}
+                </span>
               ))}
             <span className="hit-line" />
             <kbd>{lane}</kbd>
@@ -1091,6 +1262,41 @@ function RhythmStat({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function RhythmDebugPanel({
+  payload,
+  compact = false,
+}: {
+  payload: {
+    audioDurationMs: number;
+    sourceStartMs: number;
+    sourceEndMs: number;
+    beatmapDurationMs: number;
+    beatmapSource: string;
+    notes: number;
+  };
+  compact?: boolean;
+}) {
+  return (
+    <aside className={compact ? 'rhythm-debug compact' : 'rhythm-debug'} aria-label="Rhythm debug">
+      <strong>Rhythm debug</strong>
+      <span>audio: {formatDebugTime(payload.audioDurationMs)}</span>
+      <span>start: {formatDebugTime(payload.sourceStartMs)}</span>
+      <span>koniec: {formatDebugTime(payload.sourceEndMs)}</span>
+      <span>poziom: {formatDebugTime(payload.beatmapDurationMs)}</span>
+      <span>mapa: {payload.beatmapSource}</span>
+      <span>nuty: {payload.notes}</span>
+      <em>F8 panel / F9 okno</em>
+    </aside>
+  );
+}
+
+function formatDebugTime(ms: number) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 function keyToLane(key: string): RhythmLane | null {

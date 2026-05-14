@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "tracks": {
+    "wystep-czekamy-czekamy": {
+      "\u0141atwy": {
+        "trackId": "wystep-czekamy-czekamy",
+        "bpm": 122,
+        "sourceStartMs": 0,
+        "sourceEndMs": 98535,
+        "durationMs": 98535,
+        "notes": [
+          {
+            "id": "smash-1778560470504-6953",
+            "lane": "S",
+            "timeMs": 1967,
+            "kind": "smash",
+            "durationMs": 3934,
+            "requiredPresses": 4
+          },
+          {
+            "id": "hold-1778560440820-5114",
+            "lane": "L",
+            "timeMs": 2950,
+            "kind": "hold",
+            "durationMs": 1967
+          },
+          {
+            "id": "tap-1778560729999-2586",
+            "lane": "D",
+            "timeMs": 3950
+          },
+          {
+            "id": "smash-1778560569482-8320",
+            "lane": "K",
+            "timeMs": 5901,
+            "kind": "smash",
+            "durationMs": 3934,
+            "requiredPresses": 4
+          }
+        ]
+      }
+    }
+  }
+}

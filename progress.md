@@ -8,9 +8,24 @@ Postep:
 - Dodano porównanie remixu z obecnym draftem przed nadpisaniem: poprzedni wynik, nowy wynik, różnica i werdykt ryzyka.
 - Rozbudowano publikację o reakcje czatu zależne od jakości pliku i dokładności wykonania.
 - Podmieniono placeholder Neury na interaktywną wersję z custom pet Codexa: atlas `public/pets/neura/spritesheet.webp`, animacje stanów, kliknięcia, przyciski reakcji i przeciąganie po pulpicie.
+- Rozszerzono sekcję rytmiczną o typy nut `tap`, `hold` i `smash`, ręczne beatmapy z fallbackiem do generatora oraz testy scenariuszy przytrzymania i mashowania.
 - Weryfikacja: `npm run build` przechodzi po uruchomieniu poza sandboxem; dev server działa na `http://127.0.0.1:5173/`; zrzut headless Chrome potwierdził widoczny sprite Neury i panel reakcji. Playwright z umiejętności nie został uruchomiony, bo pakiet `playwright` nie jest zainstalowany.
 - Weryfikacja rytmu: `npm run test:rhythm` przechodzi po ujednoliceniu poziomu `Łatwy` w teście developerskim.
+- Weryfikacja rytmu po rozszerzeniu nut: `npm run test:rhythm` przechodzi dla tap/hold/smash oraz loadera ręcznych beatmap.
+- Dodano format ręcznych beatmap `schemaVersion: 2`: `sourceStartMs/sourceEndMs` per poziom, nuty liczone od początku wycinka, legacy `durationMs` nie skraca już audio bez jawnego zakresu.
+- Naprawiono mapę `wystep-czekamy-czekamy/Łatwy`, która miała przypadkowe `durationMs: 47213`; obecnie eksportowana jest z pełnym zakresem audio.
+- Dodano webowy `Rhythm debug`: przycisk na ekranie rytmu oraz skróty `F8`/`F9`, a `render_game_to_text` pokazuje `audioDurationMs`, `sourceStartMs`, `sourceEndMs`, `beatmapDurationMs` i typ mapy.
+- Rozbudowano `RhythmSectionEditor`: wydzielone modele/ViewModel zakresu, start/koniec z playhead, puste mapy z przyciskiem generowania bazy, backup przed eksportem, blokada eksportu przy poważnych błędach, prosty playtest `S/D/K/L` i formularz importu nowego utworu do `tracks.ts`.
+- Weryfikacja: `npm run test:rhythm` przechodzi; `npm run build` przechodzi po uruchomieniu poza sandboxem; `dotnet build -c Debug -p:Platform=x64` dla `RhythmSectionEditor` przechodzi po restore poza sandboxem.
+- Próba uruchomienia WinUI przez `dotnet run` i bezpośredni EXE kończy się natychmiast bez utrzymanego procesu; build jest poprawny, ale start okna wymaga jeszcze ręcznej weryfikacji w środowisku desktopowym.
 
 TODO:
 - Jeśli projekt ma dalej korzystać z testów przeglądarkowych z umiejętności `develop-web-game`, dodać `playwright` jako dev dependency albo wskazać wspólną instalację.
-- Kolejny krok rytmu: dopracować ręcznie beatmapy dla konkretnych utworów i ewentualną kalibrację input laga.
+- Kolejny krok rytmu: ręcznie sprawdzić start okna WinUI, potem ułożyć pełne autorskie mapy dla trzech utworów i ewentualnie dodać kalibrację input laga.
+
+Patrol repozytorium 2026-05-12:
+- Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
+- Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.
+- Naprawiono mały zakres: dodatkowy guard publikacji wewnątrz `setGameState`, disabled/tekst blokady publikacji w szufladzie dla opublikowanych tytułów, `getNextDifficulty` zwraca `null` dla poziomu spoza listy utworu.
+- Weryfikacja przed zmianami: `npm run test:rhythm` przeszedł; `npm run build` przeszedł po uruchomieniu poza sandboxem, bo zwykły sandbox zwrócił odmowę dostępu przy Vite/esbuild.
+- Następna mała sesja: uporządkować słownik etykiet UI oraz zdecydować, czy `Annihilation player.exe` ma pozostać zwykłym odtwarzaczem audio, czy wrócić do opisanego wcześniej placeholdera z przyciskiem `Odtwórz`.

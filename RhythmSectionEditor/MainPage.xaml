@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="RhythmSectionEditor.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+    IsTabStop="True"
+    KeyDown="Page_KeyDown"
+    Loaded="Page_Loaded"
+    mc:Ignorable="d">
+
+    <Grid RowSpacing="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <CommandBar
+            Grid.Row="0"
+            DefaultLabelPosition="Right"
+            IsDynamicOverflowEnabled="True">
+            <AppBarButton
+                x:Name="LoadWorkspaceButton"
+                AutomationProperties.Name="Wczytaj workspace gry"
+                Click="LoadWorkspaceButton_Click"
+                Label="Workspace">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="OpenFile" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                x:Name="ImportButton"
+                AutomationProperties.Name="Wczytaj ręczne beatmapy"
+                Click="ImportButton_Click"
+                Label="Import">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Download" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                x:Name="ExportButton"
+                AutomationProperties.Name="Eksportuj ręczne beatmapy"
+                Click="ExportButton_Click"
+                Label="Eksport">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Save" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator />
+            <AppBarButton
+                x:Name="UndoButton"
+                Click="UndoButton_Click"
+                Label="Cofnij">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Undo" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                x:Name="RedoButton"
+                Click="RedoButton_Click"
+                Label="Ponów">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Redo" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarSeparator />
+            <AppBarButton
+                Click="AddTapButton_Click"
+                Label="Tap">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Add" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                Click="AddHoldButton_Click"
+                Label="Hold">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Add" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                Click="AddSmashButton_Click"
+                Label="Smash">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Add" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                Click="CopyButton_Click"
+                Label="Kopiuj">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Copy" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                Click="DeleteButton_Click"
+                Label="Usuń">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Delete" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                Click="QuantizeButton_Click"
+                Label="Quantize">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Sync" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+            <AppBarButton
+                x:Name="GenerateBaseButton"
+                AutomationProperties.Name="Wygeneruj bazę nut"
+                Click="GenerateBaseButton_Click"
+                Label="Wygeneruj bazę">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Refresh" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+        </CommandBar>
+
+        <Grid
+            Grid.Row="1"
+            Padding="16"
+            ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="330" />
+            </Grid.ColumnDefinitions>
+
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12">
+                    <TextBlock
+                        FontSize="22"
+                        FontWeight="SemiBold"
+                        Text="Rytm dev editor" />
+                    <TextBox
+                        x:Name="WorkspacePathBox"
+                        Header="Workspace gry"
+                        PlaceholderText="Ścieżka do katalogu projektu gry" />
+                    <ComboBox
+                        x:Name="TrackComboBox"
+                        Header="Utwór"
+                        SelectionChanged="TrackComboBox_SelectionChanged" />
+                    <ComboBox
+                        x:Name="DifficultyComboBox"
+                        Header="Poziom"
+                        SelectionChanged="DifficultyComboBox_SelectionChanged" />
+                    <TextBlock
+                        x:Name="MapStatsText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        TextWrapping="Wrap" />
+                    <InfoBar
+                        x:Name="StatusInfoBar"
+                        IsOpen="True"
+                        Message="Wybierz utwór, edytuj nuty i wyeksportuj manualBeatmaps.json."
+                        Severity="Informational"
+                        Title="Gotowe" />
+                    <MediaPlayerElement
+                        x:Name="AudioPreview"
+                        AreTransportControlsEnabled="True"
+                        Height="84" />
+                    <Expander Header="Nowy utwór">
+                        <StackPanel Spacing="8">
+                            <TextBox x:Name="NewTitleBox" Header="Tytuł" PlaceholderText="Nazwa utworu" />
+                            <TextBox x:Name="NewArtistBox" Header="Artysta" PlaceholderText="Ustno.ai" />
+                            <TextBox x:Name="NewMoodBox" Header="Opis / mood" PlaceholderText="Krótki opis nastroju" />
+                            <NumberBox x:Name="NewBpmBox" Header="BPM" Minimum="1" Value="120" />
+                            <TextBox x:Name="NewDifficultiesBox" Header="Poziomy" Text="Łatwy, Normalny, Cybart" />
+                            <TextBox x:Name="NewMergedPathBox" Header="Pełny plik audio" PlaceholderText="C:\...\utwor.wav" />
+                            <TextBox x:Name="NewInstrumentalPathBox" Header="Instrumental" PlaceholderText="C:\...\[Instrumental] utwor.wav" />
+                            <TextBox x:Name="NewVocalsPathBox" Header="Wokal" PlaceholderText="C:\...\[Lead Vocals] utwor.wav" />
+                            <Button
+                                AutomationProperties.Name="Dodaj nowy utwór do katalogu gry"
+                                Click="AddTrackButton_Click"
+                                Content="Dodaj utwór" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Grid Grid.Column="1" RowSpacing="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="220" />
+                    </Grid.ColumnDefinitions>
+                    <Slider
+                        x:Name="PlayheadSlider"
+                        Grid.Column="0"
+                        Header="Playhead"
+                        Minimum="0"
+                        ValueChanged="PlayheadSlider_ValueChanged" />
+                    <Slider
+                        x:Name="ZoomSlider"
+                        Grid.Column="1"
+                        Header="Zoom"
+                        Minimum="1"
+                        Maximum="6"
+                        Value="2"
+                        ValueChanged="ZoomSlider_ValueChanged" />
+                </Grid>
+
+                <Grid Grid.Row="0" Margin="0,58,0,0" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="130" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="FullRangeButton" Click="FullRangeButton_Click" Content="Pełny utwór" />
+                        <Button x:Name="SetStartButton" Click="SetStartButton_Click" Content="Start z playhead" />
+                        <Button x:Name="SetEndButton" Click="SetEndButton_Click" Content="Koniec z playhead" />
+                        <TextBlock x:Name="RangeText" VerticalAlignment="Center" Text="Zakres: pełny utwór" />
+                    </StackPanel>
+                    <NumberBox
+                        x:Name="SourceStartBox"
+                        Grid.Column="1"
+                        Header="Start ms"
+                        Minimum="0"
+                        ValueChanged="Range_ValueChanged" />
+                    <NumberBox
+                        x:Name="SourceEndBox"
+                        Grid.Column="2"
+                        Header="Koniec ms"
+                        Minimum="1000"
+                        ValueChanged="Range_ValueChanged" />
+                </Grid>
+
+                <ScrollViewer
+                    Grid.Row="1"
+                    Margin="0,34,0,0"
+                    HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Auto">
+                    <Canvas
+                        x:Name="TimelineCanvas"
+                        DoubleTapped="TimelineCanvas_DoubleTapped"
+                        PointerPressed="TimelineCanvas_PointerPressed"
+                        MinHeight="440"
+                        MinWidth="1400" />
+                </ScrollViewer>
+
+                <TextBlock
+                    x:Name="ValidationText"
+                    Grid.Row="2"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    TextWrapping="Wrap" />
+            </Grid>
+
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12">
+                    <TextBlock
+                        FontSize="20"
+                        FontWeight="SemiBold"
+                        Text="Inspektor nuty" />
+                    <ComboBox
+                        x:Name="KindComboBox"
+                        Header="Typ"
+                        SelectionChanged="Inspector_Changed">
+                        <ComboBoxItem Content="tap" />
+                        <ComboBoxItem Content="hold" />
+                        <ComboBoxItem Content="smash" />
+                    </ComboBox>
+                    <ComboBox
+                        x:Name="LaneComboBox"
+                        Header="Tor"
+                        SelectionChanged="Inspector_Changed">
+                        <ComboBoxItem Content="S" />
+                        <ComboBoxItem Content="D" />
+                        <ComboBoxItem Content="K" />
+                        <ComboBoxItem Content="L" />
+                    </ComboBox>
+                    <NumberBox
+                        x:Name="TimeBox"
+                        Header="Czas startu (ms)"
+                        Minimum="0"
+                        SmallChange="10"
+                        SpinButtonPlacementMode="Inline"
+                        ValueChanged="Inspector_ValueChanged" />
+                    <NumberBox
+                        x:Name="DurationBox"
+                        Header="Długość hold/smash (ms)"
+                        Minimum="240"
+                        SmallChange="50"
+                        SpinButtonPlacementMode="Inline"
+                        ValueChanged="Inspector_ValueChanged" />
+                    <NumberBox
+                        x:Name="RequiredPressesBox"
+                        Header="Wymagane naciśnięcia smash"
+                        Minimum="2"
+                        SmallChange="1"
+                        SpinButtonPlacementMode="Inline"
+                        ValueChanged="Inspector_ValueChanged" />
+                    <TextBlock
+                        x:Name="SelectedNoteText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Nie wybrano nuty."
+                        TextWrapping="Wrap" />
+                    <Button
+                        AutomationProperties.Name="Uruchom playtest mapy"
+                        Click="PlaytestButton_Click"
+                        Content="Playtest S/D/K/L" />
+                    <Button
+                        AutomationProperties.Name="Resetuj playtest mapy"
+                        Click="ResetPlaytestButton_Click"
+                        Content="Reset playtestu" />
+                    <TextBlock
+                        x:Name="PlaytestStatusText"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Playtest: gotowy."
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <TextBlock
+            x:Name="FooterText"
+            Grid.Row="2"
+            Margin="16,0,16,12"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="Skróty workflow: dodawaj nuty z paska, zaznaczaj na osi czasu, użyj Quantize przed eksportem."
+            TextWrapping="Wrap" />
+    </Grid>
+</Page>

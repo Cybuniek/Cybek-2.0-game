@@ -1,6 +1,9 @@
 node_modules/
 dist/
+bin/
+obj/
+.vs/
+.codex/
 *.log
-
 .env.local
 reflog_backup.txt
