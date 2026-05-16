@@ -15,17 +15,18 @@ import {
 } from '../rhythm';
 import type { Difficulty, RhythmBeatmap, RhythmLane, RhythmNote } from '../types';
 import {
-  applyRecordedPress,
+  applyRecordedKeyDown,
+  applyRecordedKeyUp,
   cloneBeatmapForEditing,
   createEditorNote,
   deleteNote,
   downloadJson,
   EDITOR_HIT_LINE_PERCENT,
-  EDITOR_VIEW_WINDOW_MS,
   editorNoteHeightPercent,
+  editorViewWindowMs,
   laneFromXPercent,
-  noteLaneIndex,
   noteVisualTopPercent,
+  promoteActiveRecordedHolds,
   serializeManualBeatmapCatalog,
   timeToYPercent,
   updateNote,
@@ -33,8 +34,8 @@ import {
   validateEditorBeatmap,
   viewportStartForElapsed,
   yPercentToTime,
+  type ActiveRecordedPresses,
   type EditorMode,
-  type KeyPressDraft,
   type ManualBeatmapCatalog,
   type SmashDraft,
 } from './beatmapEditorLogic';
@@ -45,20 +46,28 @@ type DragState = {
   mode: 'move' | 'resize';
 };
 
+type BackupEntry = {
+  key: string;
+  label: string;
+};
+
 type BeatmapEditorProps = {
   onExit: () => void;
 };
 
 const baseCatalog = manualBeatmaps as ManualBeatmapCatalog;
+const backupPrefix = 'beatmap-editor-backup-';
 
 export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
+  const [catalog, setCatalog] = useState<ManualBeatmapCatalog>(() => baseCatalog);
+  const [catalogSource, setCatalogSource] = useState('src/data/manualBeatmaps.json');
   const [trackId, setTrackId] = useState(tracks[0]?.id ?? '');
   const selectedTrack = tracks.find((track) => track.id === trackId) ?? tracks[0]!;
   const [difficulty, setDifficulty] = useState<Difficulty>(selectedTrack?.difficulties[0] ?? 'Łatwy');
   const [audioDurationMs, setAudioDurationMs] = useState(selectedTrack?.durationMs ?? 98535);
   const resolvedBeatmap = useMemo(
-    () => resolveRhythmBeatmap(selectedTrack, difficulty, audioDurationMs, baseCatalog),
-    [audioDurationMs, difficulty, selectedTrack],
+    () => resolveRhythmBeatmap(selectedTrack, difficulty, audioDurationMs, catalog),
+    [audioDurationMs, catalog, difficulty, selectedTrack],
   );
   const [beatmap, setBeatmap] = useState<RhythmBeatmap>(() => cloneBeatmapForEditing(resolvedBeatmap));
   const [mode, setMode] = useState<EditorMode>('edit');
@@ -67,12 +76,18 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(beatmap.notes[0]?.id ?? null);
   const [zoom, setZoom] = useState(1);
   const [exportMessage, setExportMessage] = useState('Eksport gotowy.');
+  const [importMessage, setImportMessage] = useState('Import gotowy.');
+  const [backupEntries, setBackupEntries] = useState<BackupEntry[]>(() => listBackupEntries());
+  const [selectedBackupKey, setSelectedBackupKey] = useState('');
   const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, difficulty));
+  const editorTravelMs = session.travelMs;
+  const editorWindowMs = editorViewWindowMs(editorTravelMs, zoom);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
-  const pressedKeysRef = useRef<Map<RhythmLane, KeyPressDraft>>(new Map());
+  const pressedKeysRef = useRef<ActiveRecordedPresses>({});
   const smashDraftRef = useRef<SmashDraft | null>(null);
   const fallbackClockRef = useRef(0);
   const elapsedRef = useRef(elapsedMs);
@@ -83,10 +98,10 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
   const validation = useMemo(() => validateEditorBeatmap(beatmap), [beatmap]);
   const selectedNote = beatmap.notes.find((note) => note.id === selectedNoteId) ?? null;
   const viewportStartMs = viewportStartForElapsed(elapsedMs, beatmap.durationMs);
-  const viewportEndMs = Math.min(beatmap.durationMs, elapsedMs + EDITOR_VIEW_WINDOW_MS);
+  const viewportEndMs = Math.min(beatmap.durationMs, elapsedMs + editorWindowMs);
   const visibleNotes = beatmap.notes.filter((note) => {
-    const headPercent = timeToYPercent(note.timeMs, elapsedMs);
-    const topPercent = noteVisualTopPercent(note, elapsedMs);
+    const headPercent = timeToYPercent(note.timeMs, elapsedMs, editorWindowMs);
+    const topPercent = noteVisualTopPercent(note, elapsedMs, editorWindowMs);
     return topPercent <= 104 && headPercent >= -8;
   });
   const summary = getRhythmSummary(session);
@@ -149,6 +164,13 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
         ? Math.max(0, audio.currentTime * 1000 - sourceStartMs)
         : Math.min(beatmapRef.current.durationMs, fallbackClockRef.current + delta);
       fallbackClockRef.current = nextElapsed;
+      if (modeRef.current === 'edit' && pressedKeysRef.current && Object.keys(pressedKeysRef.current).length > 0) {
+        const promotedBeatmap = promoteActiveRecordedHolds(beatmapRef.current, pressedKeysRef.current, Math.round(nextElapsed));
+        if (promotedBeatmap !== beatmapRef.current) {
+          beatmapRef.current = promotedBeatmap;
+          setBeatmap(promotedBeatmap);
+        }
+      }
       setElapsedMs(Math.min(beatmapRef.current.durationMs, nextElapsed));
 
       if (modeRef.current === 'test') {
@@ -189,7 +211,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     setIsPlaying(false);
     setElapsedMs(0);
     fallbackClockRef.current = 0;
-    pressedKeysRef.current.clear();
+    pressedKeysRef.current = {};
     smashDraftRef.current = null;
     setSession(createRhythmSession(beatmapRef.current, difficulty));
   }
@@ -206,11 +228,13 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     const rect = stageRef.current?.getBoundingClientRect();
     if (!rect) return null;
 
+    const laneElement = (event.target as Element | null)?.closest('.editor-lane');
+    const laneFromElement = laneElement?.getAttribute('data-lane') as RhythmLane | null;
     const xPercent = ((event.clientX - rect.left) / rect.width) * 100;
     const yPercent = ((event.clientY - rect.top) / rect.height) * 100;
     return {
-      lane: laneFromXPercent(xPercent),
-      timeMs: yPercentToTime(yPercent, viewportStartMs, beatmapRef.current.durationMs),
+      lane: laneFromElement && RHYTHM_LANES.includes(laneFromElement) ? laneFromElement : laneFromXPercent(xPercent),
+      timeMs: yPercentToTime(yPercent, viewportStartMs, beatmapRef.current.durationMs, editorWindowMs),
     };
   }
 
@@ -305,11 +329,17 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     }
 
     if (!isPlayingRef.current) return;
-    pressedKeysRef.current.set(lane, {
+    const result = applyRecordedKeyDown(beatmapRef.current, pressedKeysRef.current, smashDraftRef.current, {
       lane,
-      startedAtMs: performance.now(),
       timeMs: Math.round(elapsedRef.current),
+      seed: performance.now(),
+      kind: event.shiftKey ? 'smash' : 'tap',
     });
+    pressedKeysRef.current = result.activePresses;
+    smashDraftRef.current = result.smashDraft;
+    if (result.selectedNoteId) setSelectedNoteId(result.selectedNoteId);
+    beatmapRef.current = result.beatmap;
+    setBeatmap(result.beatmap);
   }
 
   function handleKeyUp(event: ReactKeyboardEvent<HTMLElement>) {
@@ -324,16 +354,18 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
       return;
     }
 
-    const draft = pressedKeysRef.current.get(lane);
-    if (!draft) return;
-    pressedKeysRef.current.delete(lane);
-    const releasedAtMs = performance.now();
-    setBeatmap((current) => {
-      const result = applyRecordedPress(current, draft, releasedAtMs, smashDraftRef.current);
-      smashDraftRef.current = result.smashDraft;
-      setSelectedNoteId(result.selectedNoteId);
-      return result.beatmap;
-    });
+    const result = applyRecordedKeyUp(
+      beatmapRef.current,
+      pressedKeysRef.current,
+      smashDraftRef.current,
+      lane,
+      Math.round(elapsedRef.current),
+    );
+    pressedKeysRef.current = result.activePresses;
+    smashDraftRef.current = result.smashDraft;
+    if (result.selectedNoteId) setSelectedNoteId(result.selectedNoteId);
+    beatmapRef.current = result.beatmap;
+    setBeatmap(result.beatmap);
   }
 
   function exportBeatmap() {
@@ -343,11 +375,80 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
       return;
     }
 
-    const json = serializeManualBeatmapCatalog(baseCatalog, selectedTrack, difficulty, beatmapRef.current);
+    const json = serializeManualBeatmapCatalog(catalog, selectedTrack, difficulty, beatmapRef.current);
+    const nextCatalog = parseManualBeatmapCatalog(json);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    localStorage.setItem(`beatmap-editor-backup-${timestamp}`, json);
-    downloadJson(`manualBeatmaps-${selectedTrack.id}-${difficulty}-${timestamp}.json`, json);
-    setExportMessage(`Eksport pobrany. Backup: beatmap-editor-backup-${timestamp}`);
+    const backupKey = `${backupPrefix}${timestamp}`;
+    localStorage.setItem(backupKey, json);
+    setCatalog(nextCatalog);
+    setCatalogSource(`ostatni eksport: ${selectedTrack.title} / ${difficulty}`);
+    refreshBackupEntries(backupKey);
+    downloadJson('manualBeatmaps.json', json);
+    setExportMessage(`Pobrano manualBeatmaps.json i zapisano backup: ${backupKey}`);
+  }
+
+  function downloadCurrentCatalog() {
+    const currentValidation = validateEditorBeatmap(beatmapRef.current);
+    const json = currentValidation.errors.length === 0
+      ? serializeManualBeatmapCatalog(catalog, selectedTrack, difficulty, beatmapRef.current)
+      : JSON.stringify(catalog, null, 2);
+    downloadJson('manualBeatmaps.json', json);
+    setExportMessage(
+      currentValidation.errors.length === 0
+        ? 'Pobrano pełny manualBeatmaps.json z bieżącą mapą.'
+        : `Pobrano katalog bez bieżących zmian: ${currentValidation.errors[0]}`,
+    );
+  }
+
+  function refreshBackupEntries(preferredKey = selectedBackupKey) {
+    const entries = listBackupEntries();
+    setBackupEntries(entries);
+    setSelectedBackupKey(entries.some((entry) => entry.key === preferredKey) ? preferredKey : entries[0]?.key ?? '');
+  }
+
+  function importCatalogFromText(json: string, source: string) {
+    const nextCatalog = parseManualBeatmapCatalog(json);
+    setCatalog(nextCatalog);
+    setCatalogSource(source);
+    const importedBeatmap = resolveRhythmBeatmap(selectedTrack, difficulty, audioDurationMs, nextCatalog);
+    const editable = cloneBeatmapForEditing(importedBeatmap);
+    setBeatmap(editable);
+    setSelectedNoteId(editable.notes[0]?.id ?? null);
+    setElapsedMs(0);
+    fallbackClockRef.current = 0;
+    setIsPlaying(false);
+    setSession(createRhythmSession(editable, difficulty));
+  }
+
+  function handleImportFile(file: File | null) {
+    if (!file) return;
+    file.text()
+      .then((text) => {
+        importCatalogFromText(text, `import: ${file.name}`);
+        setImportMessage(`Wczytano ${file.name}. Sprawdź mapę i użyj eksportu, żeby zapisać nową wersję.`);
+      })
+      .catch(() => setImportMessage('Import nieudany: nie udało się odczytać pliku.'));
+  }
+
+  function restoreSelectedBackup() {
+    if (!selectedBackupKey) {
+      setImportMessage('Brak wybranego backupu.');
+      return;
+    }
+
+    const json = localStorage.getItem(selectedBackupKey);
+    if (!json) {
+      refreshBackupEntries();
+      setImportMessage('Backup nie istnieje już w localStorage.');
+      return;
+    }
+
+    try {
+      importCatalogFromText(json, `backup: ${selectedBackupKey}`);
+      setImportMessage(`Przywrócono ${selectedBackupKey}. Eksport pobierze go jako manualBeatmaps.json.`);
+    } catch (error) {
+      setImportMessage(error instanceof Error ? `Backup uszkodzony: ${error.message}` : 'Backup uszkodzony.');
+    }
   }
 
   function updateSelectedNote(update: (note: RhythmNote) => RhythmNote) {
@@ -419,8 +520,10 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
           <input min="0.75" max="1.8" step="0.05" type="range" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} />
         </label>
         <div className="editor-stats">
+          <span>Źródło: {catalogSource}</span>
           <span>Nuty: {beatmap.notes.length}</span>
           <span>Widok: {formatTime(viewportStartMs)}-{formatTime(viewportEndMs)}</span>
+          <span>Okno gry: {formatTime(editorWindowMs)} przy zoom x{zoom.toFixed(2)}</span>
           <span>Audio: {formatTime(audioDurationMs)}</span>
           <span>Zakres: {formatTime(sourceStartMs)}-{formatTime(sourceEndMs)}</span>
           <span>Perfect: {summary.perfectHits}</span>
@@ -428,8 +531,34 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
           <span>Good: {summary.goodHits}</span>
           <span>Miss: {summary.misses}</span>
         </div>
-        <button onClick={exportBeatmap}>Eksport JSON + backup</button>
+        <div className="editor-file-tools">
+          <button onClick={() => importInputRef.current?.click()}>Import manualBeatmaps.json</button>
+          <input
+            ref={importInputRef}
+            accept="application/json,.json"
+            className="editor-hidden-input"
+            type="file"
+            onChange={(event) => {
+              handleImportFile(event.target.files?.[0] ?? null);
+              event.target.value = '';
+            }}
+          />
+          <button onClick={downloadCurrentCatalog}>Pobierz pełny katalog</button>
+          <button className="primary-action" onClick={exportBeatmap}>Eksport + backup</button>
+          <label>
+            Backup localStorage
+            <select value={selectedBackupKey} onChange={(event) => setSelectedBackupKey(event.target.value)}>
+              {backupEntries.length === 0 && <option value="">Brak backupów</option>}
+              {backupEntries.map((entry) => <option key={entry.key} value={entry.key}>{entry.label}</option>)}
+            </select>
+          </label>
+          <div className="editor-button-row">
+            <button onClick={() => refreshBackupEntries()}>Odśwież</button>
+            <button disabled={!selectedBackupKey} onClick={restoreSelectedBackup}>Przywróć</button>
+          </div>
+        </div>
         <p className="export-message">{exportMessage}</p>
+        <p className="export-message">{importMessage}</p>
         <div className={validation.errors.length ? 'validation error' : 'validation'}>
           <strong>Walidacja</strong>
           {[...validation.errors, ...validation.warnings].slice(0, 5).map((item) => <span key={item}>{item}</span>)}
@@ -448,7 +577,6 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
           className="beatmap-editor-lanes"
           style={{
             '--editor-hit-line': `${EDITOR_HIT_LINE_PERCENT}%`,
-            '--editor-zoom': zoom,
           } as CSSProperties}
           onPointerDown={handleStagePointerDown}
           onPointerMove={handlePointerMove}
@@ -457,56 +585,57 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
           onContextMenu={(event) => event.preventDefault()}
         >
           {RHYTHM_LANES.map((lane) => (
-            <div className="editor-lane" key={lane}>
+            <div className="lane editor-lane" data-lane={lane} key={lane}>
+              {visibleNotes
+                .filter((note) => note.lane === lane)
+                .map((note) => {
+                  const kind = getRhythmNoteKind(note);
+                  const isLong = kind === 'hold' || kind === 'smash';
+                  const headPercent = timeToYPercent(note.timeMs, viewportStartMs, editorWindowMs);
+                  const heightPercent = isLong ? editorNoteHeightPercent(note, editorWindowMs) : 0;
+                  return (
+                    <button
+                      key={note.id}
+                      className={[
+                        'note',
+                        'editor-note',
+                        isLong ? kind : '',
+                        selectedNoteId === note.id ? 'selected' : '',
+                      ].filter(Boolean).join(' ')}
+                      style={{
+                        top: `${isLong ? headPercent - heightPercent : headPercent}%`,
+                        ...(isLong ? { '--note-height': `${heightPercent}%` } : {}),
+                      } as CSSProperties}
+                      onPointerDown={(event) => handleNotePointerDown(event, note.id)}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={handlePointerEnd}
+                      onPointerCancel={handlePointerEnd}
+                      onContextMenu={(event) => event.preventDefault()}
+                      type="button"
+                    >
+                      {kind === 'smash' && <span>{note.requiredPresses ?? 2}</span>}
+                      {isLong && (
+                        <span
+                          className="resize-handle"
+                          onPointerDown={(event) => handleResizePointerDown(event, note.id)}
+                          onPointerMove={handlePointerMove}
+                          onPointerUp={handlePointerEnd}
+                          onPointerCancel={handlePointerEnd}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              <span className="hit-line editor-hit-line" />
               <span className="lane-key">{lane}</span>
             </div>
           ))}
-          {visibleNotes.map((note) => {
-            const kind = getRhythmNoteKind(note);
-            const isLong = kind === 'hold' || kind === 'smash';
-            const headPercent = timeToYPercent(note.timeMs, viewportStartMs);
-            const heightPercent = isLong ? editorNoteHeightPercent(note) : 0;
-            return (
-              <button
-                key={note.id}
-                className={[
-                  'editor-note',
-                  kind,
-                  selectedNoteId === note.id ? 'selected' : '',
-                ].filter(Boolean).join(' ')}
-                style={{
-                  left: `${(noteLaneIndex(note.lane) / RHYTHM_LANES.length) * 100 + 2}%`,
-                  top: `${isLong ? headPercent - heightPercent : headPercent}%`,
-                  width: `${100 / RHYTHM_LANES.length - 4}%`,
-                  height: isLong ? `${heightPercent}%` : undefined,
-                }}
-                onPointerDown={(event) => handleNotePointerDown(event, note.id)}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerEnd}
-                onPointerCancel={handlePointerEnd}
-                onContextMenu={(event) => event.preventDefault()}
-                type="button"
-              >
-                <span>{kind === 'smash' ? `x${note.requiredPresses ?? 2}` : kind}</span>
-                {isLong && (
-                  <span
-                    className="resize-handle"
-                    onPointerDown={(event) => handleResizePointerDown(event, note.id)}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerEnd}
-                    onPointerCancel={handlePointerEnd}
-                  />
-                )}
-              </button>
-            );
-          })}
-          <span className="editor-hit-line" />
-          <span className="editor-playhead" style={{ top: `${EDITOR_HIT_LINE_PERCENT}%` }} />
         </div>
         <div className="editor-help">
           <span>LPM: stwórz / przeciągnij</span>
           <span>PPM: usuń</span>
           <span>S D K L w Edit Mode: nagrywaj nuty podczas playbacku</span>
+          <span>Shift+S/D/K/L: nagrywaj smash</span>
           <span>Spacja: play/pauza</span>
         </div>
       </section>
@@ -584,4 +713,26 @@ function formatTime(ms: number) {
   const seconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function parseManualBeatmapCatalog(json: string): ManualBeatmapCatalog {
+  const parsed = JSON.parse(json) as ManualBeatmapCatalog;
+  if (!parsed || typeof parsed !== 'object' || !parsed.tracks || typeof parsed.tracks !== 'object') {
+    throw new Error('plik nie wygląda jak manualBeatmaps.json.');
+  }
+
+  return {
+    schemaVersion: parsed.schemaVersion ?? 2,
+    tracks: parsed.tracks,
+  };
+}
+
+function listBackupEntries(): BackupEntry[] {
+  return Object.keys(localStorage)
+    .filter((key) => key.startsWith(backupPrefix))
+    .sort((left, right) => right.localeCompare(left))
+    .map((key) => ({
+      key,
+      label: key.replace(backupPrefix, '').replace('T', ' ').slice(0, 19),
+    }));
 }

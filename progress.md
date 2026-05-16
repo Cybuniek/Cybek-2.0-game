@@ -23,6 +23,20 @@ TODO:
 - Jeśli projekt ma dalej korzystać z testów przeglądarkowych z umiejętności `develop-web-game`, dodać `playwright` jako dev dependency albo wskazać wspólną instalację.
 - Kolejny krok rytmu: ręcznie sprawdzić start okna WinUI, potem ułożyć pełne autorskie mapy dla trzech utworów i ewentualnie dodać kalibrację input laga.
 
+Beatmap Editor 2026-05-14:
+- Audyt: webowy edytor jest najlepszym docelowym workflow, bo siedzi obok runtime'u gry, ale brakowało mu jawnego importu pełnego `manualBeatmaps.json`, widocznego odzyskiwania backupów z `localStorage` i prostego eksportu katalogu pod docelową nazwą pliku.
+- Zmieniono mały zakres: edytor trzyma roboczy katalog beatmap w stanie Reacta, import/restore aktualizują bieżącą mapę, eksport pobiera `manualBeatmaps.json` i zapisuje backup w `localStorage`.
+- Dokumentacja: `DEV_NOTES.md` opisuje teraz praktyczny workflow developerski oraz nadal jawnie wskazuje ograniczenia względem WinUI.
+- Następny krok: rozważyć dopiero później File System Access API albo mały skrypt do podmiany pobranego JSON-a w repo, jeśli ręczna podmiana będzie zbyt uciążliwa.
+
+Runtime rytmu 2026-05-14:
+- Naprawiono wizualne "hamowanie" długich nut: pozycja nut w `getVisibleRhythmNotes` nie jest już zaciskana do dolnego progu toru, więc `hold/smash` jadą liniowo dalej, a znikanie robi naturalne przycięcie przez `overflow: hidden`.
+- Dodano test developerski pilnujący, że długa nuta po minięciu linii trafienia nadal zachowuje liniową prędkość.
+- Ujednolicono język wizualny gry i edytora: szerokie nuty zostały w edytorze i trafiły do runtime'u, a obszar nut w `Beatmap Editor` ma tory, linię trafienia i klawisze bliższe właściwej sekcji gry.
+- Doprecyzowano zgodność edytora z runtime'em: nuty w `Beatmap Editor` są renderowane wewnątrz konkretnych torów i używają bazowej klasy `.note`, żeby edycja dawała lepsze odniesienie do efektu docelowego w grze.
+- Po porównaniu screenów dopasowano edytor do układu runtime'u: cztery osobne tory z przerwami, osobne linie trafienia, klawisze w kolumnach oraz brak etykiet `tap` na samych nutach.
+- Naprawiono proporcje i nagrywanie edytora: `Zoom` zmienia okno czasu zamiast skalować DOM, okno `x1` bazuje na gameplayowym `travelMs`, zwykłe tapy powstają od razu na `keydown`, hold robi live preview podczas trzymania, a smash wymaga świadomego `Shift+S/D/K/L`.
+
 Patrol repozytorium 2026-05-12:
 - Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
 - Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.

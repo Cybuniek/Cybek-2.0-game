@@ -582,11 +582,11 @@ button:disabled {
   position: absolute;
   left: 50%;
   top: 10%;
-  width: 44px;
-  height: 24px;
+  width: min(76%, 132px);
+  height: 28px;
   transform: translate(-50%, -50%);
   border: 1px solid #ff2e88;
-  border-radius: 3px;
+  border-radius: 4px;
   background: #39ffe0;
   z-index: 2;
   box-shadow: 0 0 16px rgba(57, 255, 224, 0.48);
@@ -600,10 +600,10 @@ button:disabled {
 
 .note.hold,
 .note.smash {
-  width: 28px;
+  width: min(72%, 124px);
   height: var(--note-height, 14%);
   transform: translate(-50%, 0);
-  border-radius: 16px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #39ffe0, #ff5ee7);
   box-shadow: 0 0 16px rgba(57, 255, 224, 0.34);
 }
@@ -614,8 +614,8 @@ button:disabled {
   position: absolute;
   left: 50%;
   bottom: 0;
-  width: 42px;
-  height: 24px;
+  width: 100%;
+  height: 28px;
   transform: translate(-50%, 50%);
   border: 1px solid #ffdf6e;
   border-radius: 4px;
@@ -625,7 +625,7 @@ button:disabled {
 }
 
 .note.smash {
-  width: 46px;
+  width: min(78%, 140px);
   border-color: #ffe66d;
   overflow: hidden;
   background:
@@ -1074,7 +1074,8 @@ button:disabled {
 }
 
 .editor-stats,
-.validation {
+.validation,
+.editor-file-tools {
   display: grid;
   gap: 6px;
   padding: 10px;
@@ -1086,6 +1087,20 @@ button:disabled {
 
 .validation.error {
   border-color: #ff5e8f;
+}
+
+.editor-file-tools {
+  gap: 8px;
+}
+
+.editor-button-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.editor-hidden-input {
+  display: none;
 }
 
 .export-message {
@@ -1124,113 +1139,78 @@ button:disabled {
 .beatmap-editor-lanes {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 18px;
+  width: 100%;
+  max-width: 1040px;
+  height: 54vh;
+  max-height: 100%;
+  align-self: center;
+  margin: 0 auto;
   min-height: 0;
-  border: 2px solid #3ae6ff;
-  border-radius: 8px;
-  background:
-    linear-gradient(to bottom, rgba(55, 13, 87, 0.2), transparent 48%, rgba(255, 72, 228, 0.12)),
-    rgba(12, 8, 35, 0.92);
-  box-shadow: inset 0 0 0 1px rgba(255, 125, 241, 0.3), 0 0 26px rgba(58, 230, 255, 0.16);
-  overflow: hidden;
-  transform: scaleY(var(--editor-zoom));
-  transform-origin: center;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .beatmap-editor-lanes::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 52px),
-    repeating-linear-gradient(to right, transparent 0 calc(25% - 1px), rgba(58, 230, 255, 0.18) calc(25% - 1px) 25%);
+  content: none;
 }
 
 .editor-lane {
   position: relative;
-  border-right: 1px solid rgba(58, 230, 255, 0.24);
-}
-
-.editor-lane:last-child {
-  border-right: 0;
+  min-width: 0;
 }
 
 .lane-key {
   position: absolute;
   left: 50%;
-  bottom: calc(100% - var(--editor-hit-line) - 22px);
+  top: calc(var(--editor-hit-line) + 22px);
   z-index: 4;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  transform: translateX(-50%) rotate(45deg);
-  border: 2px solid #ff7df1;
-  background: #20103e;
+  min-width: 52px;
+  padding: 10px;
+  transform: translateX(-50%);
+  border: 1px solid #e8fff9;
+  background: rgba(7, 11, 19, 0.9);
   color: #ffffff;
+  font-size: 24px;
   font-weight: 800;
-  box-shadow: 0 0 16px rgba(255, 125, 241, 0.48);
-}
-
-.lane-key::first-letter {
-  transform: rotate(-45deg);
-}
-
-.editor-hit-line,
-.editor-playhead {
-  position: absolute;
-  left: 0;
-  right: 0;
-  z-index: 3;
-  pointer-events: none;
+  text-align: center;
+  box-shadow: 0 0 16px rgba(57, 255, 224, 0.28);
 }
 
 .editor-hit-line {
   top: var(--editor-hit-line);
-  height: 3px;
-  background: #ffffff;
-  box-shadow: 0 0 16px #3ae6ff;
-}
-
-.editor-playhead {
-  height: 42px;
-  transform: translateY(-20px);
-  border-top: 1px solid rgba(255, 125, 241, 0.85);
-  border-bottom: 1px solid rgba(255, 125, 241, 0.85);
-  background: rgba(255, 125, 241, 0.08);
+  pointer-events: none;
 }
 
 .editor-note {
-  position: absolute;
   z-index: 5;
-  min-height: 34px;
   display: grid;
   place-items: center;
   padding: 4px;
-  border: 2px solid #f7fbff;
-  border-radius: 8px;
-  background: #e949ff;
-  color: #ffffff;
+  color: #07111a;
   font-size: 12px;
   font-weight: 800;
-  transform: translateY(-50%);
+  font-family: inherit;
+  transform: translate(-50%, -50%);
   touch-action: none;
   user-select: none;
 }
 
 .editor-note.hold {
   align-items: end;
-  background: linear-gradient(to bottom, rgba(57, 255, 224, 0.18), #24e0c9);
-  color: #07111a;
-  transform: none;
+  color: #ffffff;
+  transform: translate(-50%, 0);
 }
 
 .editor-note.smash {
   align-items: end;
-  background: repeating-linear-gradient(to bottom, #ffcf4d 0 7px, #ad7a19 7px 13px);
-  color: #160d03;
-  transform: none;
+  color: #070710;
+  transform: translate(-50%, 0);
 }
 
 .editor-note.selected {
@@ -1247,6 +1227,13 @@ button:disabled {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.82);
   cursor: ns-resize;
+  opacity: 0.18;
+  transition: opacity 120ms ease;
+}
+
+.editor-note:hover .resize-handle,
+.editor-note.selected .resize-handle {
+  opacity: 0.82;
 }
 
 .editor-help {

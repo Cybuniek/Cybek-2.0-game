@@ -2,532 +2,529 @@
   "schemaVersion": 2,
   "tracks": {
     "wystep-czekamy-czekamy": {
-      "\u0141atwy": {
+      "Łatwy": {
         "trackId": "wystep-czekamy-czekamy",
         "bpm": 122,
         "sourceStartMs": 0,
-        "sourceEndMs": 98635,
-        "durationMs": 98635,
+        "sourceEndMs": 98800,
+        "audioDurationMs": 98800,
+        "durationMs": 98800,
+        "source": "manual",
         "notes": [
           {
             "id": "edit-S-431-9gf.weeeeb5n",
             "lane": "S",
-            "timeMs": 491,
+            "timeMs": 431,
             "kind": "hold",
             "durationMs": 610
           },
           {
             "id": "edit-D-1323-a55.sssssuf7",
             "lane": "D",
-            "timeMs": 1352
+            "timeMs": 1323
           },
           {
             "id": "edit-D-1789-aia.eeeeeb5n",
             "lane": "D",
-            "timeMs": 1844
+            "timeMs": 1789
           },
           {
             "id": "edit-K-3039-bh0.3lllloud",
             "lane": "K",
-            "timeMs": 3073
+            "timeMs": 3039
           },
           {
             "id": "edit-K-3481-bt5.weeeeb5n",
             "lane": "K",
-            "timeMs": 3442
+            "timeMs": 3481
           },
           {
             "id": "edit-L-3581-bvz.sssssuf7",
             "lane": "L",
-            "timeMs": 3565
+            "timeMs": 3581
           },
           {
             "id": "edit-S-4072-c9q.777775kt",
             "lane": "S",
-            "timeMs": 4057,
+            "timeMs": 4072,
             "kind": "hold",
             "durationMs": 626
           },
           {
             "id": "edit-D-4939-cxu.assssuf7",
             "lane": "D",
-            "timeMs": 4918
+            "timeMs": 4939
           },
           {
             "id": "edit-D-5381-d9x.p77775kt",
             "lane": "D",
-            "timeMs": 5409
+            "timeMs": 5381
           },
           {
             "id": "edit-K-5831-dme.sssssuf7",
             "lane": "K",
-            "timeMs": 5778
+            "timeMs": 5831
           },
           {
             "id": "edit-K-6282-dz5.3lllloud",
             "lane": "K",
-            "timeMs": 6270
+            "timeMs": 6282
           },
           {
             "id": "edit-K-6756-ecb.llllloud",
             "lane": "K",
-            "timeMs": 6762
+            "timeMs": 6756
           },
           {
             "id": "edit-D-7165-enl.sssssuf7",
             "lane": "D",
-            "timeMs": 7131
+            "timeMs": 7165
           },
           {
             "id": "edit-S-7722-f33.llllloud",
             "lane": "S",
-            "timeMs": 7745,
+            "timeMs": 7722,
             "kind": "hold",
             "durationMs": 643
           },
           {
             "id": "edit-D-8514-foy.eeeeeb5n",
             "lane": "D",
-            "timeMs": 8483
+            "timeMs": 8514
           },
           {
             "id": "edit-D-9048-g3s",
             "lane": "D",
-            "timeMs": 9098
+            "timeMs": 9048
           },
           {
             "id": "edit-L-9323-gbf.sssssuf7",
             "lane": "L",
-            "timeMs": 9344
+            "timeMs": 9323
           },
           {
             "id": "edit-K-9523-gh1.p77775kt",
             "lane": "K",
-            "timeMs": 9467
+            "timeMs": 9523
           },
           {
             "id": "edit-K-9931-gsd.weeeeb5n",
             "lane": "K",
-            "timeMs": 9959
+            "timeMs": 9931
           },
           {
             "id": "edit-L-10439-h6d.sssssuf7",
             "lane": "L",
-            "timeMs": 10450,
+            "timeMs": 10439,
             "kind": "hold",
             "durationMs": 267
           },
           {
             "id": "edit-S-10923-hjx.llllloud",
             "lane": "S",
-            "timeMs": 10942
+            "timeMs": 10923
           },
           {
             "id": "edit-S-11390-hx0.3lllloud",
             "lane": "S",
-            "timeMs": 11434,
+            "timeMs": 11390,
             "kind": "hold",
             "durationMs": 808
           },
           {
             "id": "edit-D-12290-ily.p77775kt",
             "lane": "D",
-            "timeMs": 12295
+            "timeMs": 12290
           },
           {
             "id": "edit-D-12739-iya.sssssuf7",
             "lane": "D",
-            "timeMs": 12786
+            "timeMs": 12739
           },
           {
             "id": "edit-K-13923-jvc.eeeeeb5n",
             "lane": "K",
-            "timeMs": 13893
+            "timeMs": 13923
           },
           {
             "id": "edit-L-14431-k9h.llllloud",
             "lane": "L",
-            "timeMs": 14385
+            "timeMs": 14431
           },
           {
             "id": "edit-S-15032-kq5.eeeeeb5n",
             "lane": "S",
-            "timeMs": 15000,
+            "timeMs": 15032,
             "kind": "hold",
             "durationMs": 723
           },
           {
             "id": "edit-D-15932-lf5.777775kt",
             "lane": "D",
-            "timeMs": 15983,
+            "timeMs": 15932,
             "kind": "hold",
             "durationMs": 666
           },
           {
             "id": "edit-K-16756-m1x.p77775kt",
             "lane": "K",
-            "timeMs": 16721,
+            "timeMs": 16756,
             "kind": "hold",
             "durationMs": 717
           },
           {
             "id": "edit-L-17681-mrn.sssssuf7",
             "lane": "L",
-            "timeMs": 17704,
+            "timeMs": 17681,
             "kind": "hold",
             "durationMs": 700
           },
           {
             "id": "edit-S-18606-nhb.p77775kt",
             "lane": "S",
-            "timeMs": 18565
+            "timeMs": 18606
           },
           {
             "id": "edit-D-18739-nl0.3lllloud",
             "lane": "D",
-            "timeMs": 18688
+            "timeMs": 18739
           },
           {
             "id": "edit-S-19081-nuj.p77775kt",
             "lane": "S",
-            "timeMs": 19057
+            "timeMs": 19081
           },
           {
             "id": "edit-D-19198-nxw.i",
             "lane": "D",
-            "timeMs": 19180
+            "timeMs": 19198
           },
           {
             "id": "edit-K-19573-o83.sssssuf7",
             "lane": "K",
-            "timeMs": 19549,
+            "timeMs": 19573,
             "kind": "hold",
             "durationMs": 715
           },
           {
             "id": "edit-L-20432-ow4.llllloud",
             "lane": "L",
-            "timeMs": 20409
+            "timeMs": 20432
           },
           {
             "id": "edit-K-20598-p0k.llllloud",
             "lane": "K",
-            "timeMs": 20655
+            "timeMs": 20598
           },
           {
             "id": "edit-L-20890-p8y.eeeeeb5n",
             "lane": "L",
-            "timeMs": 20901
+            "timeMs": 20890
           },
           {
             "id": "edit-K-21015-pcc.assssuf",
             "lane": "K",
-            "timeMs": 21024
+            "timeMs": 21015
           },
           {
             "id": "edit-S-21314-pki.sssssuf",
             "lane": "S",
-            "timeMs": 21270,
+            "timeMs": 21314,
             "kind": "hold",
             "durationMs": 492
           },
           {
             "id": "edit-D-21748-pws",
             "lane": "D",
-            "timeMs": 21762,
+            "timeMs": 21748,
             "kind": "hold",
             "durationMs": 648
           },
           {
             "id": "edit-K-22464-qgl.weeeeb5n",
             "lane": "K",
-            "timeMs": 22500
+            "timeMs": 22464
           },
           {
             "id": "edit-L-22865-qrp.weeeeb5n",
             "lane": "L",
-            "timeMs": 22868
+            "timeMs": 22865
           },
           {
             "id": "edit-K-23265-r2u.777775l",
             "lane": "K",
-            "timeMs": 23237
+            "timeMs": 23265
           },
           {
             "id": "edit-L-23731-rfo.llllloud",
             "lane": "L",
-            "timeMs": 23729
+            "timeMs": 23731
           },
           {
             "id": "edit-S-24140-rr2.weeeeb5n",
             "lane": "S",
-            "timeMs": 24098
+            "timeMs": 24140
           },
           {
             "id": "edit-D-24548-s2j.llllloud",
             "lane": "D",
-            "timeMs": 24590
+            "timeMs": 24548
           },
           {
             "id": "edit-S-25024-sfp.sssssuf",
             "lane": "S",
-            "timeMs": 25081
+            "timeMs": 25024
           },
           {
             "id": "edit-D-25449-srf.777775l",
             "lane": "D",
-            "timeMs": 25450,
+            "timeMs": 25449,
             "kind": "hold",
             "durationMs": 267
           },
           {
             "id": "edit-K-25923-t4o.i",
             "lane": "K",
-            "timeMs": 25942
+            "timeMs": 25923
           },
           {
             "id": "edit-L-26024-t7c.sssssuf",
             "lane": "L",
-            "timeMs": 26065
-          },
-          {
-            "id": "edit-K-26249-tdl.weeeeb5n",
-            "lane": "K",
-            "timeMs": 26188
+            "timeMs": 26024
           },
           {
             "id": "edit-L-26140-taq.weeeeb5n",
             "lane": "L",
-            "timeMs": 26188
+            "timeMs": 26140
+          },
+          {
+            "id": "edit-K-26249-tdl.weeeeb5n",
+            "lane": "K",
+            "timeMs": 26249
           },
           {
             "id": "edit-L-26431-tit",
             "lane": "L",
-            "timeMs": 26434
+            "timeMs": 26431
           },
           {
             "id": "edit-K-26499-tkn.777775l",
             "lane": "K",
-            "timeMs": 26557
+            "timeMs": 26499
           },
           {
             "id": "edit-S-26939-tww.weeeeb5n",
             "lane": "S",
-            "timeMs": 26926,
+            "timeMs": 26939,
             "kind": "hold",
             "durationMs": 302
           },
           {
             "id": "edit-D-27339-u82.i",
             "lane": "D",
-            "timeMs": 27295
+            "timeMs": 27339
           },
           {
             "id": "edit-K-27856-um9.p77775l",
             "lane": "K",
-            "timeMs": 27909
+            "timeMs": 27856
           },
           {
             "id": "edit-K-28006-uqj.eeeeeb5n",
             "lane": "K",
-            "timeMs": 28032
+            "timeMs": 28006
           },
           {
             "id": "edit-K-28182-uvh.eeeeeb5n",
             "lane": "K",
-            "timeMs": 28155
+            "timeMs": 28182
           },
           {
             "id": "edit-K-28349-uzx.llllloud",
             "lane": "K",
-            "timeMs": 28401
+            "timeMs": 28349
           },
           {
             "id": "edit-S-28590-v6o.p77775l",
             "lane": "S",
-            "timeMs": 28647
+            "timeMs": 28590
           },
           {
             "id": "edit-L-29065-vjy",
             "lane": "L",
-            "timeMs": 29016,
+            "timeMs": 29065,
             "kind": "hold",
             "durationMs": 590
           },
           {
             "id": "edit-D-30506-wo0.p77775l",
             "lane": "D",
-            "timeMs": 30491
+            "timeMs": 30506
           },
           {
             "id": "edit-K-30940-wzx.weeeeb5n",
             "lane": "K",
-            "timeMs": 30983
+            "timeMs": 30940
           },
           {
             "id": "edit-D-31440-xdy.3lllloud",
             "lane": "D",
-            "timeMs": 31475
+            "timeMs": 31440
           },
           {
             "id": "edit-K-31881-xq1.p77775l",
             "lane": "K",
-            "timeMs": 31844
+            "timeMs": 31881
           },
           {
             "id": "edit-D-32356-y3a.p77775l",
             "lane": "D",
-            "timeMs": 32336
+            "timeMs": 32356
           },
           {
             "id": "edit-K-32798-yfq.3lllloud",
             "lane": "K",
-            "timeMs": 32827
+            "timeMs": 32798
           },
           {
             "id": "edit-S-33257-ysg.777775l",
             "lane": "S",
-            "timeMs": 33196
+            "timeMs": 33257
           },
           {
             "id": "edit-L-33698-z4i.sssssuf",
             "lane": "L",
-            "timeMs": 33688
+            "timeMs": 33698
           },
           {
             "id": "edit-D-34132-zgl.p77775l",
             "lane": "D",
-            "timeMs": 34180
+            "timeMs": 34132
           },
           {
             "id": "edit-K-34582-zt8.777775l",
             "lane": "K",
-            "timeMs": 34549
+            "timeMs": 34582
           },
           {
             "id": "edit-S-35057-106a.sssssuf",
             "lane": "S",
-            "timeMs": 35040
+            "timeMs": 35057
           },
           {
             "id": "edit-D-35515-10j6",
             "lane": "D",
-            "timeMs": 35532
+            "timeMs": 35515
           },
           {
             "id": "edit-L-35973-10vv.p77775l",
             "lane": "L",
-            "timeMs": 36024
+            "timeMs": 35973
           },
           {
             "id": "edit-K-36424-1187.p77775l",
             "lane": "K",
-            "timeMs": 36393
+            "timeMs": 36424
           },
           {
             "id": "edit-S-36873-11ku.i",
             "lane": "S",
-            "timeMs": 36885
+            "timeMs": 36873
           },
           {
             "id": "edit-S-37414-11zp.p77775l",
             "lane": "S",
-            "timeMs": 37377
+            "timeMs": 37414
           },
           {
             "id": "edit-L-37798-12af.sssssuf",
             "lane": "L",
-            "timeMs": 37745
+            "timeMs": 37798
           },
           {
             "id": "edit-L-38256-12n6.p77775l",
             "lane": "L",
-            "timeMs": 38237
+            "timeMs": 38256
           },
           {
             "id": "edit-D-38698-12zm.777775l",
             "lane": "D",
-            "timeMs": 38729
+            "timeMs": 38698
           },
           {
             "id": "edit-K-38698-12zf.sssssuf",
             "lane": "K",
-            "timeMs": 38729
+            "timeMs": 38698
           },
           {
             "id": "edit-D-39182-13cz.p77775l",
             "lane": "D",
-            "timeMs": 39221
+            "timeMs": 39182
           },
           {
             "id": "edit-K-39182-13cu.sssssuf",
             "lane": "K",
-            "timeMs": 39221
+            "timeMs": 39182
           },
           {
             "id": "edit-S-39598-13ok.sssssuf",
             "lane": "S",
-            "timeMs": 39590
+            "timeMs": 39598
           },
           {
             "id": "edit-L-40098-142f.assssuf",
             "lane": "L",
-            "timeMs": 40081
+            "timeMs": 40098
           },
           {
             "id": "edit-D-40564-14f8.sssssuf",
             "lane": "D",
-            "timeMs": 40573
+            "timeMs": 40564
           },
           {
             "id": "edit-K-41032-14s8.p77775l",
             "lane": "K",
-            "timeMs": 41065
+            "timeMs": 41032
           },
           {
             "id": "edit-D-41482-154p.sssssuf",
             "lane": "D",
-            "timeMs": 41434
+            "timeMs": 41482
           },
           {
             "id": "edit-K-41907-15go",
             "lane": "K",
-            "timeMs": 41926
-          },
-          {
-            "id": "edit-L-42330-15sa.sssssuf",
-            "lane": "L",
-            "timeMs": 42295
+            "timeMs": 41907
           },
           {
             "id": "edit-S-42315-15rx.weeeeb5n",
             "lane": "S",
-            "timeMs": 42295
+            "timeMs": 42315
           },
           {
-            "id": "edit-L-42556-15yn.weeeeb5n",
+            "id": "edit-L-42330-15sa.sssssuf",
             "lane": "L",
-            "timeMs": 42540
+            "timeMs": 42330
           },
           {
             "id": "edit-S-42556-15yt.3lllloud",
             "lane": "S",
-            "timeMs": 42540
+            "timeMs": 42556
+          },
+          {
+            "id": "edit-L-42556-15yn.weeeeb5n",
+            "lane": "L",
+            "timeMs": 42556
           },
           {
             "id": "edit-L-42799-165d.777775l",
             "lane": "L",
-            "timeMs": 42786
+            "timeMs": 42799
           },
           {
             "id": "edit-S-42818-165x.sssssuf",
             "lane": "S",
-            "timeMs": 42786
-          },
-          {
-            "id": "edit-L-43032-16bs.llllloud",
-            "lane": "L",
-            "timeMs": 43032
+            "timeMs": 42818
           },
           {
             "id": "edit-S-43032-16c0",
@@ -535,214 +532,219 @@
             "timeMs": 43032
           },
           {
+            "id": "edit-L-43032-16bs.llllloud",
+            "lane": "L",
+            "timeMs": 43032
+          },
+          {
             "id": "edit-L-43299-16j9.sssssuf",
             "lane": "L",
-            "timeMs": 43278
+            "timeMs": 43299
           },
           {
             "id": "edit-S-43309-16jk.p77775l",
             "lane": "S",
-            "timeMs": 43278
+            "timeMs": 43309
           },
           {
             "id": "edit-K-43748-16vt.i",
             "lane": "K",
-            "timeMs": 43770
+            "timeMs": 43748
           },
           {
             "id": "edit-D-44257-179u.3lllloud",
             "lane": "D",
-            "timeMs": 44262,
+            "timeMs": 44257,
             "kind": "hold",
             "durationMs": 692
           },
           {
             "id": "edit-L-45073-17wk.sssssuf",
             "lane": "L",
-            "timeMs": 45122
+            "timeMs": 45073
           },
           {
             "id": "edit-L-45523-1894.777775l",
             "lane": "L",
-            "timeMs": 45491
+            "timeMs": 45523
           },
           {
             "id": "edit-K-45873-18iq",
             "lane": "K",
-            "timeMs": 45860
+            "timeMs": 45873
           },
           {
             "id": "edit-D-46056-18nu.weeeeb5n",
             "lane": "D",
-            "timeMs": 46106
+            "timeMs": 46056
           },
           {
             "id": "edit-D-46498-1903.sssssuf",
             "lane": "D",
-            "timeMs": 46475
+            "timeMs": 46498
           },
           {
             "id": "edit-D-46940-19ci.777775l",
             "lane": "D",
-            "timeMs": 46967,
+            "timeMs": 46940,
             "kind": "hold",
             "durationMs": 758
           },
           {
             "id": "edit-L-47381-19ol.sssssuf",
             "lane": "L",
-            "timeMs": 47336,
+            "timeMs": 47381,
             "kind": "hold",
             "durationMs": 651
           },
           {
             "id": "edit-D-48065-1a7q.777775l",
             "lane": "D",
-            "timeMs": 48073
+            "timeMs": 48065
           },
           {
             "id": "edit-D-48774-1arb.p77775l",
             "lane": "D",
-            "timeMs": 48811
+            "timeMs": 48774
           },
           {
             "id": "edit-K-49256-1b4r.sssssuf",
             "lane": "K",
-            "timeMs": 49303
-          },
-          {
-            "id": "edit-L-50623-1c6y.777775l",
-            "lane": "L",
-            "timeMs": 50655
+            "timeMs": 49256
           },
           {
             "id": "edit-S-50623-1c6s.p77775l",
             "lane": "S",
-            "timeMs": 50655
+            "timeMs": 50623
+          },
+          {
+            "id": "edit-L-50623-1c6y.777775l",
+            "lane": "L",
+            "timeMs": 50623
           },
           {
             "id": "edit-D-50998-1chb.llllloud",
             "lane": "D",
-            "timeMs": 51024
+            "timeMs": 50998
           },
           {
             "id": "edit-K-50998-1ch5.p77775l",
             "lane": "K",
-            "timeMs": 51024
+            "timeMs": 50998
           },
           {
             "id": "edit-K-51550-1cwm",
             "lane": "K",
-            "timeMs": 51516
+            "timeMs": 51550
           },
           {
             "id": "edit-K-51974-1d8b.eeeeeb5n",
             "lane": "K",
-            "timeMs": 52008
+            "timeMs": 51974
           },
           {
             "id": "edit-D-52398-1dk1.p77775l",
             "lane": "D",
-            "timeMs": 52377
+            "timeMs": 52398
           },
           {
             "id": "edit-K-52848-1dwf.i",
             "lane": "K",
-            "timeMs": 52868
+            "timeMs": 52848
           },
           {
             "id": "edit-S-53315-1e9k.assssuf",
             "lane": "S",
-            "timeMs": 53360
+            "timeMs": 53315
           },
           {
             "id": "edit-S-53740-1elg.eeeeeb6",
             "lane": "S",
-            "timeMs": 53729
+            "timeMs": 53740
           },
           {
             "id": "edit-L-54156-1ex0",
             "lane": "L",
-            "timeMs": 54098
+            "timeMs": 54156
           },
           {
             "id": "edit-S-54656-1faq.lllllou",
             "lane": "S",
-            "timeMs": 54713
+            "timeMs": 54656
           },
           {
             "id": "edit-D-55132-1fo1.assssuf",
             "lane": "D",
-            "timeMs": 55081
+            "timeMs": 55132
           },
           {
             "id": "edit-D-55623-1g1p.p77775l",
             "lane": "D",
-            "timeMs": 55573
+            "timeMs": 55623
           },
           {
             "id": "edit-K-56040-1gdc.3llllou",
             "lane": "K",
-            "timeMs": 56065
+            "timeMs": 56040
           },
           {
             "id": "edit-D-56481-1gpd.lllllou",
             "lane": "D",
-            "timeMs": 56434
+            "timeMs": 56481
           },
           {
             "id": "edit-L-56882-1h0n.777775l",
             "lane": "L",
-            "timeMs": 56926
+            "timeMs": 56882
           },
           {
             "id": "edit-L-57332-1hd5.assssuf",
             "lane": "L",
-            "timeMs": 57295
+            "timeMs": 57332
           },
           {
             "id": "edit-S-57765-1hp3.lllllou",
             "lane": "S",
-            "timeMs": 57786
+            "timeMs": 57765
           },
           {
             "id": "edit-D-58223-1i1x.eeeeeb6",
             "lane": "D",
-            "timeMs": 58278,
+            "timeMs": 58223,
             "kind": "hold",
             "durationMs": 533
           },
           {
             "id": "edit-K-58223-1i1s.sssssuf",
             "lane": "K",
-            "timeMs": 58278,
+            "timeMs": 58223,
             "kind": "hold",
             "durationMs": 500
           },
           {
             "id": "edit-K-58890-1ikj.3llllou",
             "lane": "K",
-            "timeMs": 58893
+            "timeMs": 58890
           },
           {
             "id": "edit-K-59365-1ixi.p77775l",
             "lane": "K",
-            "timeMs": 59385
+            "timeMs": 59365
           },
           {
             "id": "edit-D-59740-1j7y.lllllou",
             "lane": "D",
-            "timeMs": 59754
+            "timeMs": 59740
           },
           {
             "id": "edit-D-60224-1jlj",
             "lane": "D",
-            "timeMs": 60245
+            "timeMs": 60224
           },
           {
             "id": "edit-S-60682-1jy3.p77775l",
             "lane": "S",
-            "timeMs": 60737
+            "timeMs": 60682
           },
           {
             "id": "edit-L-61106-1ka1.p77775l",
@@ -752,131 +754,131 @@
           {
             "id": "edit-S-61523-1kll.3llllou",
             "lane": "S",
-            "timeMs": 61475
+            "timeMs": 61523
           },
           {
             "id": "edit-S-61957-1kxo.p77775l",
             "lane": "S",
-            "timeMs": 61967
+            "timeMs": 61957
           },
           {
             "id": "edit-L-62381-1l99.lllllou",
             "lane": "L",
-            "timeMs": 62336
+            "timeMs": 62381
           },
           {
             "id": "edit-L-62824-1lls.weeeeb6",
             "lane": "L",
-            "timeMs": 62827
+            "timeMs": 62824
           },
           {
             "id": "edit-K-63273-1ly8.weeeeb6",
             "lane": "K",
-            "timeMs": 63319
+            "timeMs": 63273
           },
           {
             "id": "edit-K-63757-1mbg.lllllou",
             "lane": "K",
-            "timeMs": 63811
+            "timeMs": 63757
           },
           {
             "id": "edit-S-64190-1mno.3llllou",
             "lane": "S",
-            "timeMs": 64180
+            "timeMs": 64190
           },
           {
             "id": "edit-S-64673-1n12.weeeeb6",
             "lane": "S",
-            "timeMs": 64672
+            "timeMs": 64673
           },
           {
             "id": "edit-D-65124-1ndi.lllllou",
             "lane": "D",
-            "timeMs": 65163
+            "timeMs": 65124
           },
           {
             "id": "edit-D-65540-1np5.p77775l",
             "lane": "D",
-            "timeMs": 65532,
+            "timeMs": 65540,
             "kind": "hold",
             "durationMs": 550
           },
           {
             "id": "edit-K-65540-1npc.777775l",
             "lane": "K",
-            "timeMs": 65532,
+            "timeMs": 65540,
             "kind": "hold",
             "durationMs": 508
           },
           {
             "id": "edit-K-66282-1o9r.lllllou",
             "lane": "K",
-            "timeMs": 66270
+            "timeMs": 66282
           },
           {
             "id": "edit-K-66707-1olf.lllllou",
             "lane": "K",
-            "timeMs": 66762
+            "timeMs": 66707
           },
           {
             "id": "edit-D-67132-1oxi.eeeeeb6",
             "lane": "D",
-            "timeMs": 67131
+            "timeMs": 67132
           },
           {
             "id": "edit-D-67490-1p7b.i",
             "lane": "D",
-            "timeMs": 67500
+            "timeMs": 67490
           },
           {
             "id": "edit-L-67898-1pio.i",
             "lane": "L",
-            "timeMs": 67868
+            "timeMs": 67898
           },
           {
             "id": "edit-S-68220-1prn.lllllou",
             "lane": "S",
-            "timeMs": 68237
+            "timeMs": 68220
           },
           {
             "id": "edit-L-68481-1pyq.lllllou",
             "lane": "L",
-            "timeMs": 68483
+            "timeMs": 68481
           },
           {
             "id": "edit-S-68715-1q5c.weeeeb6",
             "lane": "S",
-            "timeMs": 68729
+            "timeMs": 68715
           },
           {
             "id": "edit-L-68890-1qae.eeeeeb6",
             "lane": "L",
-            "timeMs": 68852
+            "timeMs": 68890
           },
           {
             "id": "edit-K-69265-1qkj.sssssuf",
             "lane": "K",
-            "timeMs": 69221
+            "timeMs": 69265
           },
           {
             "id": "edit-D-69514-1qrn.lllllou",
             "lane": "D",
-            "timeMs": 69467
+            "timeMs": 69514
           },
           {
             "id": "edit-L-69790-1qz9.assssuf",
             "lane": "L",
-            "timeMs": 69836
+            "timeMs": 69790
           },
           {
             "id": "edit-L-70261-1rc8.3llllou",
             "lane": "L",
-            "timeMs": 70204
+            "timeMs": 70261
           },
           {
             "id": "edit-L-70673-1rnr.p77775l",
             "lane": "L",
-            "timeMs": 70696
+            "timeMs": 70673
           },
           {
             "id": "edit-S-71065-1ryn.sssssuf",
@@ -886,204 +888,204 @@
           {
             "id": "edit-K-71282-1s4i.lllllou",
             "lane": "K",
-            "timeMs": 71311
+            "timeMs": 71282
           },
           {
             "id": "edit-D-71507-1sax.weeeeb6",
             "lane": "D",
-            "timeMs": 71557
+            "timeMs": 71507
           },
           {
             "id": "edit-K-71848-1skg.weeeeb6",
             "lane": "K",
-            "timeMs": 71803
+            "timeMs": 71848
           },
           {
             "id": "edit-D-71965-1snr.eeeeeb6",
             "lane": "D",
-            "timeMs": 71926
+            "timeMs": 71965
           },
           {
             "id": "edit-K-72083-1sqw.lllllou",
             "lane": "K",
-            "timeMs": 72049
+            "timeMs": 72083
           },
           {
             "id": "edit-D-72282-1swa.lllllou",
             "lane": "D",
-            "timeMs": 72295
+            "timeMs": 72282
           },
           {
             "id": "edit-K-72440-1t0q.p77775l",
             "lane": "K",
-            "timeMs": 72418
+            "timeMs": 72440
           },
           {
             "id": "edit-S-72789-1taj.weeeeb6",
             "lane": "S",
-            "timeMs": 72786,
+            "timeMs": 72789,
             "kind": "hold",
             "durationMs": 583
           },
           {
             "id": "edit-K-73507-1tuh.weeeeb6",
             "lane": "K",
-            "timeMs": 73524
+            "timeMs": 73507
           },
           {
             "id": "edit-K-73932-1u69.i",
             "lane": "K",
-            "timeMs": 73893
+            "timeMs": 73932
           },
           {
             "id": "edit-D-74323-1ugy.p77775l",
             "lane": "D",
-            "timeMs": 74262
+            "timeMs": 74323
           },
           {
             "id": "edit-D-74732-1usf.p77775l",
             "lane": "D",
-            "timeMs": 74754
+            "timeMs": 74732
           },
           {
             "id": "edit-L-75007-1v08.eeeeeb6",
             "lane": "L",
-            "timeMs": 75000
+            "timeMs": 75007
           },
           {
             "id": "edit-S-75248-1v6r.lllllou",
             "lane": "S",
-            "timeMs": 75245
+            "timeMs": 75248
           },
           {
             "id": "edit-S-75714-1vjp.i",
             "lane": "S",
-            "timeMs": 75737
+            "timeMs": 75714
           },
           {
             "id": "edit-S-76190-1vww.p77775l",
             "lane": "S",
-            "timeMs": 76229
+            "timeMs": 76190
           },
           {
             "id": "edit-D-76499-1w5j.lllllou",
             "lane": "D",
-            "timeMs": 76475
+            "timeMs": 76499
           },
           {
             "id": "edit-K-76765-1wcy.weeeeb6",
             "lane": "K",
-            "timeMs": 76721
+            "timeMs": 76765
           },
           {
             "id": "edit-D-77073-1wlk",
             "lane": "D",
-            "timeMs": 77090
+            "timeMs": 77073
           },
           {
             "id": "edit-D-77531-1wy5.p77775l",
             "lane": "D",
-            "timeMs": 77581
+            "timeMs": 77531
           },
           {
             "id": "edit-D-77907-1x8p.p77775l",
             "lane": "D",
-            "timeMs": 77950
+            "timeMs": 77907
           },
           {
             "id": "edit-K-78306-1xjt.777775l",
             "lane": "K",
-            "timeMs": 78319
+            "timeMs": 78306
           },
           {
             "id": "edit-D-78548-1xqk.777775l",
             "lane": "D",
-            "timeMs": 78565
+            "timeMs": 78548
           },
           {
             "id": "edit-L-78815-1xxr.lllllou",
             "lane": "L",
-            "timeMs": 78811
+            "timeMs": 78815
           },
           {
             "id": "edit-S-78981-1y2e.lllllou",
             "lane": "S",
-            "timeMs": 78934
+            "timeMs": 78981
           },
           {
             "id": "edit-L-79214-1y94.777775l",
             "lane": "L",
-            "timeMs": 79180
+            "timeMs": 79214
           },
           {
             "id": "edit-S-79381-1ydn.3llllou",
             "lane": "S",
-            "timeMs": 79426
+            "timeMs": 79381
           },
           {
             "id": "edit-L-79506-1yh1.lllllou",
             "lane": "L",
-            "timeMs": 79549
+            "timeMs": 79506
           },
           {
             "id": "edit-S-79682-1ym0",
             "lane": "S",
-            "timeMs": 79672
-          },
-          {
-            "id": "edit-D-79840-1yqf.777775l",
-            "lane": "D",
-            "timeMs": 79795,
-            "kind": "hold",
-            "durationMs": 791
+            "timeMs": 79682
           },
           {
             "id": "edit-K-79773-1yol.777775l",
             "lane": "K",
-            "timeMs": 79795,
+            "timeMs": 79773,
             "kind": "hold",
             "durationMs": 800
           },
           {
+            "id": "edit-D-79840-1yqf.777775l",
+            "lane": "D",
+            "timeMs": 79840,
+            "kind": "hold",
+            "durationMs": 791
+          },
+          {
             "id": "edit-K-80915-1zk6.lllllou",
             "lane": "K",
-            "timeMs": 80901,
+            "timeMs": 80915,
             "kind": "hold",
             "durationMs": 341
           },
           {
             "id": "edit-D-81181-1zrk.p77775l",
             "lane": "D",
-            "timeMs": 81147,
+            "timeMs": 81181,
             "kind": "hold",
             "durationMs": 325
           },
           {
             "id": "edit-K-81732-206t.sssssuf",
             "lane": "K",
-            "timeMs": 81762
+            "timeMs": 81732
           },
           {
             "id": "edit-D-82191-20jt.weeeeb6",
             "lane": "D",
-            "timeMs": 82131
+            "timeMs": 82191
           },
           {
             "id": "edit-K-82456-20r1.sssssuf",
             "lane": "K",
-            "timeMs": 82500
+            "timeMs": 82456
           },
           {
             "id": "edit-D-82656-20wj.i",
             "lane": "D",
-            "timeMs": 82622,
+            "timeMs": 82656,
             "kind": "hold",
             "durationMs": 516
           },
           {
             "id": "edit-K-83149-21a7.p77775l",
             "lane": "K",
-            "timeMs": 83114,
+            "timeMs": 83149,
             "kind": "hold",
             "durationMs": 266
           },
@@ -1097,151 +1099,156 @@
           {
             "id": "edit-D-84092-220j.lllllou",
             "lane": "D",
-            "timeMs": 84098,
+            "timeMs": 84092,
             "kind": "hold",
             "durationMs": 681
           },
           {
             "id": "edit-K-84765-22j9.i",
             "lane": "K",
-            "timeMs": 84713
+            "timeMs": 84765
           },
           {
             "id": "edit-L-84813-22ko.i",
             "lane": "L",
-            "timeMs": 84836,
+            "timeMs": 84813,
             "kind": "hold",
             "durationMs": 302
           },
           {
             "id": "edit-S-85256-22ws.lllllou",
             "lane": "S",
-            "timeMs": 85204,
+            "timeMs": 85256,
             "kind": "hold",
             "durationMs": 624
           },
           {
             "id": "edit-L-85891-23ef.i",
             "lane": "L",
-            "timeMs": 85942
+            "timeMs": 85891
           },
           {
             "id": "edit-D-86214-23nc.weeeeb6",
             "lane": "D",
-            "timeMs": 86188,
+            "timeMs": 86214,
             "kind": "hold",
             "durationMs": 359
           },
           {
             "id": "edit-K-86590-23xv.weeeeb6",
             "lane": "K",
-            "timeMs": 86557,
+            "timeMs": 86590,
             "kind": "hold",
             "durationMs": 292
           },
           {
             "id": "edit-S-87065-24b8.sssssuf",
             "lane": "S",
-            "timeMs": 87049,
+            "timeMs": 87065,
             "kind": "hold",
             "durationMs": 574
           },
           {
             "id": "edit-L-87615-24q8.lllllou",
             "lane": "L",
-            "timeMs": 87663,
+            "timeMs": 87615,
             "kind": "hold",
             "durationMs": 359
           },
           {
             "id": "edit-D-88398-25bz.p77775l",
             "lane": "D",
-            "timeMs": 88401
+            "timeMs": 88398
           },
           {
             "id": "edit-K-88407-25cc.p77775l",
             "lane": "K",
-            "timeMs": 88401
-          },
-          {
-            "id": "edit-L-89264-2601.weeeeb6",
-            "lane": "L",
-            "timeMs": 89262,
-            "kind": "hold",
-            "durationMs": 468
+            "timeMs": 88407
           },
           {
             "id": "edit-S-89264-2609",
             "lane": "S",
-            "timeMs": 89262,
+            "timeMs": 89264,
+            "kind": "hold",
+            "durationMs": 468
+          },
+          {
+            "id": "edit-L-89264-2601.weeeeb6",
+            "lane": "L",
+            "timeMs": 89264,
             "kind": "hold",
             "durationMs": 468
           },
           {
             "id": "edit-D-89906-26i5.sssssuf",
             "lane": "D",
-            "timeMs": 89877,
+            "timeMs": 89906,
             "kind": "hold",
             "durationMs": 533
           },
           {
             "id": "edit-K-89915-26ig.3llllou",
             "lane": "K",
-            "timeMs": 89877,
+            "timeMs": 89915,
             "kind": "hold",
             "durationMs": 508
           },
           {
-            "id": "edit-L-90856-2788.p77775l",
-            "lane": "L",
-            "timeMs": 90860,
-            "kind": "hold",
-            "durationMs": 518
-          },
-          {
             "id": "edit-S-90856-278d.i",
             "lane": "S",
-            "timeMs": 90860,
+            "timeMs": 90856,
             "kind": "hold",
             "durationMs": 524
           },
           {
+            "id": "edit-L-90856-2788.p77775l",
+            "lane": "L",
+            "timeMs": 90856,
+            "kind": "hold",
+            "durationMs": 518
+          },
+          {
             "id": "edit-D-91557-27rq.p77775l",
             "lane": "D",
-            "timeMs": 91598,
+            "timeMs": 91557,
             "kind": "hold",
             "durationMs": 676
           },
           {
             "id": "edit-K-91565-27s0.lllllou",
             "lane": "K",
-            "timeMs": 91598,
-            "kind": "hold",
-            "durationMs": 642
-          },
-          {
-            "id": "edit-L-92540-28j6.777775l",
-            "lane": "L",
-            "timeMs": 92581,
+            "timeMs": 91565,
             "kind": "hold",
             "durationMs": 642
           },
           {
             "id": "edit-S-92532-28iy.i",
             "lane": "S",
-            "timeMs": 92581,
+            "timeMs": 92532,
             "kind": "hold",
             "durationMs": 650
           },
           {
-            "id": "edit-D-93465-298p.p77775l",
-            "lane": "D",
-            "timeMs": 93442
+            "id": "edit-L-92540-28j6.777775l",
+            "lane": "L",
+            "timeMs": 92540,
+            "kind": "hold",
+            "durationMs": 642
           },
           {
             "id": "edit-K-93440-2982.p77775l",
             "lane": "K",
-            "timeMs": 93442
+            "timeMs": 93440
+          },
+          {
+            "id": "edit-D-93465-298p.p77775l",
+            "lane": "D",
+            "timeMs": 93465
+          },
+          {
+            "id": "edit-K-93673-29eo.lllllou",
+            "lane": "K",
+            "timeMs": 93673
           },
           {
             "id": "edit-D-93688-29ez.p77775l",
@@ -1249,93 +1256,88 @@
             "timeMs": 93688
           },
           {
-            "id": "edit-K-93673-29eo.lllllou",
-            "lane": "K",
-            "timeMs": 93688
-          },
-          {
             "id": "edit-D-93881-29kj.3llllou",
             "lane": "D",
-            "timeMs": 93934
+            "timeMs": 93881
           },
           {
             "id": "edit-K-93890-29kq.weeeeb6",
             "lane": "K",
-            "timeMs": 93934
+            "timeMs": 93890
           },
           {
             "id": "edit-D-94114-29r0.777775l",
             "lane": "D",
-            "timeMs": 94057
+            "timeMs": 94114
           },
           {
             "id": "edit-K-94123-29r3.p77775l",
             "lane": "K",
-            "timeMs": 94180
-          },
-          {
-            "id": "edit-L-94349-29xj.p77775l",
-            "lane": "L",
-            "timeMs": 94303
+            "timeMs": 94123
           },
           {
             "id": "edit-S-94349-29xe.lllllou",
             "lane": "S",
-            "timeMs": 94303
+            "timeMs": 94349
+          },
+          {
+            "id": "edit-L-94349-29xj.p77775l",
+            "lane": "L",
+            "timeMs": 94349
           },
           {
             "id": "edit-L-94574-2a3q.i",
             "lane": "L",
-            "timeMs": 94549
+            "timeMs": 94574
           },
           {
             "id": "edit-S-94591-2a44.777775l",
             "lane": "S",
-            "timeMs": 94549
+            "timeMs": 94591
           },
           {
             "id": "edit-L-94791-2a9s.sssssuf",
             "lane": "L",
-            "timeMs": 94795
+            "timeMs": 94791
           },
           {
             "id": "edit-S-94815-2aa8.i",
             "lane": "S",
-            "timeMs": 94795
-          },
-          {
-            "id": "edit-L-95031-2ag8.p77775l",
-            "lane": "L",
-            "timeMs": 95040
+            "timeMs": 94815
           },
           {
             "id": "edit-S-95031-2agc.i",
             "lane": "S",
-            "timeMs": 95040
+            "timeMs": 95031
+          },
+          {
+            "id": "edit-L-95031-2ag8.p77775l",
+            "lane": "L",
+            "timeMs": 95031
           },
           {
             "id": "edit-D-95248-2amf.weeeeb6",
             "lane": "D",
-            "timeMs": 95286,
+            "timeMs": 95248,
             "kind": "hold",
-            "durationMs": 3300
+            "durationMs": 3500
           },
           {
             "id": "edit-K-95257-2amh.eeeeeb6",
             "lane": "K",
-            "timeMs": 95286,
+            "timeMs": 95257,
             "kind": "hold",
-            "durationMs": 3300
+            "durationMs": 3533
           },
           {
             "id": "edit-L-98390-2d1j",
             "lane": "L",
-            "timeMs": 98360
+            "timeMs": 98390
           },
           {
             "id": "edit-S-98631-2d8b.weeeeb6",
             "lane": "S",
-            "timeMs": 98360
+            "timeMs": 98631
           }
         ]
       }

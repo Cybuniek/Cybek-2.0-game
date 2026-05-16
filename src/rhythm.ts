@@ -355,7 +355,7 @@ export function getVisibleRhythmNotes(session: RhythmSession): VisibleRhythmNote
       const durationPercent = isLongNote(note)
         ? clamp((getRhythmNoteDurationMs(note) / session.travelMs) * RHYTHM_HIT_LINE_PERCENT, 6, 90)
         : 0;
-      const yPercent = clamp(progress * RHYTHM_HIT_LINE_PERCENT + missProgress * 20, 0, 104);
+      const yPercent = progress * RHYTHM_HIT_LINE_PERCENT + missProgress * 20;
       const visualTopPercent = isLongNote(note) ? yPercent - durationPercent : yPercent;
 
       return {

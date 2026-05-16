@@ -13,6 +13,13 @@ import {
   RHYTHM_LANES,
   stepRhythmSession,
 } from '../src/rhythm.ts';
+import {
+  applyRecordedKeyDown,
+  applyRecordedKeyUp,
+  editorViewWindowMs,
+  promoteActiveRecordedHolds,
+  timeToYPercent,
+} from '../src/editor/beatmapEditorLogic.ts';
 import type { Difficulty, RhythmBeatmap, Track } from '../src/types.ts';
 
 function assert(condition: boolean, message: string): asserts condition {
@@ -52,6 +59,14 @@ assert(firstMap.notes.length > 40, 'normal difficulty generates enough notes');
 assertEqual(JSON.stringify(firstMap.notes.slice(0, 20)), JSON.stringify(secondMap.notes.slice(0, 20)), 'beatmap is deterministic');
 assert(firstMap.notes.every((note) => RHYTHM_LANES.includes(note.lane)), 'all generated notes use playable lanes');
 assertEqual(RHYTHM_LANES.join('/'), 'S/D/K/L', 'playable lanes use S/D/K/L');
+assertEqual(editorViewWindowMs(1750, 1), 1750, 'editor zoom 1 uses gameplay travel window');
+assertEqual(editorViewWindowMs(1750, 1.75), 1000, 'editor zoom in narrows the visible time window instead of stretching CSS');
+assertClose(
+  timeToYPercent(1000, 0, editorViewWindowMs(1750, 1)),
+  getVisibleRhythmNotes(createRhythmSession({ trackId: 'visual', bpm: 122, durationMs: 3000, notes: [{ id: 'v-1', lane: 'S', timeMs: 1000 }] }, 'Łatwy'))[0].yPercent,
+  0.02,
+  'editor maps note distance like gameplay at zoom 1',
+);
 
 const handMadeMap: RhythmBeatmap = {
   trackId: 'manual',
@@ -99,6 +114,40 @@ const holdMap: RhythmBeatmap = {
   ],
 };
 
+const emptyEditMap: RhythmBeatmap = {
+  trackId: 'editor-record',
+  bpm: 120,
+  durationMs: 4000,
+  notes: [],
+};
+
+let recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'S', timeMs: 1000, seed: 1 });
+assertEqual(recordState.beatmap.notes.length, 1, 'editor tap is created immediately on key down');
+assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'tap', 'single key down starts as visible tap');
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'S', 1090);
+assertEqual(recordState.beatmap.notes.length, 1, 'quick key up keeps one tap instead of duplicating or delaying it');
+assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'tap', 'quick key up keeps the note as tap');
+
+recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'D', timeMs: 1200, seed: 2 });
+recordState = { ...recordState, beatmap: promoteActiveRecordedHolds(recordState.beatmap, recordState.activePresses, 1500) };
+assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'held key becomes a visible hold before key up');
+assertEqual(recordState.beatmap.notes[0].durationMs, 300, 'live hold preview grows from key down to current song time');
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'D', 1700);
+assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'held key upgrades the visible tap to hold on release');
+assertEqual(recordState.beatmap.notes[0].durationMs, 500, 'hold duration is based on key down/up song time');
+
+recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'K', timeMs: 2000, seed: 3 });
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'K', 2050);
+recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.smashDraft, { lane: 'K', timeMs: 2140, seed: 4 });
+assertEqual(recordState.beatmap.notes.length, 2, 'rapid tap tap creates two separate taps by default');
+assert(recordState.beatmap.notes.every((note) => getRhythmNoteKind(note) === 'tap'), 'default rapid taps are not guessed into smash');
+
+recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'L', timeMs: 2200, seed: 5, kind: 'smash' });
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'L', 2250);
+recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.smashDraft, { lane: 'L', timeMs: 2340, seed: 6, kind: 'smash' });
+assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'smash', 'explicit smash recording upgrades the visible note deterministically');
+assertEqual(recordState.beatmap.notes[0].requiredPresses, 2, 'explicit smash press count is updated immediately');
+
 session = createRhythmSession(holdMap, 'Łatwy');
 session = stepRhythmSession(session, 500);
 const visibleHold = getVisibleRhythmNotes(session)[0];
@@ -109,6 +158,22 @@ assertClose(
   0.02,
   'long note gameplay head stays anchored at the collision point',
 );
+
+session = createRhythmSession(holdMap, 'Łatwy');
+session = stepRhythmSession(session, 1000);
+session = hitRhythmLane(session, 'S');
+session = stepRhythmSession(session, 300);
+const holdAfterHit = getVisibleRhythmNotes(session)[0];
+session = stepRhythmSession(session, 400);
+const holdNearEnd = getVisibleRhythmNotes(session)[0];
+const expectedHoldTravelDelta = ((holdNearEnd.timeToHitMs - holdAfterHit.timeToHitMs) / -session.travelMs) * 82;
+assertClose(
+  holdNearEnd.yPercent - holdAfterHit.yPercent,
+  expectedHoldTravelDelta,
+  0.02,
+  'long note keeps linear speed after the head crosses the hit line',
+);
+assert(holdNearEnd.yPercent > 104, 'long note head can move below the lane instead of being clamped and visually braking');
 
 session = createRhythmSession(holdMap, 'Łatwy');
 session = stepRhythmSession(session, 1000);

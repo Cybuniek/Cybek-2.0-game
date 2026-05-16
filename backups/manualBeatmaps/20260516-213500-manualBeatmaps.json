@@ -1,0 +1,634 @@
+{
+  "schemaVersion": 2,
+  "tracks": {
+    "wystep-czekamy-czekamy": {
+      "\u0141atwy": {
+        "trackId": "wystep-czekamy-czekamy",
+        "bpm": 122,
+        "sourceStartMs": 0,
+        "sourceEndMs": 98800,
+        "durationMs": 98800,
+        "notes": [
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-0-S",
+            "lane": "S",
+            "timeMs": 1000,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-2-D",
+            "lane": "D",
+            "timeMs": 1984
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-3-S",
+            "lane": "S",
+            "timeMs": 2475
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-5-S",
+            "lane": "S",
+            "timeMs": 3459
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-8-K",
+            "lane": "K",
+            "timeMs": 4934
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-9-S",
+            "lane": "S",
+            "timeMs": 5426
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-16-K",
+            "lane": "K",
+            "timeMs": 8869
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-17-S",
+            "lane": "S",
+            "timeMs": 9361
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-18-S",
+            "lane": "S",
+            "timeMs": 9852
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-19-S",
+            "lane": "S",
+            "timeMs": 10344
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-20-D",
+            "lane": "D",
+            "timeMs": 10836,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-21-D",
+            "lane": "D",
+            "timeMs": 11328,
+            "kind": "smash",
+            "durationMs": 615,
+            "requiredPresses": 4
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-22-D",
+            "lane": "D",
+            "timeMs": 11820
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-24-D",
+            "lane": "D",
+            "timeMs": 12803
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-27-K",
+            "lane": "K",
+            "timeMs": 14279
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-28-K",
+            "lane": "K",
+            "timeMs": 14770
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-31-K",
+            "lane": "K",
+            "timeMs": 16246
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-32-L",
+            "lane": "L",
+            "timeMs": 16738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-34-L",
+            "lane": "L",
+            "timeMs": 17721
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-35-D",
+            "lane": "D",
+            "timeMs": 18213
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-37-K",
+            "lane": "K",
+            "timeMs": 19197
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-38-K",
+            "lane": "K",
+            "timeMs": 19689
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-39-L",
+            "lane": "L",
+            "timeMs": 20180
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-40-D",
+            "lane": "D",
+            "timeMs": 20672
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-41-K",
+            "lane": "K",
+            "timeMs": 21164
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-42-D",
+            "lane": "D",
+            "timeMs": 21656
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-43-L",
+            "lane": "L",
+            "timeMs": 22148
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-45-S",
+            "lane": "S",
+            "timeMs": 23131
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-46-S",
+            "lane": "S",
+            "timeMs": 23623
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-47-L",
+            "lane": "L",
+            "timeMs": 24115
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-48-L",
+            "lane": "L",
+            "timeMs": 24607
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-49-L",
+            "lane": "L",
+            "timeMs": 25098
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-50-L",
+            "lane": "L",
+            "timeMs": 25590
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-51-K",
+            "lane": "K",
+            "timeMs": 26082
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-54-K",
+            "lane": "K",
+            "timeMs": 27557
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-55-K",
+            "lane": "K",
+            "timeMs": 28049
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-56-S",
+            "lane": "S",
+            "timeMs": 28541,
+            "kind": "smash",
+            "durationMs": 615,
+            "requiredPresses": 4
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-58-K",
+            "lane": "K",
+            "timeMs": 29525
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-60-D",
+            "lane": "D",
+            "timeMs": 30508
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-62-S",
+            "lane": "S",
+            "timeMs": 31492
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-64-D",
+            "lane": "D",
+            "timeMs": 32475
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-65-L",
+            "lane": "L",
+            "timeMs": 32967
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-67-S",
+            "lane": "S",
+            "timeMs": 33951
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-68-K",
+            "lane": "K",
+            "timeMs": 34443,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-72-D",
+            "lane": "D",
+            "timeMs": 36410
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-73-L",
+            "lane": "L",
+            "timeMs": 36902
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-75-D",
+            "lane": "D",
+            "timeMs": 37885
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-77-K",
+            "lane": "K",
+            "timeMs": 38869
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-80-L",
+            "lane": "L",
+            "timeMs": 40344
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-82-K",
+            "lane": "K",
+            "timeMs": 41328
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-84-K",
+            "lane": "K",
+            "timeMs": 42311
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-86-S",
+            "lane": "S",
+            "timeMs": 43295
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-87-D",
+            "lane": "D",
+            "timeMs": 43787,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-88-S",
+            "lane": "S",
+            "timeMs": 44279
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-89-K",
+            "lane": "K",
+            "timeMs": 44770
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-90-L",
+            "lane": "L",
+            "timeMs": 45262
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-91-L",
+            "lane": "L",
+            "timeMs": 45754
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-93-K",
+            "lane": "K",
+            "timeMs": 46738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-95-S",
+            "lane": "S",
+            "timeMs": 47721,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-96-L",
+            "lane": "L",
+            "timeMs": 48213
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-97-L",
+            "lane": "L",
+            "timeMs": 48705
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-100-S",
+            "lane": "S",
+            "timeMs": 50180
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-101-L",
+            "lane": "L",
+            "timeMs": 50672
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-102-L",
+            "lane": "L",
+            "timeMs": 51164
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-103-S",
+            "lane": "S",
+            "timeMs": 51656
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-104-D",
+            "lane": "D",
+            "timeMs": 52148
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-109-D",
+            "lane": "D",
+            "timeMs": 54607
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-110-D",
+            "lane": "D",
+            "timeMs": 55098
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-111-D",
+            "lane": "D",
+            "timeMs": 55590
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-112-D",
+            "lane": "D",
+            "timeMs": 56082
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-114-D",
+            "lane": "D",
+            "timeMs": 57066
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-119-S",
+            "lane": "S",
+            "timeMs": 59525
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-120-D",
+            "lane": "D",
+            "timeMs": 60016
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-122-S",
+            "lane": "S",
+            "timeMs": 61000
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-123-D",
+            "lane": "D",
+            "timeMs": 61492,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-124-K",
+            "lane": "K",
+            "timeMs": 61984
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-128-K",
+            "lane": "K",
+            "timeMs": 63951,
+            "kind": "smash",
+            "durationMs": 615,
+            "requiredPresses": 4
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-130-L",
+            "lane": "L",
+            "timeMs": 64934
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-132-S",
+            "lane": "S",
+            "timeMs": 65918
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-133-L",
+            "lane": "L",
+            "timeMs": 66410,
+            "kind": "smash",
+            "durationMs": 615,
+            "requiredPresses": 4
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-134-L",
+            "lane": "L",
+            "timeMs": 66902,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-136-S",
+            "lane": "S",
+            "timeMs": 67885,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-139-D",
+            "lane": "D",
+            "timeMs": 69361
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-141-D",
+            "lane": "D",
+            "timeMs": 70344
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-143-L",
+            "lane": "L",
+            "timeMs": 71328
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-144-D",
+            "lane": "D",
+            "timeMs": 71820
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-145-D",
+            "lane": "D",
+            "timeMs": 72311
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-148-D",
+            "lane": "D",
+            "timeMs": 73787
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-149-D",
+            "lane": "D",
+            "timeMs": 74279
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-151-K",
+            "lane": "K",
+            "timeMs": 75262
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-152-K",
+            "lane": "K",
+            "timeMs": 75754
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-156-D",
+            "lane": "D",
+            "timeMs": 77721,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-158-D",
+            "lane": "D",
+            "timeMs": 78705,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-159-S",
+            "lane": "S",
+            "timeMs": 79197
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-160-L",
+            "lane": "L",
+            "timeMs": 79689
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-162-K",
+            "lane": "K",
+            "timeMs": 80672
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-163-K",
+            "lane": "K",
+            "timeMs": 81164
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-165-L",
+            "lane": "L",
+            "timeMs": 82148
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-166-L",
+            "lane": "L",
+            "timeMs": 82639
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-167-L",
+            "lane": "L",
+            "timeMs": 83131
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-168-L",
+            "lane": "L",
+            "timeMs": 83623
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-169-S",
+            "lane": "S",
+            "timeMs": 84115,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-170-L",
+            "lane": "L",
+            "timeMs": 84607
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-172-S",
+            "lane": "S",
+            "timeMs": 85590
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-173-D",
+            "lane": "D",
+            "timeMs": 86082
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-176-L",
+            "lane": "L",
+            "timeMs": 87557,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-177-D",
+            "lane": "D",
+            "timeMs": 88049
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-182-S",
+            "lane": "S",
+            "timeMs": 90508
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-183-K",
+            "lane": "K",
+            "timeMs": 91000
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-184-S",
+            "lane": "S",
+            "timeMs": 91492
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-185-K",
+            "lane": "K",
+            "timeMs": 91984,
+            "kind": "hold",
+            "durationMs": 738
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-186-K",
+            "lane": "K",
+            "timeMs": 92475
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-190-D",
+            "lane": "D",
+            "timeMs": 94443
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-191-S",
+            "lane": "S",
+            "timeMs": 94934
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-192-S",
+            "lane": "S",
+            "timeMs": 95426
+          },
+          {
+            "id": "starter-wystep-czekamy-czekamy-\u0141atwy-195-K",
+            "lane": "K",
+            "timeMs": 96902
+          }
+        ]
+      }
+    }
+  }
+}

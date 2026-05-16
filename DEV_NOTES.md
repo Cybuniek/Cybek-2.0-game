@@ -88,6 +88,38 @@ Beatmapy mogą być ręczne albo generowane. Runtime najpierw próbuje wczytać 
 
 `RhythmSectionEditor` jest narzędziem developerskim WinUI. Obsługuje zakres start/koniec z playhead, puste mapy z przyciskiem generowania bazy, backupy eksportu w `backups/manualBeatmaps`, blokadę eksportu przy poważnych problemach, prosty playtest `S/D/K/L` oraz formularz importu istniejących plików audio do katalogu gry i `src/data/tracks.ts`.
 
+Webowy `Beatmap Editor` jest traktowany jako docelowy codzienny workflow edycji beatmap, bo działa w tej samej aplikacji co runtime gry. Aktualny zakres:
+
+- wybór utworu i poziomu trudności,
+- edycja, przeciąganie, usuwanie i inspekcja nut `tap/hold/smash`,
+- nagrywanie nut z klawiatury podczas playbacku,
+- `Test Mode` z tym samym wejściem `S/D/K/L`, którego używa ekran rytmiczny,
+- walidacja przed eksportem,
+- import pełnego `manualBeatmaps.json`,
+- eksport pełnego katalogu jako `manualBeatmaps.json`,
+- backup eksportu w `localStorage` i przywracanie backupu z poziomu UI.
+
+Widok nut w edytorze powinien być odniesieniem do właściwej gry, nie osobną wizualizacją. Dlatego tory są renderowane jako cztery osobne kolumny, nuty używają tej samej bazowej klasy `.note` co runtime, a domyślne okno czasu przy `zoom x1` wynika z gameplayowego `travelMs` danego poziomu trudności. Suwak `Zoom` zawęża albo rozszerza okno czasu, ale nie rozciąga DOM-u pionowo.
+
+Nagrywanie klawiaturą podczas playbacku działa tak:
+
+- zwykłe `S/D/K/L` tworzy widoczny `tap` od razu przy naciśnięciu,
+- przytrzymany klawisz po progu holda aktualizuje tę samą nutę do `hold` jeszcze przed puszczeniem klawisza,
+- puszczenie klawisza ustala finalną długość `hold`,
+- szybkie `Tap Tap` pozostaje dwoma tapami,
+- `Shift+S/D/K/L` służy do świadomego nagrywania/rozszerzania `smash`, bez zgadywania na podstawie zwykłych szybkich tapów.
+
+Praktyczny workflow developerski:
+
+1. Otwórz `Beatmap Editor` w webowym prototypie.
+2. Jeśli zaczynasz od pliku z dysku, użyj `Import manualBeatmaps.json`.
+3. Edytuj mapę dla wybranego utworu i poziomu.
+4. Użyj `Eksport + backup`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
+5. Podmień `src/data/manualBeatmaps.json` pobranym plikiem dopiero po sprawdzeniu mapy.
+6. Jeśli edycja poszła w złą stronę, wybierz backup z listy i użyj `Przywróć`, potem ponownie wykonaj eksport.
+
+Audyt 2026-05-14: webowy edytor ma już bliższy runtime'owi workflow niż WinUI, ale nadal nie ma części wygód desktopowych: nie kopiuje automatycznie pobranego pliku do repo, nie importuje nowych utworów do `tracks.ts`, nie zapisuje backupów w katalogu `backups/manualBeatmaps` i nie ma osobnej kalibracji input laga. Największe tarcie po tej zmianie to ręczny krok podmiany pobranego `manualBeatmaps.json` w repo; jest celowo ręczny, żeby webowy prototyp nie udawał dostępu do systemu plików i nie nadpisywał danych bez kontroli.
+
 ## Jakosc wersji i reakcje czatu
 
 Jakosc tieru jest liczona w `src/rhythm.ts` i kumulowana w `src/storage.ts` na podstawie poprzedniego stanu draftu, wyniku podejścia, poziomu trudności oraz combo. Tekstowa jakosc publikacji w `getPublishedQuality` jest teraz pochodną tieru:
