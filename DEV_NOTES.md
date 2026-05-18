@@ -43,7 +43,7 @@ Jesli stary save wskazuje opublikowany utwor, ktorego nie ma juz w `src/data/tra
 
 ## Glos Neury
 
-Neura ma osobny workflow glosowy oparty o statyczne pliki audio w `public/audio/neura`. Format podstawowy to OGG/Opus dla mniejszych plikow mowy, a fallbackiem jest MP3 dla kompatybilnosci. Aplikacja nie wywoluje ElevenLabs z przegladarki i nie zna klucza API. Pierwsze automatyczne odtworzenie komentarza jest ignorowane do czasu interakcji uzytkownika, zeby respektowac polityke autoplay przegladarki. Po kliknieciu Neury albo przycisku reakcji kolejne komentarze moga byc odtwarzane automatycznie. Odtwarzacz ma jeden aktywny glos i jeden slot kolejki dla komentarza systemowego. Reakcje wyzwalane przez gracza nie sa kolejkowane; jesli w danej chwili gra inna kwestia, kliknieta reakcja zostaje pominieta.
+Neura ma osobny workflow glosowy oparty o statyczne pliki audio w `public/audio/neura`. Format podstawowy to OGG/Opus dla mniejszych plikow mowy, a fallbackiem jest MP3 dla kompatybilnosci. Aplikacja nie wywoluje ElevenLabs z przegladarki i nie zna klucza API. Pierwsze automatyczne odtworzenie komentarza jest ignorowane do czasu interakcji uzytkownika, zeby respektowac polityke autoplay przegladarki. Po kliknieciu Neury kolejne komentarze moga byc odtwarzane automatycznie. Odtwarzacz ma jeden aktywny glos i jeden slot kolejki dla komentarza systemowego. Reakcje wyzwalane przez gracza nie sa kolejkowane; jesli w danej chwili gra inna kwestia, kliknieta reakcja zostaje pominieta.
 
 Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wymaga:
 
@@ -52,7 +52,7 @@ Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wyma
 - dobrania `styleTag` zgodnego z ElevenLabs V3,
 - ustawienia `trigger` na `comment` albo `reaction`.
 
-Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu.
+Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu, a tekst kwestii bez dostepnego audio nie jest pokazywany jako osobny dymek.
 
 Generowanie glosow:
 
@@ -62,6 +62,7 @@ Generowanie glosow:
 - uruchom `npm run voice:neura`, zeby wygenerowac brakujace pliki OGG/Opus,
 - uzyj `npm run voice:neura:force`, zeby nadpisac OGG/Opus,
 - uzyj `npm run voice:neura:with-fallback`, jesli swiadomie chcesz wygenerowac OGG/Opus i MP3,
+- uzyj `node --experimental-strip-types scripts/generate-neura-voices.ts --force --with-fallback`, jesli chcesz odswiezyc komplet OGG/Opus i MP3 fallbackow,
 - uzyj `npm run voice:neura:mp3`, jesli chcesz dogenerowac tylko fallback MP3,
 - opcjonalnie uruchom `node --experimental-strip-types scripts/generate-neura-voices.ts --only <id>`.
 
@@ -166,7 +167,7 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 - Beatmapy generowane są losowe, ale stabilne dla danego utworu, BPM-u, długości audio, poziomu i seeda.
 - Remix kumuluje progres tieru jakości zamiast zaczynać każdą próbę od zera.
 - Player opublikowanego utworu odtwarza scalony plik audio. Głos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
-- Neura i WebCam Cybka sa prostymi figurami CSS, nie finalnymi assetami.
+- Neura korzysta z atlasu `public/pets/neura/spritesheet.webp` i dziala jako niezalezny, przeciagalny awatar nad pulpitem. WebCam Cybka pozostaje prosta figura CSS.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
 
 ## UI polish 2026-05-17
@@ -176,6 +177,12 @@ Zakres byl wizualny i bez zmiany logiki gry. `src/styles.css` ma teraz wspolne z
 Sekcja rytmiczna zachowuje te same dane i input, ale ma mocniejsza linie trafienia, wyrazniejszy aktywny tor, bardziej czytelny countdown i dodatkowy feedback wizualny dla `Perfect/Great/Good/Miss`. Efekty sa ograniczone przez `prefers-reduced-motion`.
 
 Ekran wynikow dostal jasniejsza hierarchie akcji, remix comparison jest bardziej skanowalny, a `Annihilation player.exe` wyglada jak archiwum opublikowanego Wystepu z realnym odtwarzaczem audio. `Beatmap Editor` ma mocniej widoczny status niezapisanych zmian, panele oddzielone od playfieldu i tory spojne z runtime'em.
+
+## Neura 2.0 2026-05-19
+
+Neura zostala odczepiona od panelu UI. Komponent renderuje tylko klikalny i przeciagalny sprite, ktory lekko patroluje dolna czesc pulpitu i pauzuje patrol po recznym przeciaganiu. Tekst dialogu nie jest stale renderowany; komentarz glosowy zostaje odtworzony dopiero po odblokowaniu audio przez interakcje i tylko wtedy, gdy dla danej kwestii istnieje statyczny plik OGG albo MP3.
+
+Spritesheet Neury zostal podmieniony na poprawiony wariant w `public/pets/neura/spritesheet.webp`. Pelny komplet glosow nalezy odswiezac lokalnym skryptem przez ElevenLabs do OGG/Opus oraz MP3 fallbackow; skrypt wymaga `ELEVENLABS_API_KEY` w srodowisku albo `.env.local`.
 
 ## Patrol repozytorium 2026-05-12
 

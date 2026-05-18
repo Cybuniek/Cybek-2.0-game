@@ -53,6 +53,12 @@ UI polish 2026-05-17:
 - Beatmap Editor dostał wyraźniejszy status niezapisanych zmian, lepszą separację paneli i tory spójniejsze z runtime'em.
 - Dodano podstawowe breakpointy dla węższych viewportów oraz `prefers-reduced-motion` dla efektów animowanych.
 
+Neura 2.0 2026-05-19:
+- Podmieniono `public/pets/neura/spritesheet.webp` na poprawiony wariant awatara.
+- Neura nie renderuje już panelu dialogowego; jest niezależnym awatarem nad pulpitem, którego można kliknąć, przeciągnąć i który lekko patroluje dolną część ekranu.
+- Teksty kwestii bez istniejącej ścieżki audio nie są pokazywane w UI, a odtwarzanie głosu pomija linie bez realnego pliku.
+- Pełny zestaw głosów Neury ma być generowany przez ElevenLabs do OGG/Opus oraz MP3 fallbacków; w tej sesji generator zatrzymał się na braku lokalnego `ELEVENLABS_API_KEY`.
+
 Patrol repozytorium 2026-05-12:
 - Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
 - Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.

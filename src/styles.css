@@ -328,39 +328,43 @@ button:disabled {
   top: var(--neura-y);
   right: auto;
   bottom: auto;
-  width: 320px;
-  min-height: 176px;
-  display: grid;
-  grid-template-columns: 132px 1fr;
-  gap: 10px;
-  align-items: center;
-  padding: 10px;
+  width: 144px;
+  height: 162px;
+  display: block;
+  padding: 0;
   z-index: 14;
-  border-color: var(--line-purple);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-pink), inset 0 0 18px rgba(57, 255, 224, 0.08);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+  transition: left 1.05s cubic-bezier(0.2, 0.85, 0.2, 1), top 1.05s cubic-bezier(0.2, 0.85, 0.2, 1);
 }
 
 .neura-sprite-pad {
-  width: 132px;
-  height: 150px;
-  min-height: 150px;
+  width: 144px;
+  height: 162px;
+  min-height: 162px;
   padding: 0;
   display: grid;
   place-items: center;
   overflow: hidden;
-  border-color: var(--line-cyan);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgba(57, 255, 224, 0.13), rgba(255, 46, 136, 0.08)),
-    #070b13;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   cursor: grab;
   touch-action: none;
-  box-shadow: inset 0 0 22px rgba(57, 255, 224, 0.1);
+  box-shadow: none;
+  pointer-events: auto;
 }
 
 .neura-sprite-pad:active {
   cursor: grabbing;
+}
+
+.neura-sprite-pad:focus-visible {
+  outline: 2px solid var(--line-cyan);
+  outline-offset: -10px;
+  box-shadow: 0 0 18px rgba(57, 255, 224, 0.45);
 }
 
 .neura-sprite {
@@ -372,62 +376,19 @@ button:disabled {
   background-position-y: calc(var(--neura-row) * -130px);
   image-rendering: pixelated;
   animation: neura-atlas var(--neura-duration) steps(var(--neura-frames)) infinite;
-  filter: drop-shadow(0 0 10px rgba(255, 46, 221, 0.36));
+  filter: drop-shadow(0 0 10px rgba(255, 46, 221, 0.36)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.42));
 }
 
 .neura-jumping .neura-sprite {
   transform: translateY(-5px);
 }
 
-.neura-failed {
-  border-color: #ff5e8f;
+.neura-failed .neura-sprite {
+  filter: drop-shadow(0 0 11px rgba(255, 94, 143, 0.52)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.42));
 }
 
-.neura-review {
-  border-color: #39ffe0;
-}
-
-.neura-panel {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-.neura-status {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.neura-status strong {
-  color: var(--accent-pink);
-}
-
-.neura-status span {
-  color: var(--line-cyan);
-  font-family: Consolas, monospace;
-  font-size: 11px;
-  text-transform: uppercase;
-}
-
-.neura p {
-  margin: 0;
-  color: var(--text-cyan);
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.neura-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.neura-actions button {
-  min-height: 26px;
-  padding: 0 8px;
-  font-size: 12px;
+.neura-review .neura-sprite {
+  filter: drop-shadow(0 0 12px rgba(57, 255, 224, 0.5)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.42));
 }
 
 .stage-screen,
@@ -1429,15 +1390,6 @@ button:disabled {
   .window {
     width: min(620px, calc(100vw - 430px));
   }
-
-  .neura {
-    left: auto;
-    right: 24px;
-    top: auto;
-    bottom: 24px;
-    transform: scale(0.85);
-    transform-origin: bottom right;
-  }
 }
 
 @media (max-width: 1100px) {
@@ -1469,12 +1421,16 @@ button:disabled {
     display: none;
   }
 
-  .webcam,
-  .neura {
+  .webcam {
     left: auto;
     right: 18px;
     transform: scale(0.82);
     transform-origin: top right;
+  }
+
+  .neura {
+    transform: scale(0.86);
+    transform-origin: center;
   }
 
   .stage-screen {
@@ -1607,5 +1563,9 @@ button:disabled {
 
   .ghost {
     animation: none;
+  }
+
+  .neura {
+    transition: none;
   }
 }
