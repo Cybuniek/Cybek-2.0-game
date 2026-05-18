@@ -37,9 +37,9 @@ Szuflada dodatkowo blokuje przycisk publikacji dla tytulu, ktory w zapisie jest 
 - poziom opublikowanej wersji,
 - ocene i dokladnosc,
 - wersje jakosciowa,
-- placeholder odsluchu.
+- realny odtwarzacz scalonego pliku audio.
 
-Przycisk `Odtworz` zmienia stan placeholdera na `Odtwarzanie...`. Nie ma jeszcze prawdziwego audio.
+Jesli stary save wskazuje opublikowany utwor, ktorego nie ma juz w `src/data/tracks.ts`, player nadal pokazuje metadane publikacji i jasny komunikat o braku pasujacego audio zamiast znikac.
 
 ## Glos Neury
 
@@ -98,6 +98,7 @@ Webowy `Beatmap Editor` jest traktowany jako docelowy codzienny workflow edycji 
 - import pełnego `manualBeatmaps.json`,
 - eksport pełnego katalogu jako `manualBeatmaps.json`,
 - backup eksportu w `localStorage` i przywracanie backupu z poziomu UI.
+- guard niezapisanych zmian: po edycji nuty zmiana utworu/poziomu, import i powrot do pulpitu wymagaja najpierw `Eksport + backup` albo `Porzuc zmiany`.
 
 Widok nut w edytorze powinien być odniesieniem do właściwej gry, nie osobną wizualizacją. Dlatego tory są renderowane jako cztery osobne kolumny, nuty używają tej samej bazowej klasy `.note` co runtime, a domyślne okno czasu przy `zoom x1` wynika z gameplayowego `travelMs` danego poziomu trudności. Suwak `Zoom` zawęża albo rozszerza okno czasu, ale nie rozciąga DOM-u pionowo.
 
@@ -117,6 +118,7 @@ Praktyczny workflow developerski:
 4. Użyj `Eksport + backup`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
 5. Podmień `src/data/manualBeatmaps.json` pobranym plikiem dopiero po sprawdzeniu mapy.
 6. Jeśli edycja poszła w złą stronę, wybierz backup z listy i użyj `Przywróć`, potem ponownie wykonaj eksport.
+7. Jeśli chcesz zmienić utwór albo poziom bez zapisywania bieżących zmian, użyj `Porzuć zmiany`.
 
 Audyt 2026-05-14: webowy edytor ma już bliższy runtime'owi workflow niż WinUI, ale nadal nie ma części wygód desktopowych: nie kopiuje automatycznie pobranego pliku do repo, nie importuje nowych utworów do `tracks.ts`, nie zapisuje backupów w katalogu `backups/manualBeatmaps` i nie ma osobnej kalibracji input laga. Największe tarcie po tej zmianie to ręczny krok podmiany pobranego `manualBeatmaps.json` w repo; jest celowo ręczny, żeby webowy prototyp nie udawał dostępu do systemu plików i nie nadpisywał danych bez kontroli.
 
@@ -167,6 +169,14 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 - Neura i WebCam Cybka sa prostymi figurami CSS, nie finalnymi assetami.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
 
+## UI polish 2026-05-17
+
+Zakres byl wizualny i bez zmiany logiki gry. `src/styles.css` ma teraz wspolne zmienne dla neonowych kolorow, paneli, ramek i glow. Tlo pulpitu zostalo przygaszone, ikony maja czytelniejsze podpisy, aktywne okno mocniejszy focus, a prawa kolumna z WebCam/statystykami/Neura mniej zlewa sie z pulpitem.
+
+Sekcja rytmiczna zachowuje te same dane i input, ale ma mocniejsza linie trafienia, wyrazniejszy aktywny tor, bardziej czytelny countdown i dodatkowy feedback wizualny dla `Perfect/Great/Good/Miss`. Efekty sa ograniczone przez `prefers-reduced-motion`.
+
+Ekran wynikow dostal jasniejsza hierarchie akcji, remix comparison jest bardziej skanowalny, a `Annihilation player.exe` wyglada jak archiwum opublikowanego Wystepu z realnym odtwarzaczem audio. `Beatmap Editor` ma mocniej widoczny status niezapisanych zmian, panele oddzielone od playfieldu i tory spojne z runtime'em.
+
 ## Patrol repozytorium 2026-05-12
 
 Zakres patrolu byl maly i bez rozszerzania gry. Sprawdzone zostaly: generator `anh://www.ustno.ai/create`, szuflada `anh://www.ustno.ai/me`, remix +1, jednorazowa publikacja, pliki publikacji na pulpicie, `Annihilation player.exe`, slowniki etykiet oraz zgodnosc typow z aktualna logika.
@@ -182,6 +192,19 @@ Celowo odlozone:
 - warianty audio zalezne od poziomu publikacji,
 - pelna walidacja i czyszczenie historycznych save'ow,
 - wieksze testy przegladarkowe z Playwright.
+
+## Patrol stabilizacyjny 2026-05-17
+
+Zakres patrolu byl sredni, ale bez rozbudowy gry poza istniejace systemy. Priorytetem byly: stabilnosc prototypu, rytm/beatmapy oraz drobna spojnosc UI.
+
+Naprawione:
+
+- male helpery flow zostaly wydzielone z `src/App.tsx` do `src/gameFlow.ts`, zeby logika draftow, publikacji i porownania remixu byla testowalna poza komponentem,
+- migracja save'a ma publiczny punkt `migrateSavedState`, a `npm run test:state` pilnuje legacy drawer, `publishedTrackIds`, reveal tytulow i fallbacku tieru,
+- `npm run test:rhythm` waliduje teraz takze realny `src/data/manualBeatmaps.json`, zeby reczne mapy nie spadaly po cichu do generatora,
+- webowy `Beatmap Editor` blokuje ryzykowne przejscia przy niezapisanych zmianach,
+- player obsluguje stare publikacje bez pasujacego wpisu w `tracks.ts`,
+- etykieta szuflady zostala ujednolicona jako `Ustno.ai Me`.
 
 ## Sugerowane kolejne kroki
 

@@ -13,6 +13,8 @@ import {
   RHYTHM_LANES,
   stepRhythmSession,
 } from '../src/rhythm.ts';
+import manualBeatmaps from '../src/data/manualBeatmaps.json' with { type: 'json' };
+import { tracks } from '../src/data/tracks.ts';
 import {
   applyRecordedKeyDown,
   applyRecordedKeyUp,
@@ -344,3 +346,27 @@ const invalidManualCatalog = {
 
 const resolvedFallback = resolveRhythmBeatmap(testTrack, 'Normalny', estimateRhythmDurationMs(testTrack), invalidManualCatalog);
 assert(resolvedFallback.notes.length > 40, 'invalid manual beatmap falls back to generated map');
+
+const manualCatalog = manualBeatmaps as {
+  schemaVersion?: number;
+  tracks?: Record<string, Partial<Record<Difficulty, RhythmBeatmap>>>;
+};
+assertEqual(manualCatalog.schemaVersion, 2, 'real manual beatmap catalog uses schemaVersion 2');
+
+for (const [trackId, mapsByDifficulty] of Object.entries(manualCatalog.tracks ?? {})) {
+  const track = tracks.find((item) => item.id === trackId);
+  assert(track, `manual beatmap references existing track: ${trackId}`);
+
+  for (const [difficulty, manualMap] of Object.entries(mapsByDifficulty) as Array<[Difficulty, RhythmBeatmap]>) {
+    assert(track.difficulties.includes(difficulty), `${trackId}/${difficulty} references an available difficulty`);
+    const audioDurationMs = track.durationMs ?? estimateRhythmDurationMs(track);
+    const resolved = resolveRhythmBeatmap(track, difficulty, audioDurationMs, manualCatalog);
+    assertEqual(resolved.source, 'manual', `${trackId}/${difficulty} resolves to the manual map`);
+    assertEqual(resolved.trackId, track.id, `${trackId}/${difficulty} keeps the track id`);
+    assert(resolved.notes.length === manualMap.notes.length, `${trackId}/${difficulty} keeps all manual notes`);
+    assert((resolved.sourceStartMs ?? 0) >= 0, `${trackId}/${difficulty} starts inside the audio file`);
+    assert((resolved.sourceEndMs ?? resolved.durationMs) <= audioDurationMs + 620, `${trackId}/${difficulty} ends inside the audio file tolerance`);
+    assert(resolved.durationMs > 0, `${trackId}/${difficulty} has positive duration`);
+    assert(resolved.notes.every((note) => note.timeMs >= 0 && note.timeMs <= resolved.durationMs), `${trackId}/${difficulty} has notes inside the playable range`);
+  }
+}

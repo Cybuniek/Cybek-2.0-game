@@ -7,7 +7,14 @@ import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/cha
 import { tracks } from './data/tracks';
 import { BeatmapEditor } from './editor/BeatmapEditor';
 import {
-  addMessage,
+  addUnique,
+  createRemixComparison,
+  resultFromDraft,
+  upsertDraft,
+  upsertPublished,
+  type RemixComparison,
+} from './gameFlow';
+import {
   applyStatDelta,
   createDraftFromResult,
   createPublishedTrack,
@@ -23,6 +30,7 @@ import {
   revealTitleFully,
   saveState,
 } from './storage';
+import { addMessage } from './storage';
 import {
   addresses,
   appLabels,
@@ -95,15 +103,6 @@ type ActiveRun = {
 };
 
 type RhythmPhase = 'loading' | 'countdown' | 'playing';
-
-type RemixComparison = {
-  previousAccuracy: number;
-  previousGrade: string;
-  nextAccuracy: number;
-  nextGrade: string;
-  accuracyDelta: number;
-  verdict: 'better' | 'same' | 'worse';
-};
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
@@ -454,7 +453,7 @@ export default function App() {
         </Window>
       )}
 
-      {activeWindow === 'player' && selectedPublished && selectedPublishedTrack && (
+      {activeWindow === 'player' && selectedPublished && (
         <Window
           title={windowLabels.player}
           position={windowPositions.player}
@@ -469,54 +468,6 @@ export default function App() {
       )}
     </main>
   );
-}
-
-function addUnique(items: string[], item: string) {
-  return items.includes(item) ? items : [...items, item];
-}
-
-function upsertDraft(drafts: DraftTrack[], draft: DraftTrack) {
-  return [draft, ...drafts.filter((item) => item.id !== draft.id)];
-}
-
-function upsertPublished(publishedTracks: PublishedTrack[], published: PublishedTrack) {
-  return [published, ...publishedTracks.filter((item) => item.id !== published.id)];
-}
-
-function resultFromDraft(draft: DraftTrack): PerformanceResult {
-  return {
-    id: draft.id,
-    trackId: draft.trackId,
-    trackTitle: draft.trackTitle,
-    difficulty: draft.difficulty,
-    accuracy: draft.bestAccuracy,
-    grade: draft.bestGrade,
-    qualityProgress: draft.qualityProgress,
-    comboMultiplier: 1,
-    perfectHits: 0,
-    greatHits: 0,
-    goodHits: 0,
-    misses: 0,
-    emptyPresses: 0,
-    maxCombo: 0,
-    totalNotes: 0,
-    createdAt: draft.updatedAt,
-    status: draft.status,
-  };
-}
-
-function createRemixComparison(draft: DraftTrack, result: PerformanceResult): RemixComparison {
-  const accuracyDelta = result.accuracy - draft.bestAccuracy;
-  const verdict = accuracyDelta > 0 ? 'better' : accuracyDelta < 0 ? 'worse' : 'same';
-
-  return {
-    previousAccuracy: draft.bestAccuracy,
-    previousGrade: draft.bestGrade,
-    nextAccuracy: result.accuracy,
-    nextGrade: result.grade,
-    accuracyDelta,
-    verdict,
-  };
 }
 
 function DesktopIcon({
@@ -1370,14 +1321,14 @@ function ResultsScreen({
             <>
               <button onClick={onSave}>{buttonLabels.saveDraft}</button>
               <button onClick={onSendToPawel}>{buttonLabels.sendToPawel}</button>
-              <button onClick={onPublish} disabled={alreadyPublished}>
+              <button className="result-primary" onClick={onPublish} disabled={alreadyPublished}>
                 {alreadyPublished ? placeholderLabels.publishedLocked : buttonLabels.publish}
               </button>
             </>
           ) : (
-            <button onClick={onOverwrite}>{buttonLabels.overwriteDraft}</button>
+            <button className="result-primary" onClick={onOverwrite}>{buttonLabels.overwriteDraft}</button>
           )}
-          <button onClick={onBack}>{buttonLabels.backWithoutSave}</button>
+          <button className="result-secondary" onClick={onBack}>{buttonLabels.backWithoutSave}</button>
         </div>
       </section>
       <PersistentOverlays comment={neuraComment} />
@@ -1405,7 +1356,7 @@ function PlayerWindow({
   track,
 }: {
   published: PublishedTrack;
-  track: Track;
+  track: Track | null;
 }) {
   return (
     <div className="player-panel">
@@ -1414,7 +1365,11 @@ function PlayerWindow({
       <p>{placeholderLabels.grade}: {published.grade} / {published.accuracy}%</p>
       <p>{placeholderLabels.qualityProgress}: {published.qualityProgress}</p>
       <p>{placeholderLabels.quality}: {published.quality}</p>
-      <audio className="player-audio" src={track.audio.merged} controls preload="metadata" />
+      {track ? (
+        <audio className="player-audio" src={track.audio.merged} controls preload="metadata" />
+      ) : (
+        <p className="missing-audio">{placeholderLabels.missingPublishedAudio}</p>
+      )}
     </div>
   );
 }
