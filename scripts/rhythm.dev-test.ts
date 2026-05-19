@@ -126,7 +126,7 @@ const emptyEditMap: RhythmBeatmap = {
 let recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'S', timeMs: 1000, seed: 1 });
 assertEqual(recordState.beatmap.notes.length, 1, 'editor tap is created immediately on key down');
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'tap', 'single key down starts as visible tap');
-recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'S', 1090);
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'S', 1090);
 assertEqual(recordState.beatmap.notes.length, 1, 'quick key up keeps one tap instead of duplicating or delaying it');
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'tap', 'quick key up keeps the note as tap');
 
@@ -134,20 +134,20 @@ recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'D', timeMs
 recordState = { ...recordState, beatmap: promoteActiveRecordedHolds(recordState.beatmap, recordState.activePresses, 1500) };
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'held key becomes a visible hold before key up');
 assertEqual(recordState.beatmap.notes[0].durationMs, 300, 'live hold preview grows from key down to current song time');
-recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'D', 1700);
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'D', 1700);
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'held key upgrades the visible tap to hold on release');
 assertEqual(recordState.beatmap.notes[0].durationMs, 500, 'hold duration is based on key down/up song time');
 
 recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'K', timeMs: 2000, seed: 3 });
-recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'K', 2050);
-recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.smashDraft, { lane: 'K', timeMs: 2140, seed: 4 });
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'K', 2050);
+recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.holdDraft, { lane: 'K', timeMs: 2140, seed: 4 });
 assertEqual(recordState.beatmap.notes.length, 2, 'rapid tap tap creates two separate taps by default');
 assert(recordState.beatmap.notes.every((note) => getRhythmNoteKind(note) === 'tap'), 'default rapid taps are not guessed into smash');
 
-recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'L', timeMs: 2200, seed: 5, kind: 'smash' });
-recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'L', 2250);
-recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.smashDraft, { lane: 'L', timeMs: 2340, seed: 6, kind: 'smash' });
-assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'smash', 'explicit smash recording upgrades the visible note deterministically');
+recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'L', timeMs: 2200, seed: 5, kind: 'hold' });
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'L', 2250);
+recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.holdDraft, { lane: 'L', timeMs: 2340, seed: 6, kind: 'hold' });
+assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'explicit smash recording upgrades the visible note deterministically');
 assertEqual(recordState.beatmap.notes[0].requiredPresses, 2, 'explicit smash press count is updated immediately');
 
 session = createRhythmSession(holdMap, 'Łatwy');
@@ -206,7 +206,7 @@ const smashMap: RhythmBeatmap = {
   bpm: 120,
   durationMs: 3000,
   notes: [
-    { id: 'smash-1', lane: 'D', timeMs: 1000, kind: 'smash', durationMs: 800 },
+    { id: 'smash-1', lane: 'D', timeMs: 1000, kind: 'hold', durationMs: 800 },
   ],
 };
 
@@ -246,8 +246,7 @@ const lowPressSmashMap: RhythmBeatmap = {
   bpm: 120,
   durationMs: 3000,
   notes: [
-    { id: 'smash-low-press', lane: 'K', timeMs: 1000, kind: 'smash', durationMs: 500, requiredPresses: 4 },
-  ],
+    { id: 'smash-low-press', lane: 'K', timeMs: 1000, kind: 'hold', durationMs: 500,   ],
 };
 
 session = createRhythmSession(lowPressSmashMap, 'Normalny');

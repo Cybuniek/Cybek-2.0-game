@@ -2,7 +2,7 @@ import type { Difficulty, RhythmBeatmap, RhythmLane, RhythmNote, RhythmNoteKind,
 import { getRhythmNoteDurationMs, getRhythmNoteEndMs, getRhythmNoteKind, MIN_LONG_NOTE_DURATION_MS, RHYTHM_LANES } from '../rhythm.ts';
 
 export const EDITOR_HOLD_THRESHOLD_MS = 260;
-export const EDITOR_SMASH_CHAIN_MS = 220;
+export const EDITOR_HOLD_CHAIN_MS = 220;
 export const EDITOR_VIEW_WINDOW_MS = 12000;
 export const EDITOR_HIT_LINE_PERCENT = 82;
 
@@ -28,7 +28,7 @@ export type ActiveRecordedPress = {
   noteId: string;
   lane: RhythmLane;
   timeMs: number;
-  kind?: 'tap' | 'smash';
+  kind?: 'tap' ;
 };
 
 export type ActiveRecordedPresses = Partial<Record<RhythmLane, ActiveRecordedPress>>;
@@ -37,17 +37,17 @@ export type RecordedKeyDown = {
   lane: RhythmLane;
   timeMs: number;
   seed?: number;
-  kind?: 'tap' | 'smash';
+  kind?: 'tap' ;
 };
 
 export type RecordedKeyResult = {
   beatmap: RhythmBeatmap;
   activePresses: ActiveRecordedPresses;
   selectedNoteId: string | null;
-  smashDraft: SmashDraft | null;
+  holdDraft: HoldDraft | null;
 };
 
-export type SmashDraft = {
+export type HoldDraft = {
   noteId: string;
   lane: RhythmLane;
   firstPressMs: number;
@@ -92,7 +92,7 @@ export function editorNoteHeightPercent(note: RhythmNote, viewWindowMs = EDITOR_
 export function noteVisualTopPercent(note: RhythmNote, elapsedMs: number, viewWindowMs = EDITOR_VIEW_WINDOW_MS) {
   const headPercent = timeToYPercent(note.timeMs, elapsedMs, viewWindowMs);
   const kind = getRhythmNoteKind(note);
-  return kind === 'hold' || kind === 'smash'
+  return kind === 'hold' || kind === 'hold'
     ? headPercent - editorNoteHeightPercent(note, viewWindowMs)
     : headPercent;
 }
@@ -116,8 +116,7 @@ export function createEditorNote(lane: RhythmLane, timeMs: number, kind: RhythmN
     timeMs,
     kind,
     durationMs: kind === 'hold' ? 520 : 620,
-    requiredPresses: kind === 'smash' ? 3 : undefined,
-  };
+      };
 }
 
 export function upsertNote(beatmap: RhythmBeatmap, note: RhythmNote): RhythmBeatmap {
@@ -140,28 +139,27 @@ export function applyRecordedPress(
   beatmap: RhythmBeatmap,
   draft: KeyPressDraft,
   releasedAtMs: number,
-  smashDraft: SmashDraft | null,
-): { beatmap: RhythmBeatmap; selectedNoteId: string; smashDraft: SmashDraft | null } {
+  holdDraft: HoldDraft | null,
+): { beatmap: RhythmBeatmap; selectedNoteId: string; holdDraft: HoldDraft | null } {
   const heldMs = releasedAtMs - draft.startedAtMs;
   if (heldMs >= EDITOR_HOLD_THRESHOLD_MS) {
     const holdNote = createEditorNote(draft.lane, draft.timeMs, 'hold', releasedAtMs);
     holdNote.durationMs = Math.max(MIN_LONG_NOTE_DURATION_MS, Math.round(heldMs));
-    return { beatmap: upsertNote(beatmap, holdNote), selectedNoteId: holdNote.id, smashDraft: null };
+    return { beatmap: upsertNote(beatmap, holdNote), selectedNoteId: holdNote.id, holdDraft: null };
   }
 
-  if (smashDraft && smashDraft.lane === draft.lane && draft.timeMs - smashDraft.lastPressMs <= EDITOR_SMASH_CHAIN_MS) {
-    const presses = smashDraft.presses + 1;
-    const durationMs = Math.max(MIN_LONG_NOTE_DURATION_MS, draft.timeMs - smashDraft.firstPressMs + EDITOR_SMASH_CHAIN_MS);
-    const nextBeatmap = updateNote(beatmap, smashDraft.noteId, (note) => ({
+  if (holdDraft && holdDraft.lane === draft.lane && draft.timeMs - holdDraft.lastPressMs <= EDITOR_HOLD_CHAIN_MS) {
+    const presses = holdDraft.presses + 1;
+    const durationMs = Math.max(MIN_LONG_NOTE_DURATION_MS, draft.timeMs - holdDraft.firstPressMs + EDITOR_HOLD_CHAIN_MS);
+    const nextBeatmap = updateNote(beatmap, holdDraft.noteId, (note) => ({
       ...note,
-      kind: 'smash',
+      kind: 'hold',
       durationMs,
-      requiredPresses: presses,
-    }));
+          }));
     return {
       beatmap: nextBeatmap,
-      selectedNoteId: smashDraft.noteId,
-      smashDraft: { ...smashDraft, lastPressMs: draft.timeMs, presses },
+      selectedNoteId: holdDraft.noteId,
+      holdDraft: { ...holdDraft, lastPressMs: draft.timeMs, presses },
     };
   }
 
@@ -169,7 +167,7 @@ export function applyRecordedPress(
   return {
     beatmap: upsertNote(beatmap, tapNote),
     selectedNoteId: tapNote.id,
-    smashDraft: {
+    holdDraft: {
       noteId: tapNote.id,
       lane: draft.lane,
       firstPressMs: draft.timeMs,
@@ -182,26 +180,25 @@ export function applyRecordedPress(
 export function applyRecordedKeyDown(
   beatmap: RhythmBeatmap,
   activePresses: ActiveRecordedPresses | null,
-  smashDraft: SmashDraft | null,
+  holdDraft: HoldDraft | null,
   press: RecordedKeyDown,
 ): RecordedKeyResult {
   const nextActivePresses: ActiveRecordedPresses = { ...(activePresses ?? {}) };
   if (nextActivePresses[press.lane]) {
-    return { beatmap, activePresses: nextActivePresses, selectedNoteId: nextActivePresses[press.lane]?.noteId ?? null, smashDraft };
+    return { beatmap, activePresses: nextActivePresses, selectedNoteId: nextActivePresses[press.lane]?.noteId ?? null, holdDraft };
   }
 
-  if (press.kind === 'smash' && smashDraft && smashDraft.lane === press.lane && press.timeMs - smashDraft.lastPressMs <= EDITOR_SMASH_CHAIN_MS) {
-    const presses = smashDraft.presses + 1;
-    const durationMs = Math.max(MIN_LONG_NOTE_DURATION_MS, press.timeMs - smashDraft.firstPressMs + EDITOR_SMASH_CHAIN_MS);
-    const nextBeatmap = updateNote(beatmap, smashDraft.noteId, (note) => ({
+  if (press.kind === 'hold' && holdDraft && holdDraft.lane === press.lane && press.timeMs - holdDraft.lastPressMs <= EDITOR_HOLD_CHAIN_MS) {
+    const presses = holdDraft.presses + 1;
+    const durationMs = Math.max(MIN_LONG_NOTE_DURATION_MS, press.timeMs - holdDraft.firstPressMs + EDITOR_HOLD_CHAIN_MS);
+    const nextBeatmap = updateNote(beatmap, holdDraft.noteId, (note) => ({
       ...note,
-      kind: 'smash',
+      kind: 'hold',
       durationMs,
-      requiredPresses: presses,
-    }));
-    nextActivePresses[press.lane] = { noteId: smashDraft.noteId, lane: press.lane, timeMs: press.timeMs, kind: 'smash' };
-    const nextSmashDraft = { ...smashDraft, lastPressMs: press.timeMs, presses };
-    return { beatmap: nextBeatmap, activePresses: nextActivePresses, selectedNoteId: smashDraft.noteId, smashDraft: nextSmashDraft };
+          }));
+    nextActivePresses[press.lane] = { noteId: holdDraft.noteId, lane: press.lane, timeMs: press.timeMs, kind: 'hold' };
+    const nextHoldDraft = { ...holdDraft, lastPressMs: press.timeMs, presses };
+    return { beatmap: nextBeatmap, activePresses: nextActivePresses, selectedNoteId: holdDraft.noteId, holdDraft: nextHoldDraft };
   }
 
   const tapNote = createEditorNote(press.lane, press.timeMs, 'tap', press.seed ?? Date.now());
@@ -210,7 +207,7 @@ export function applyRecordedKeyDown(
     beatmap: upsertNote(beatmap, tapNote),
     activePresses: nextActivePresses,
     selectedNoteId: tapNote.id,
-    smashDraft: null,
+    holdDraft: null,
   };
 }
 
@@ -222,15 +219,14 @@ export function promoteActiveRecordedHolds(
   let nextBeatmap = beatmap;
 
   Object.values(activePresses ?? {}).forEach((press) => {
-    if (!press || press.kind === 'smash') return;
+    if (!press || press.kind === 'hold') return;
     const heldMs = elapsedMs - press.timeMs;
     if (heldMs < EDITOR_HOLD_THRESHOLD_MS) return;
     nextBeatmap = updateNote(nextBeatmap, press.noteId, (note) => ({
       ...note,
       kind: 'hold',
       durationMs: Math.max(MIN_LONG_NOTE_DURATION_MS, Math.round(heldMs)),
-      requiredPresses: undefined,
-    }));
+          }));
   });
 
   return nextBeatmap;
@@ -239,41 +235,40 @@ export function promoteActiveRecordedHolds(
 export function applyRecordedKeyUp(
   beatmap: RhythmBeatmap,
   activePresses: ActiveRecordedPresses | null,
-  smashDraft: SmashDraft | null,
+  holdDraft: HoldDraft | null,
   lane: RhythmLane,
   releasedAtMs: number,
 ): RecordedKeyResult {
   const nextActivePresses: ActiveRecordedPresses = { ...(activePresses ?? {}) };
   const press = nextActivePresses[lane];
-  if (!press) return { beatmap, activePresses: nextActivePresses, selectedNoteId: null, smashDraft };
+  if (!press) return { beatmap, activePresses: nextActivePresses, selectedNoteId: null, holdDraft };
 
   delete nextActivePresses[lane];
   const heldMs = releasedAtMs - press.timeMs;
-  if (press.kind !== 'smash' && heldMs >= EDITOR_HOLD_THRESHOLD_MS) {
+  if (press.kind !== 'hold' && heldMs >= EDITOR_HOLD_THRESHOLD_MS) {
     const nextBeatmap = updateNote(beatmap, press.noteId, (note) => ({
       ...note,
       kind: 'hold',
       durationMs: Math.max(MIN_LONG_NOTE_DURATION_MS, Math.round(heldMs)),
-      requiredPresses: undefined,
-    }));
-    return { beatmap: nextBeatmap, activePresses: nextActivePresses, selectedNoteId: press.noteId, smashDraft: null };
+          }));
+    return { beatmap: nextBeatmap, activePresses: nextActivePresses, selectedNoteId: press.noteId, holdDraft: null };
   }
 
-  const nextSmashDraft: SmashDraft | null = press.kind === 'smash'
-    ? smashDraft?.noteId === press.noteId
-    ? { ...smashDraft, lastPressMs: press.timeMs }
+  const nextHoldDraft: HoldDraft | null = press.kind === 'hold'
+    ? holdDraft?.noteId === press.noteId
+    ? { ...holdDraft, lastPressMs: press.timeMs }
     : {
         noteId: press.noteId,
         lane,
         firstPressMs: press.timeMs,
         lastPressMs: press.timeMs,
-        presses: getRhythmNoteKind(beatmap.notes.find((note) => note.id === press.noteId) ?? { kind: undefined }) === 'smash'
+        presses: getRhythmNoteKind(beatmap.notes.find((note) => note.id === press.noteId) ?? { kind: undefined }) === 'hold'
           ? Math.max(2, beatmap.notes.find((note) => note.id === press.noteId)?.requiredPresses ?? 2)
           : 1,
       }
     : null;
 
-  return { beatmap, activePresses: nextActivePresses, selectedNoteId: press.noteId, smashDraft: nextSmashDraft };
+  return { beatmap, activePresses: nextActivePresses, selectedNoteId: press.noteId, holdDraft: nextHoldDraft };
 }
 
 export function validateEditorBeatmap(beatmap: RhythmBeatmap): EditorValidation {
@@ -289,13 +284,13 @@ export function validateEditorBeatmap(beatmap: RhythmBeatmap): EditorValidation 
     const kind = getRhythmNoteKind(note);
     if (!RHYTHM_LANES.includes(note.lane)) errors.push(`${note.id}: niepoprawny tor ${note.lane}.`);
     if (note.timeMs < 0 || note.timeMs > beatmap.durationMs) errors.push(`${note.id}: nuta poza czasem poziomu.`);
-    if ((kind === 'hold' || kind === 'smash') && getRhythmNoteEndMs(note) > beatmap.durationMs) {
+    if ((kind === 'hold' || kind === 'hold') && getRhythmNoteEndMs(note) > beatmap.durationMs) {
       errors.push(`${note.id}: ${kind} kończy się poza czasem poziomu.`);
     }
-    if ((kind === 'hold' || kind === 'smash') && getRhythmNoteDurationMs(note) < MIN_LONG_NOTE_DURATION_MS) {
+    if ((kind === 'hold' || kind === 'hold') && getRhythmNoteDurationMs(note) < MIN_LONG_NOTE_DURATION_MS) {
       errors.push(`${note.id}: ${kind} jest za krótki.`);
     }
-    if (kind === 'smash' && (note.requiredPresses ?? 0) < 2) {
+    if (kind === 'hold' && (note.requiredPresses ?? 0) < 2) {
       errors.push(`${note.id}: smash potrzebuje celu co najmniej 2 uderzeń.`);
     }
   }

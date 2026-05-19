@@ -37,7 +37,7 @@ import {
   type ActiveRecordedPresses,
   type EditorMode,
   type ManualBeatmapCatalog,
-  type SmashDraft,
+  type HoldDraft,
 } from './beatmapEditorLogic';
 
 type DragState = {
@@ -89,7 +89,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const pressedKeysRef = useRef<ActiveRecordedPresses>({});
-  const smashDraftRef = useRef<SmashDraft | null>(null);
+  const holdDraftRef = useRef<HoldDraft | null>(null);
   const fallbackClockRef = useRef(0);
   const elapsedRef = useRef(elapsedMs);
   const beatmapRef = useRef(beatmap);
@@ -216,11 +216,11 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     setElapsedMs(0);
     fallbackClockRef.current = 0;
     pressedKeysRef.current = {};
-    smashDraftRef.current = null;
+    holdDraftRef.current = null;
     setSession(createRhythmSession(beatmapRef.current, difficulty));
   }
 
-  function createNoteAtPointer(event: ReactPointerEvent<HTMLDivElement>, kind: 'tap' | 'hold' | 'smash' = 'tap') {
+  function createNoteAtPointer(event: ReactPointerEvent<HTMLDivElement>, kind: 'tap' | 'hold'  = 'tap') {
     const point = pointerToLaneTime(event);
     if (!point) return;
     const note = createEditorNote(point.lane, point.timeMs, kind);
@@ -333,14 +333,14 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     }
 
     if (!isPlayingRef.current) return;
-    const result = applyRecordedKeyDown(beatmapRef.current, pressedKeysRef.current, smashDraftRef.current, {
+    const result = applyRecordedKeyDown(beatmapRef.current, pressedKeysRef.current, holdDraftRef.current, {
       lane,
       timeMs: Math.round(elapsedRef.current),
       seed: performance.now(),
-      kind: event.shiftKey ? 'smash' : 'tap',
+      kind: event.shiftKey ? 'hold' : 'tap',
     });
     pressedKeysRef.current = result.activePresses;
-    smashDraftRef.current = result.smashDraft;
+    holdDraftRef.current = result.holdDraft;
     if (result.selectedNoteId) setSelectedNoteId(result.selectedNoteId);
     beatmapRef.current = result.beatmap;
     setHasUnsavedChanges(true);
@@ -362,12 +362,12 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     const result = applyRecordedKeyUp(
       beatmapRef.current,
       pressedKeysRef.current,
-      smashDraftRef.current,
+      holdDraftRef.current,
       lane,
       Math.round(elapsedRef.current),
     );
     pressedKeysRef.current = result.activePresses;
-    smashDraftRef.current = result.smashDraft;
+    holdDraftRef.current = result.holdDraft;
     if (result.selectedNoteId) setSelectedNoteId(result.selectedNoteId);
     beatmapRef.current = result.beatmap;
     setHasUnsavedChanges(true);
@@ -487,7 +487,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     setIsPlaying(false);
     setSession(createRhythmSession(editable, difficulty));
     pressedKeysRef.current = {};
-    smashDraftRef.current = null;
+    holdDraftRef.current = null;
     setHasUnsavedChanges(false);
     setImportMessage('Porzucono niezapisane zmiany dla bieżącej mapy.');
   }
@@ -651,7 +651,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                 .filter((note) => note.lane === lane)
                 .map((note) => {
                   const kind = getRhythmNoteKind(note);
-                  const isLong = kind === 'hold' || kind === 'smash';
+                  const isLong = kind === 'hold' || kind === 'hold';
                   const headPercent = timeToYPercent(note.timeMs, viewportStartMs, editorWindowMs);
                   const heightPercent = isLong ? editorNoteHeightPercent(note, editorWindowMs) : 0;
                   return (
@@ -674,7 +674,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                       onContextMenu={(event) => event.preventDefault()}
                       type="button"
                     >
-                      {kind === 'smash' && <span>{note.requiredPresses ?? 2}</span>}
+                      {kind === 'hold' && <span>{note.requiredPresses ?? 2}</span>}
                       {isLong && (
                         <span
                           className="resize-handle"
@@ -712,8 +712,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                 ...note,
                 kind: event.target.value === 'tap' ? undefined : event.target.value as RhythmNote['kind'],
                 durationMs: event.target.value === 'tap' ? undefined : note.durationMs ?? 520,
-                requiredPresses: event.target.value === 'smash' ? note.requiredPresses ?? 3 : undefined,
-              }))}>
+                              }))}>
                 <option value="tap">tap</option>
                 <option value="hold">hold</option>
                 <option value="smash">smash</option>
@@ -736,15 +735,6 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                 disabled={getRhythmNoteKind(selectedNote) === 'tap'}
                 value={selectedNote.durationMs ?? 0}
                 onChange={(event) => updateSelectedNote((note) => ({ ...note, durationMs: Number(event.target.value) }))}
-              />
-            </label>
-            <label>
-              Smash hits
-              <input
-                type="number"
-                disabled={getRhythmNoteKind(selectedNote) !== 'smash'}
-                value={selectedNote.requiredPresses ?? 0}
-                onChange={(event) => updateSelectedNote((note) => ({ ...note, requiredPresses: Number(event.target.value) }))}
               />
             </label>
             <button onClick={() => {

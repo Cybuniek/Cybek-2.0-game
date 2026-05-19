@@ -919,7 +919,7 @@ function RhythmScreen({
       note.lane === lane
       && !note.judged
       && note.startedAtMs !== undefined
-      && getRhythmNoteKind(note) === 'smash'
+      && getRhythmNoteKind(note) === 'hold'
     );
     const feedback: HitFeedback = {
       id: Date.now() + Math.random(),
@@ -1054,8 +1054,7 @@ function RhythmScreen({
           kind: getRhythmNoteKind(note),
           timeToHitMs: note.timeToHitMs,
           durationMs: note.durationMs ?? 0,
-          requiredPresses: note.requiredPresses ?? 0,
-          endTimeToHitMs: note.endTimeToHitMs,
+                    endTimeToHitMs: note.endTimeToHitMs,
           yPercent: Math.round(note.yPercent),
           visualTopPercent: Math.round(note.visualTopPercent),
           durationPercent: note.durationPercent,
@@ -1153,7 +1152,7 @@ function RhythmScreen({
               .filter((note) => note.lane === lane)
               .map((note) => {
                 const kind = getRhythmNoteKind(note);
-                const isLong = kind === 'hold' || kind === 'smash';
+                const isLong = kind === 'hold' || kind === 'hold';
                 return (
                   <span
                     className={[
@@ -1167,10 +1166,10 @@ function RhythmScreen({
                       top: `${isLong ? note.visualTopPercent : note.yPercent}%`,
                       opacity: note.opacity,
                       ...(isLong ? { '--note-height': `${note.durationPercent}%` } : {}),
-                      ...(kind === 'smash' ? { '--smash-progress-height': `${Math.round(note.smashProgress * 100)}%` } : {}),
+                      ...(kind === 'hold' ? { '--smash-progress-height': `${Math.round(note.smashProgress * 100)}%` } : {}),
                     } as CSSProperties}
                   >
-                    {kind === 'smash' && (
+                    {kind === 'hold' && (
                       <span className="smash-progress">
                         {note.presses ?? 0}
                       </span>

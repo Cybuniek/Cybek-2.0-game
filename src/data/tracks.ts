@@ -8,9 +8,9 @@ function orderFromFolder(folder: string) {
 
 function audioFiles(folder: string, title: string) {
   return {
-    instrumental: `${audioRoot}/${folder}/[Instrumental] ${title}.wav`,
-    vocals: `${audioRoot}/${folder}/[Lead Vocals] ${title}.wav`,
-    merged: `${audioRoot}/${folder}/${title}.wav`,
+    instrumental: `${audioRoot}/${folder}/[Instrumental] ${title}.ogg`,
+    vocals: `${audioRoot}/${folder}/[Lead Vocals] ${title}.ogg`,
+    merged: `${audioRoot}/${folder}/${title}.ogg`,
   };
 }
 
