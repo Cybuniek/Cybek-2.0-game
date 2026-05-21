@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getNeuraPresencePreset } from '../data/neuraPresence.ts';
+import type { NeuraPresenceState } from '../types.ts';
 
 export const soundscapeConfig = {
   masterStorageKey: 'ustnik.soundscape.muted',
@@ -33,7 +35,12 @@ type ActiveGlitch = {
   frameId: number | null;
 };
 
-export function useSoundscape() {
+type TriggerGlitchOptions = {
+  reason?: string;
+  intensity?: number;
+};
+
+export function useSoundscape(presenceState?: NeuraPresenceState) {
   const [isMuted, setIsMutedState] = useState(() => readStoredMute());
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [activeGlitchCount, setActiveGlitchCount] = useState(0);
@@ -41,6 +48,7 @@ export function useSoundscape() {
   const activeGlitchesRef = useRef<Set<ActiveGlitch>>(new Set());
   const mutedRef = useRef(isMuted);
   const unlockedRef = useRef(isUnlocked);
+  const presenceRef = useRef<NeuraPresenceState | undefined>(presenceState);
 
   const stopGlitch = useCallback((glitch: ActiveGlitch) => {
     if (!activeGlitchesRef.current.has(glitch)) return;
@@ -66,9 +74,10 @@ export function useSoundscape() {
     }
   }, []);
 
-  const triggerGlitch = useCallback(() => {
+  const triggerGlitch = useCallback((options: TriggerGlitchOptions = {}) => {
     if (mutedRef.current || !unlockedRef.current) return false;
-    if (activeGlitchesRef.current.size >= soundscapeConfig.glitch.maxActive) return false;
+    const runtime = getSoundscapeRuntime(presenceRef.current, options.intensity);
+    if (activeGlitchesRef.current.size >= runtime.maxActive) return false;
 
     const source = pickRandom(soundscapeConfig.glitch.sources);
     const audio = new Audio(source);
@@ -91,7 +100,7 @@ export function useSoundscape() {
       if (!activeGlitchesRef.current.has(glitch)) return;
 
       const elapsed = now - startedAt;
-      audio.volume = soundscapeConfig.glitch.volume * glitchEnvelope(elapsed, fadeInMs, peakMs, fadeOutMs);
+      audio.volume = runtime.glitchVolume * glitchEnvelope(elapsed, fadeInMs, peakMs, fadeOutMs);
       if (elapsed >= totalMs) {
         stopGlitch(glitch);
         return;
@@ -121,10 +130,14 @@ export function useSoundscape() {
   }, [isUnlocked]);
 
   useEffect(() => {
+    presenceRef.current = presenceState;
+  }, [presenceState]);
+
+  useEffect(() => {
     const ambient = new Audio(soundscapeConfig.ambient.source);
     ambient.loop = true;
     ambient.preload = 'auto';
-    ambient.volume = soundscapeConfig.ambient.volume;
+    ambient.volume = getSoundscapeRuntime(presenceRef.current).ambientVolume;
     ambientRef.current = ambient;
 
     return () => {
@@ -144,9 +157,11 @@ export function useSoundscape() {
       return;
     }
 
-    ambient.volume = soundscapeConfig.ambient.volume;
+    const runtime = getSoundscapeRuntime(presenceState);
+    ambient.playbackRate = runtime.ambientPlaybackRate;
     ambient.play().catch(() => undefined);
-  }, [isMuted, isUnlocked]);
+    return rampAmbientVolume(ambient, runtime.ambientVolume);
+  }, [isMuted, isUnlocked, presenceState]);
 
   useEffect(() => {
     if (isUnlocked) return;
@@ -170,11 +185,12 @@ export function useSoundscape() {
     let cancelled = false;
 
     const schedule = () => {
+      const runtime = getSoundscapeRuntime(presenceRef.current);
       timeoutId = window.setTimeout(() => {
         if (cancelled) return;
         triggerGlitch();
         schedule();
-      }, randomBetween(soundscapeConfig.glitch.minDelayMs, soundscapeConfig.glitch.maxDelayMs));
+      }, randomBetween(runtime.minDelayMs, runtime.maxDelayMs));
     };
 
     schedule();
@@ -216,4 +232,35 @@ function glitchEnvelope(elapsedMs: number, fadeInMs: number, peakMs: number, fad
   if (elapsedMs <= fadeInMs) return elapsedMs / fadeInMs;
   if (elapsedMs <= fadeInMs + peakMs) return 1;
   return Math.max(0, 1 - (elapsedMs - fadeInMs - peakMs) / fadeOutMs);
+}
+
+function getSoundscapeRuntime(presenceState?: NeuraPresenceState, forcedIntensity = 0) {
+  const preset = getNeuraPresencePreset(presenceState?.powerLevel ?? 0);
+  const ambientDepth = presenceState?.ambientDepth ?? preset.audio.ambientDepth;
+  const glitchIntensity = Math.max(presenceState?.glitchIntensity ?? preset.audio.glitchIntensity, forcedIntensity);
+
+  return {
+    ambientVolume: soundscapeConfig.ambient.volume * (0.42 + ambientDepth * 0.58),
+    ambientPlaybackRate: 0.96 + ambientDepth * 0.04,
+    glitchVolume: Math.min(0.78, preset.audio.glitchVolume * (0.7 + glitchIntensity * 0.42)),
+    maxActive: Math.min(3, Math.max(1, preset.audio.maxActive)),
+    minDelayMs: Math.max(2800, Math.round(preset.audio.minDelayMs * (1 - glitchIntensity * 0.16))),
+    maxDelayMs: Math.max(5200, Math.round(preset.audio.maxDelayMs * (1 - glitchIntensity * 0.12))),
+  };
+}
+
+function rampAmbientVolume(audio: HTMLAudioElement, targetVolume: number) {
+  let frameId = 0;
+  const startedAt = performance.now();
+  const startVolume = audio.volume;
+  const durationMs = 900;
+
+  const step = (now: number) => {
+    const progress = Math.min(1, (now - startedAt) / durationMs);
+    audio.volume = startVolume + (targetVolume - startVolume) * progress;
+    if (progress < 1) frameId = window.requestAnimationFrame(step);
+  };
+
+  frameId = window.requestAnimationFrame(step);
+  return () => window.cancelAnimationFrame(frameId);
 }

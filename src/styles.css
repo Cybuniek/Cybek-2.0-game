@@ -369,6 +369,8 @@ button:disabled {
   touch-action: none;
   box-shadow: none;
   pointer-events: auto;
+  transform: translate3d(var(--neura-jitter-x, 0), var(--neura-jitter-y, 0), 0);
+  transition: filter 160ms ease;
 }
 
 .neura-sprite-pad:active {
@@ -382,6 +384,8 @@ button:disabled {
 }
 
 .neura-sprite {
+  position: relative;
+  display: block;
   width: 120px;
   height: 130px;
   background-image: var(--neura-sprite);
@@ -390,7 +394,42 @@ button:disabled {
   background-position-y: calc(var(--neura-row) * -130px);
   image-rendering: pixelated;
   animation: neura-atlas var(--neura-duration) steps(var(--neura-frames)) infinite;
+  animation-delay: calc(var(--neura-render-delay, 0ms) * -1);
+  transform: translateX(var(--neura-eye-drift-x, 0));
   filter: drop-shadow(0 0 10px rgba(255, 46, 221, 0.36)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.42));
+}
+
+.neura-sprite::before,
+.neura-sprite::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--neura-sprite);
+  background-repeat: no-repeat;
+  background-size: 960px 1170px;
+  background-position:
+    calc(var(--neura-frames) * -20px)
+    calc(var(--neura-row) * -130px);
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.neura-sprite::before {
+  opacity: var(--neura-ghost-opacity, 0);
+  transform: translate(4px, -2px);
+  mix-blend-mode: screen;
+}
+
+.neura-sprite::after {
+  opacity: var(--neura-glitch-slice-opacity, 0);
+  clip-path: inset(34% 0 44% 0);
+  transform: translate(-7px, 1px);
+  filter: hue-rotate(70deg) saturate(1.5);
+}
+
+.neura-power-3 .neura-sprite-pad,
+.neura-power-4 .neura-sprite-pad {
+  filter: drop-shadow(0 0 16px rgba(57, 255, 224, 0.26));
 }
 
 .neura-jumping .neura-sprite {
@@ -403,6 +442,22 @@ button:disabled {
 
 .neura-review .neura-sprite {
   filter: drop-shadow(0 0 12px rgba(57, 255, 224, 0.5)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.42));
+}
+
+.neura-echo {
+  position: fixed;
+  right: 190px;
+  bottom: 42px;
+  z-index: 13;
+  max-width: min(360px, calc(100vw - 260px));
+  padding: 8px 10px;
+  border: 1px solid rgba(57, 255, 224, 0.44);
+  background: rgba(5, 8, 18, 0.88);
+  color: var(--text-cyan);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  box-shadow: 0 0 18px rgba(57, 255, 224, 0.18);
+  pointer-events: none;
 }
 
 .stage-screen,
@@ -475,6 +530,63 @@ button:disabled {
 
 .rhythm-debug em {
   color: #a8b7c7;
+}
+
+.neura-debug {
+  position: fixed;
+  top: 62px;
+  right: 22px;
+  z-index: 18;
+  width: 260px;
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid var(--line-cyan);
+  background: rgba(5, 8, 18, 0.95);
+  color: #d7fff8;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  box-shadow: 0 0 24px rgba(57, 255, 224, 0.2);
+}
+
+.neura-debug div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.neura-debug div:first-child {
+  justify-content: space-between;
+}
+
+.neura-debug strong {
+  color: var(--accent-pink);
+}
+
+.neura-debug button {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.neura-debug-levels button {
+  width: 30px;
+}
+
+.neura-debug-log {
+  max-height: 84px;
+  overflow: auto;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 7px;
+}
+
+.neura-debug-log span {
+  color: var(--text-soft);
+}
+
+.neura-debug em {
+  color: var(--text-soft);
 }
 
 .vocal-map {
@@ -1483,8 +1595,15 @@ button:disabled {
   }
 
   .webcam,
-  .neura {
+  .neura,
+  .neura-echo {
     display: none;
+  }
+
+  .neura-debug {
+    position: fixed;
+    inset: auto 12px 12px;
+    width: auto;
   }
 
   .desktop {
@@ -1573,5 +1692,10 @@ button:disabled {
 
   .neura {
     transition: none;
+  }
+
+  .neura-sprite::before,
+  .neura-sprite::after {
+    display: none;
   }
 }

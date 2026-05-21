@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 import { neuraComments } from './data/messages';
-import { neuraVoiceAssets } from './data/neuraVoiceAssets';
-import { neuraReactionVoiceLineIds, type NeuraVoiceLine, type NeuraVoiceLineId } from './data/neuraVoiceLines';
+import type { NeuraVoiceLine } from './data/neuraVoiceLines';
 import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
 import { useSoundscape } from './audio/useSoundscape';
 import { BeatmapEditor } from './editor/BeatmapEditor';
+import { NeuraPet } from './neura/NeuraPet';
+import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
+import { useEnvironmentalUiEvents } from './neura/useEnvironmentalUiEvents';
 import {
   addUnique,
   createRemixComparison,
@@ -64,12 +66,23 @@ import {
   type RhythmJudgement,
   type RhythmSession,
 } from './rhythm';
-import type { Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, RhythmLane, RhythmSummary, Track } from './types';
+import type {
+  Difficulty,
+  DraftTrack,
+  GameState,
+  NeuraPresenceEventId,
+  NeuraPresenceEventLogEntry,
+  OperationalPowerLevel,
+  PerformanceResult,
+  PublishedTrack,
+  RhythmLane,
+  RhythmSummary,
+  Track,
+} from './types';
 
 type WindowId = 'messenger' | 'create' | 'me' | 'player' | null;
 type Screen = 'desktop' | 'rhythm' | 'results' | 'editor';
 type Point = { x: number; y: number };
-type NeuraPetMood = 'idle' | 'waving' | 'jumping' | 'failed' | 'waiting' | 'running' | 'review';
 type HitFeedback = {
   id: number;
   lane: RhythmLane;
@@ -77,17 +90,8 @@ type HitFeedback = {
   judgement: 'perfect' | 'great' | 'good' | 'miss';
 };
 
-type NeuraAnimation = {
-  row: number;
-  frames: number;
-  duration: string;
-  label: string;
-};
-
-const NEURA_SPRITESHEET_PATH = '/pets/neura/spritesheet.webp';
 const NEURA_COMMENT_INTERVAL_MS = 27500;
-const NEURA_PATROL_INTERVAL_MS = 5200;
-const NEURA_MANUAL_PAUSE_MS = 6500;
+const NEURA_LOW_FX_STORAGE_KEY = 'ustnik.neura.lowFxMode';
 const RHYTHM_TAP_SFX_SOURCES = [
   '/audio/sfx/rhythm/SE-tap_note-keyboard_typing00.mp3',
   '/audio/sfx/rhythm/SE-tap_note-keyboard_typing01.mp3',
@@ -104,18 +108,6 @@ const RHYTHM_HOLD_OVERLAY_FADE_MS = 260;
 const RHYTHM_TAP_SFX_VOLUME = 0.72;
 const RHYTHM_HOLD_KEYBOARD_SFX_VOLUME = 0.42;
 const RHYTHM_HOLD_OVERLAY_SFX_VOLUME = 0.5;
-const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
-  idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },
-  running: { row: 7, frames: 6, duration: '0.82s', label: 'przeciąganie' },
-  waving: { row: 3, frames: 4, duration: '0.84s', label: 'kontakt' },
-  jumping: { row: 4, frames: 5, duration: '0.92s', label: 'impuls' },
-  failed: { row: 5, frames: 8, duration: '1.28s', label: 'glitch' },
-  waiting: { row: 6, frames: 6, duration: '1.16s', label: 'nasłuch' },
-  review: { row: 8, frames: 6, duration: '1.22s', label: 'analiza' },
-};
-const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'review', 'failed'];
-const NEURA_VOICE_LINE_IDS = Object.keys(neuraVoiceAssets) as NeuraVoiceLineId[];
-
 type ActiveRun = {
   track: Track;
   difficulty: Difficulty;
@@ -135,12 +127,70 @@ export default function App() {
   const [neuraIndex, setNeuraIndex] = useState(0);
   const [corruptionTick, setCorruptionTick] = useState(0);
   const [selectedPublishedId, setSelectedPublishedId] = useState<string | null>(null);
-  const soundscape = useSoundscape();
+  const [lastNeuraEventId, setLastNeuraEventId] = useState<NeuraPresenceEventId>('boot');
+  const [neuraDebugOverride, setNeuraDebugOverride] = useState<OperationalPowerLevel | null>(null);
+  const [neuraLowFxMode, setNeuraLowFxModeState] = useState(() => readStoredNeuraLowFxMode());
+  const [neuraEventLog, setNeuraEventLog] = useState<NeuraPresenceEventLogEntry[]>(() => (
+    [{ id: 'boot', at: new Date().toISOString() }]
+  ));
+  const [isNeuraDebugOpen, setIsNeuraDebugOpen] = useState(false);
+  const [environmentEcho, setEnvironmentEcho] = useState<{ id: number; text: string } | null>(null);
+  const neuraPresence = useMemo(
+    () => createNeuraPresenceState(gameState, {
+      lastEventId: lastNeuraEventId,
+      debugOverride: neuraDebugOverride,
+      lowFxMode: neuraLowFxMode,
+      eventLog: neuraEventLog,
+    }),
+    [gameState, lastNeuraEventId, neuraDebugOverride, neuraEventLog, neuraLowFxMode],
+  );
+  const soundscape = useSoundscape(neuraPresence);
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
     create: { x: 210, y: 116 },
     me: { x: 250, y: 140 },
     player: { x: 300, y: 180 },
+  });
+
+  const recordNeuraPresenceEvent = useCallback((eventId: NeuraPresenceEventId) => {
+    setLastNeuraEventId(eventId);
+    setNeuraEventLog((log) => appendNeuraPresenceEvent(log, eventId));
+  }, []);
+
+  const setNeuraLowFxMode = useCallback((enabled: boolean) => {
+    setNeuraLowFxModeState(enabled);
+    try {
+      window.localStorage.setItem(NEURA_LOW_FX_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      // localStorage may be unavailable in strict browser privacy modes.
+    }
+    recordNeuraPresenceEvent('debugSetPower');
+  }, [recordNeuraPresenceEvent]);
+
+  const setNeuraOverride = useCallback((level: OperationalPowerLevel | null) => {
+    setNeuraDebugOverride(level);
+    recordNeuraPresenceEvent('debugSetPower');
+  }, [recordNeuraPresenceEvent]);
+
+  const showEnvironmentalEcho = useCallback((text: string) => {
+    const id = Date.now() + Math.random();
+    setEnvironmentEcho({ id, text });
+    window.setTimeout(() => {
+      setEnvironmentEcho((current) => (current?.id === id ? null : current));
+    }, 3400);
+  }, []);
+
+  const triggerEnvironmentalGlitch = useCallback((intensity: number) => {
+    soundscape.triggerGlitch({ reason: 'environment', intensity });
+  }, [soundscape.triggerGlitch]);
+
+  useEnvironmentalUiEvents<Exclude<WindowId, null>>({
+    isDesktop: screen === 'desktop',
+    presenceState: neuraPresence,
+    activeWindow,
+    setWindowPositions,
+    onEcho: showEnvironmentalEcho,
+    onGlitch: triggerEnvironmentalGlitch,
   });
 
   useEffect(() => saveState(gameState), [gameState]);
@@ -157,6 +207,17 @@ export default function App() {
       setCorruptionTick((current) => current + 1);
     }, 170);
     return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    function handleDebugKey(event: KeyboardEvent) {
+      if (event.key !== 'F10') return;
+      event.preventDefault();
+      setIsNeuraDebugOpen((current) => !current);
+    }
+
+    window.addEventListener('keydown', handleDebugKey);
+    return () => window.removeEventListener('keydown', handleDebugKey);
   }, []);
 
   useEffect(() => {
@@ -188,9 +249,10 @@ export default function App() {
           muted: soundscape.isMuted,
           activeGlitches: soundscape.activeGlitchCount,
         },
+        neuraPresence,
       });
     window.advanceTime = () => undefined;
-  }, [activeRun, activeWindow, gameState, result, screen, soundscape.activeGlitchCount, soundscape.isMuted, soundscape.isUnlocked]);
+  }, [activeRun, activeWindow, gameState, neuraPresence, result, screen, soundscape.activeGlitchCount, soundscape.isMuted, soundscape.isUnlocked]);
 
   const availableCreateTracks = useMemo(
     () => tracks.filter((track) => !gameState.createdTrackIds.includes(track.id)),
@@ -221,6 +283,7 @@ export default function App() {
   }
 
   function startRun(track: Track, difficulty: Difficulty, mode: ActiveRun['mode'], draftId?: string) {
+    recordNeuraPresenceEvent('rhythmStarted');
     setActiveRun({ track, difficulty, mode, draftId });
     setResult(null);
     setScreen('rhythm');
@@ -228,6 +291,7 @@ export default function App() {
 
   function finishRun(summary: RhythmSummary) {
     if (!activeRun) return;
+    recordNeuraPresenceEvent('rhythmFinished');
     setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty, summary));
     setScreen('results');
   }
@@ -261,6 +325,7 @@ export default function App() {
     }));
 
     returnToDesktop(status === 'sentToPawel' ? 'messenger' : 'me');
+    recordNeuraPresenceEvent(status === 'sentToPawel' ? 'sentToPawel' : 'draftSaved');
     if (status === 'sentToPawel') setMessengerTab('pawel');
   }
 
@@ -275,6 +340,7 @@ export default function App() {
       titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, result.trackId, result.accuracy),
       stats: applyStatDelta(state.stats, getStatDelta(result, 'saveDraft')),
     }));
+    recordNeuraPresenceEvent('draftSaved');
     returnToDesktop('me');
   }
 
@@ -299,6 +365,7 @@ export default function App() {
       ),
       stats: applyStatDelta(state.stats, getStatDelta(resultLike, 'sendToPawel')),
     }));
+    recordNeuraPresenceEvent('sentToPawel');
     setActiveWindow('messenger');
     setMessengerTab('pawel');
   }
@@ -326,6 +393,7 @@ export default function App() {
         stats: applyStatDelta(state.stats, getStatDelta(resultFromDraft(draft), 'publish')),
       };
     });
+    recordNeuraPresenceEvent('published');
     returnToDesktop('messenger');
     setMessengerTab('group');
   }
@@ -349,6 +417,9 @@ export default function App() {
     setActiveRun(null);
     setResult(null);
     setSelectedPublishedId(null);
+    setNeuraDebugOverride(null);
+    setLastNeuraEventId('boot');
+    setNeuraEventLog([{ id: 'boot', at: new Date().toISOString() }]);
   }
 
   if (screen === 'rhythm' && activeRun) {
@@ -357,6 +428,8 @@ export default function App() {
         activeRun={activeRun}
         displayTitle={getDisplayTitle(activeRun.track.id, activeRun.track.title)}
         neuraComment={neuraComments[neuraIndex]}
+        neuraPresence={neuraPresence}
+        onNeuraPresenceEvent={recordNeuraPresenceEvent}
         onFinish={finishRun}
         onExit={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
       />
@@ -379,6 +452,8 @@ export default function App() {
         remixComparison={activeRemixDraft ? createRemixComparison(activeRemixDraft, result) : null}
         alreadyPublished={gameState.publishedTrackIds.includes(result.trackId)}
         neuraComment={neuraComments[neuraIndex]}
+        neuraPresence={neuraPresence}
+        onNeuraPresenceEvent={recordNeuraPresenceEvent}
         onSave={() => saveInitialDraft('inDrawer')}
         onSendToPawel={() => saveInitialDraft('sentToPawel')}
         onPublish={publishInitialResult}
@@ -424,7 +499,20 @@ export default function App() {
       </section>
 
       <StatsPanel stats={gameState.stats} />
-      <PersistentOverlays comment={neuraComments[neuraIndex]} />
+      <PersistentOverlays
+        comment={neuraComments[neuraIndex]}
+        presenceState={neuraPresence}
+        onPresenceEvent={recordNeuraPresenceEvent}
+      />
+      {environmentEcho && <aside className="neura-echo">{environmentEcho.text}</aside>}
+      {isNeuraDebugOpen && (
+        <NeuraDebugPanel
+          presenceState={neuraPresence}
+          activeGlitchCount={soundscape.activeGlitchCount}
+          onSetOverride={setNeuraOverride}
+          onToggleLowFx={() => setNeuraLowFxMode(!neuraPresence.lowFxMode)}
+        />
+      )}
 
       <aside className="todo-widget">
         <strong>{placeholderLabels.todoTitle}</strong>
@@ -831,12 +919,16 @@ function RhythmScreen({
   activeRun,
   displayTitle,
   neuraComment,
+  neuraPresence,
+  onNeuraPresenceEvent,
   onFinish,
   onExit,
 }: {
   activeRun: ActiveRun;
   displayTitle: string;
   neuraComment: NeuraVoiceLine;
+  neuraPresence: ReturnType<typeof createNeuraPresenceState>;
+  onNeuraPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   onFinish: (summary: RhythmSummary) => void;
   onExit: () => void;
 }) {
@@ -1168,6 +1260,7 @@ function RhythmScreen({
         comboMultiplier: currentSummary.comboMultiplier,
         lastJudgement: currentSession.lastJudgement,
         score: currentSummary,
+        neuraPresence,
         nextNotes: currentVisibleNotes.slice(0, 12).map((note) => ({
           lane: note.lane,
           kind: getRhythmNoteKind(note),
@@ -1185,7 +1278,7 @@ function RhythmScreen({
     return () => {
       window.advanceTime = () => undefined;
     };
-  }, [activeRun, audioDurationMs, stepByMs]);
+  }, [activeRun, audioDurationMs, neuraPresence, stepByMs]);
 
   const debugPayload = {
     audioDurationMs,
@@ -1321,7 +1414,11 @@ function RhythmScreen({
       <button className="primary-action" onClick={() => completeRun(sessionRef.current)}>
         {buttonLabels.finishTrial}
       </button>
-      <PersistentOverlays comment={neuraComment} />
+      <PersistentOverlays
+        comment={neuraComment}
+        presenceState={neuraPresence}
+        onPresenceEvent={onNeuraPresenceEvent}
+      />
     </main>
   );
 }
@@ -1394,6 +1491,8 @@ function ResultsScreen({
   remixComparison,
   alreadyPublished,
   neuraComment,
+  neuraPresence,
+  onNeuraPresenceEvent,
   onSave,
   onSendToPawel,
   onPublish,
@@ -1406,6 +1505,8 @@ function ResultsScreen({
   remixComparison: RemixComparison | null;
   alreadyPublished: boolean;
   neuraComment: NeuraVoiceLine;
+  neuraPresence: ReturnType<typeof createNeuraPresenceState>;
+  onNeuraPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   onSave: () => void;
   onSendToPawel: () => void;
   onPublish: () => void;
@@ -1452,7 +1553,11 @@ function ResultsScreen({
           <button className="result-secondary" onClick={onBack}>{buttonLabels.backWithoutSave}</button>
         </div>
       </section>
-      <PersistentOverlays comment={neuraComment} />
+      <PersistentOverlays
+        comment={neuraComment}
+        presenceState={neuraPresence}
+        onPresenceEvent={onNeuraPresenceEvent}
+      />
     </main>
   );
 }
@@ -1540,273 +1645,6 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function useAvailableNeuraVoiceIds() {
-  const [availableIds, setAvailableIds] = useState<ReadonlySet<NeuraVoiceLineId>>(() => new Set());
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function hasAudio(path: string) {
-      try {
-        const response = await fetch(path, { method: 'HEAD', signal: controller.signal });
-        return response.ok;
-      } catch {
-        return false;
-      }
-    }
-
-    async function resolveAvailability() {
-      const entries = await Promise.all(
-        NEURA_VOICE_LINE_IDS.map(async (lineId) => {
-          const sources = neuraVoiceAssets[lineId];
-          const hasPrimary = await hasAudio(sources.primary);
-          const hasFallback = hasPrimary ? false : await hasAudio(sources.fallback);
-          return [lineId, hasPrimary || hasFallback] as const;
-        }),
-      );
-
-      if (!controller.signal.aborted) {
-        setAvailableIds(new Set(entries.filter(([, isAvailable]) => isAvailable).map(([lineId]) => lineId)));
-      }
-    }
-
-    void resolveAvailability();
-    return () => controller.abort();
-  }, []);
-
-  return availableIds;
-}
-
-function useNeuraVoice(availableVoiceLineIds: ReadonlySet<NeuraVoiceLineId>) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const isUnlockedRef = useRef(false);
-  const canPlayOpusRef = useRef<boolean | null>(null);
-  const queuedLineIdRef = useRef<NeuraVoiceLineId | null>(null);
-
-  useEffect(() => () => {
-    audioRef.current?.pause();
-  }, []);
-
-  function canPlayOpus() {
-    if (canPlayOpusRef.current !== null) return canPlayOpusRef.current;
-    const audio = document.createElement('audio');
-    canPlayOpusRef.current = audio.canPlayType('audio/ogg; codecs="opus"') !== '';
-    return canPlayOpusRef.current;
-  }
-
-  const createAudio = useCallback((lineId: NeuraVoiceLineId) => {
-    const sources = neuraVoiceAssets[lineId];
-    if (!sources || !availableVoiceLineIds.has(lineId)) return null;
-    return new Audio(canPlayOpus() ? sources.primary : sources.fallback);
-  }, [availableVoiceLineIds]);
-
-  const playQueuedLine = useCallback(() => {
-    const queuedLineId = queuedLineIdRef.current;
-    queuedLineIdRef.current = null;
-    if (!queuedLineId) return;
-
-    const audio = createAudio(queuedLineId);
-    if (!audio) return;
-
-    audioRef.current = audio;
-    audio.addEventListener('ended', playQueuedLine, { once: true });
-    audio.addEventListener('error', playQueuedLine, { once: true });
-    audio.play().catch(() => {
-      const sources = neuraVoiceAssets[queuedLineId];
-      if (!sources || audio.src.endsWith(sources.fallback)) {
-        playQueuedLine();
-        return;
-      }
-      const fallbackAudio = new Audio(sources.fallback);
-      audioRef.current = fallbackAudio;
-      fallbackAudio.addEventListener('ended', playQueuedLine, { once: true });
-      fallbackAudio.addEventListener('error', playQueuedLine, { once: true });
-      fallbackAudio.play().catch(() => undefined);
-    });
-  }, [createAudio]);
-
-  return useCallback((lineId: NeuraVoiceLineId, source: 'comment' | 'reaction') => {
-    if (source === 'reaction') isUnlockedRef.current = true;
-    if (!isUnlockedRef.current || !availableVoiceLineIds.has(lineId)) return;
-
-    const currentAudio = audioRef.current;
-    if (currentAudio && !currentAudio.paused && !currentAudio.ended) {
-      if (source === 'reaction') return;
-      queuedLineIdRef.current = lineId;
-      return;
-    }
-
-    queuedLineIdRef.current = lineId;
-    playQueuedLine();
-  }, [availableVoiceLineIds, playQueuedLine]);
-}
-
-function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
-  const [mood, setMood] = useState<NeuraPetMood>('idle');
-  const [position, setPosition] = useState<Point>(() => getDefaultNeuraPosition());
-  const dragRef = useRef<{ startX: number; startY: number; origin: Point; moved: boolean } | null>(null);
-  const reactionIndexRef = useRef(0);
-  const settleTimerRef = useRef<number | null>(null);
-  const patrolTimerRef = useRef<number | null>(null);
-  const manualPauseUntilRef = useRef(0);
-  const availableVoiceLineIds = useAvailableNeuraVoiceIds();
-  const playNeuraVoice = useNeuraVoice(availableVoiceLineIds);
-  const animation = NEURA_ANIMATIONS[mood];
-  const hasCommentAudio = availableVoiceLineIds.has(comment.id);
-
-  useEffect(() => {
-    function handleResize() {
-      setPosition((current) => clampNeuraPosition(current));
-    }
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => () => {
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-    if (patrolTimerRef.current !== null) window.clearInterval(patrolTimerRef.current);
-  }, []);
-
-  useEffect(() => {
-    if (!hasCommentAudio) return;
-    playNeuraVoice(comment.id, 'comment');
-  }, [comment.id, hasCommentAudio, playNeuraVoice]);
-
-  useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) return;
-
-    patrolTimerRef.current = window.setInterval(() => {
-      if (dragRef.current || Date.now() < manualPauseUntilRef.current) return;
-
-      setMood('running');
-      setPosition(getNextNeuraPatrolPosition());
-      if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-      settleTimerRef.current = window.setTimeout(() => {
-        setMood('idle');
-        settleTimerRef.current = null;
-      }, 1200);
-    }, NEURA_PATROL_INTERVAL_MS);
-
-    return () => {
-      if (patrolTimerRef.current !== null) window.clearInterval(patrolTimerRef.current);
-      patrolTimerRef.current = null;
-    };
-  }, []);
-
-  function settleMood(nextMood: NeuraPetMood, delayMs = 1500) {
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-    setMood(nextMood);
-    settleTimerRef.current = window.setTimeout(() => {
-      setMood('idle');
-      settleTimerRef.current = null;
-    }, delayMs);
-  }
-
-  function playReaction(nextMood: NeuraPetMood) {
-    const reactionLineId = neuraReactionVoiceLineIds[nextMood as keyof typeof neuraReactionVoiceLineIds];
-    if (!reactionLineId || !availableVoiceLineIds.has(reactionLineId)) return;
-    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
-    settleMood(nextMood);
-    playNeuraVoice(reactionLineId, 'reaction');
-  }
-
-  function cycleReaction() {
-    const nextMood = NEURA_REACTION_SEQUENCE[reactionIndexRef.current % NEURA_REACTION_SEQUENCE.length];
-    reactionIndexRef.current += 1;
-    playReaction(nextMood);
-  }
-
-  function beginDrag(event: PointerEvent<HTMLButtonElement>) {
-    dragRef.current = {
-      startX: event.clientX,
-      startY: event.clientY,
-      origin: position,
-      moved: false,
-    };
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
-    setMood('running');
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function drag(event: PointerEvent<HTMLButtonElement>) {
-    if (!dragRef.current) return;
-
-    const dx = event.clientX - dragRef.current.startX;
-    const dy = event.clientY - dragRef.current.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 6) dragRef.current.moved = true;
-    setPosition(clampNeuraPosition({ x: dragRef.current.origin.x + dx, y: dragRef.current.origin.y + dy }));
-  }
-
-  function endDrag(event: PointerEvent<HTMLButtonElement>) {
-    if (!dragRef.current) return;
-
-    const wasMoved = dragRef.current.moved;
-    dragRef.current = null;
-    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    if (wasMoved) {
-      settleMood('jumping', 900);
-      return;
-    }
-    cycleReaction();
-  }
-
-  const style = {
-    '--neura-x': `${position.x}px`,
-    '--neura-y': `${position.y}px`,
-    '--neura-row': animation.row,
-    '--neura-frames': animation.frames,
-    '--neura-duration': animation.duration,
-    '--neura-sprite': `url("${NEURA_SPRITESHEET_PATH}")`,
-  } as CSSProperties;
-
-  return (
-    <aside className={`neura neura-${mood}`} style={style} aria-live="polite">
-      <button
-        className="neura-sprite-pad"
-        type="button"
-        onPointerDown={beginDrag}
-        onPointerMove={drag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        aria-label="Neura: kliknij lub przeciągnij"
-        title="Kliknij lub przeciągnij Neurę"
-      >
-        <span className="neura-sprite" aria-hidden="true" />
-      </button>
-    </aside>
-  );
-}
-
-function getDefaultNeuraPosition(): Point {
-  return clampNeuraPosition({ x: window.innerWidth - 184, y: window.innerHeight - 190 });
-}
-
-function getNextNeuraPatrolPosition(): Point {
-  const minX = Math.max(24, Math.floor(window.innerWidth * 0.48));
-  const maxX = Math.max(minX, window.innerWidth - 178);
-  const minY = Math.max(74, Math.floor(window.innerHeight * 0.58));
-  const maxY = Math.max(minY, window.innerHeight - 184);
-
-  return clampNeuraPosition({
-    x: minX + Math.random() * (maxX - minX),
-    y: minY + Math.random() * (maxY - minY),
-  });
-}
-
-function clampNeuraPosition(position: Point): Point {
-  const maxX = Math.max(24, window.innerWidth - 156);
-  const maxY = Math.max(66, window.innerHeight - 174);
-
-  return {
-    x: Math.max(24, Math.min(maxX, position.x)),
-    y: Math.max(66, Math.min(maxY, position.y)),
-  };
-}
-
 function CybekWebcam() {
   return (
     <aside className="webcam">
@@ -1830,13 +1668,83 @@ function CybekWebcam() {
   );
 }
 
-function PersistentOverlays({ comment }: { comment: NeuraVoiceLine }) {
+function NeuraDebugPanel({
+  presenceState,
+  activeGlitchCount,
+  onSetOverride,
+  onToggleLowFx,
+}: {
+  presenceState: ReturnType<typeof createNeuraPresenceState>;
+  activeGlitchCount: number;
+  onSetOverride: (level: OperationalPowerLevel | null) => void;
+  onToggleLowFx: () => void;
+}) {
+  const levels: OperationalPowerLevel[] = [0, 1, 2, 3, 4];
+
+  return (
+    <aside className="neura-debug" aria-label="Neura debug">
+      <div>
+        <strong>Neura debug</strong>
+        <button onClick={() => onSetOverride(null)}>Auto</button>
+      </div>
+      <span>poziom: {presenceState.powerLevel} / {presenceState.narrativeTag}</span>
+      <span>glitch: {formatPresenceValue(presenceState.glitchIntensity)}</span>
+      <span>ambient: {formatPresenceValue(presenceState.ambientDepth)}</span>
+      <span>avatar: {formatPresenceValue(presenceState.avatarInstability)}</span>
+      <span>UI: {formatPresenceValue(presenceState.uiAutonomy)}</span>
+      <span>aktywne glitche: {activeGlitchCount}</span>
+      <span>ostatni event: {presenceState.lastEventId}</span>
+      <div className="neura-debug-levels">
+        {levels.map((level) => (
+          <button
+            key={level}
+            className={presenceState.debugOverride === level ? 'active' : ''}
+            onClick={() => onSetOverride(level)}
+          >
+            {level}
+          </button>
+        ))}
+      </div>
+      <button onClick={onToggleLowFx}>
+        Low FX: {presenceState.lowFxMode ? 'wł.' : 'wył.'}
+      </button>
+      <div className="neura-debug-log">
+        {presenceState.eventLog.map((event, index) => (
+          <span key={`${event.id}-${event.at}-${index}`}>{event.id}</span>
+        ))}
+      </div>
+      <em>F10 ukrywa panel</em>
+    </aside>
+  );
+}
+
+function formatPresenceValue(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function PersistentOverlays({
+  comment,
+  presenceState,
+  onPresenceEvent,
+}: {
+  comment: NeuraVoiceLine;
+  presenceState: ReturnType<typeof createNeuraPresenceState>;
+  onPresenceEvent: (eventId: NeuraPresenceEventId) => void;
+}) {
   return (
     <>
       <CybekWebcam />
-      <NeuraPet comment={comment} />
+      <NeuraPet comment={comment} presenceState={presenceState} onPresenceEvent={onPresenceEvent} />
     </>
   );
+}
+
+function readStoredNeuraLowFxMode() {
+  try {
+    return window.localStorage.getItem(NEURA_LOW_FX_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
 }
 
 declare global {

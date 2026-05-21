@@ -73,6 +73,16 @@ Soundscape pulpitu 2026-05-21:
 - Pulpit dostał prosty globalny przycisk `Dźwięk: wł./wył.` zapisujący mute w `localStorage`.
 - Weryfikacja: `npm run test:rhythm` i `npm run test:state` przeszły; `npm run build` przeszedł po ponowieniu poza sandboxem z powodu znanego błędu Vite/esbuild `Cannot read directory "../.."`.
 
+Neura Presence 2026-05-21:
+- Dodano `OperationalPowerLevel` 0-4 oraz `NeuraPresenceState`, żeby audio, avatar, UI i debug korzystały z jednego modelu obecności.
+- Dodano data-driven presety w `src/data/neuraPresence.ts`: progi fabularne, parametry soundscape, avatara i autonomii UI oraz tagi `maskotka`, `niestabilny widget`, `proces`, `operator`, `martwy pulpit`.
+- Dodano czysty manager `src/neura/NeuraPresenceManager.ts`; obecność wynika z publikacji, draftów, jakości, presji czatu i eventów, a nie z samego upływu czasu.
+- `useSoundscape` reaguje na presence state: ambient robi się głębszy, a glitche zmieniają częstotliwość, głośność i limit aktywnych warstw.
+- Awatar Neury przeniesiono do `src/neura/NeuraPet.tsx`, a mikro-jitter/ghost/glitch slice do `src/neura/useNeuraAvatarMotion.ts`.
+- Dodano `src/neura/useEnvironmentalUiEvents.ts` dla subtelnych reakcji pulpitu oraz panel debugowy `F10` z override poziomu i Low FX.
+- Dodano test `npm run test:neura-presence` i podpięto go do `npm run test`.
+- Weryfikacja: `npm run test` przeszedł; `npm run build` przeszedł po ponowieniu poza sandboxem z powodu znanego błędu Vite/esbuild `Cannot read directory "../.."`; podgląd na `127.0.0.1:5173` renderuje pulpit, Neurę i panel debugowy F10 bez błędów aplikacji w konsoli.
+
 Patrol repozytorium 2026-05-12:
 - Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
 - Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.

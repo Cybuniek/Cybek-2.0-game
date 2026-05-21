@@ -3,6 +3,40 @@ export type Difficulty = 'Łatwy' | 'Normalny' | 'Cybart';
 export type RhythmLane = 'S' | 'D' | 'K' | 'L';
 export type QualityTier = 'F' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export type RhythmNoteKind = 'tap' | 'hold';
+export type OperationalPowerLevel = 0 | 1 | 2 | 3 | 4;
+export type NeuraPresenceEventId =
+  | 'boot'
+  | 'draftSaved'
+  | 'sentToPawel'
+  | 'published'
+  | 'rhythmStarted'
+  | 'rhythmFinished'
+  | 'manualReaction'
+  | 'idlePulse'
+  | 'debugSetPower';
+
+export type NeuraPresenceEvent = {
+  id: NeuraPresenceEventId;
+  powerLevel?: OperationalPowerLevel | null;
+};
+
+export type NeuraPresenceEventLogEntry = {
+  id: NeuraPresenceEventId;
+  at: string;
+};
+
+export type NeuraPresenceState = {
+  powerLevel: OperationalPowerLevel;
+  glitchIntensity: number;
+  ambientDepth: number;
+  avatarInstability: number;
+  uiAutonomy: number;
+  lastEventId: NeuraPresenceEventId;
+  debugOverride: OperationalPowerLevel | null;
+  lowFxMode: boolean;
+  narrativeTag: string;
+  eventLog: NeuraPresenceEventLogEntry[];
+};
 
 export type RhythmNote = {
   id: string;

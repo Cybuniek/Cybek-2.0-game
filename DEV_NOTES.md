@@ -193,6 +193,20 @@ Neura zostala odczepiona od panelu UI. Komponent renderuje tylko klikalny i prze
 
 Spritesheet Neury zostal podmieniony na poprawiony wariant w `public/pets/neura/spritesheet.webp`. Pelny komplet glosow nalezy odswiezac lokalnym skryptem przez ElevenLabs do OGG/Opus oraz MP3 fallbackow; skrypt wymaga `ELEVENLABS_API_KEY` w srodowisku albo `.env.local`.
 
+## Neura Presence 2026-05-21
+
+Warstwa `tezGdop-PeT` ma teraz osobny, maly system obecnosci Neury. Czysty manager siedzi w `src/neura/NeuraPresenceManager.ts`, a data-driven progi i presety w `src/data/neuraPresence.ts`. Glowne wyjscie to `NeuraPresenceState`: `OperationalPowerLevel` 0-4, intensywnosc glitchy, glebia ambientu, niestabilnosc avatara, autonomia UI, ostatni event, override debugowy i tryb low FX.
+
+Progres obecnosci jest liczony z aktualnego stanu gry: publikacji, draftow, jakosci, presji czatu, Cybarta i odkrywania tytulow. Czas spedzony w aplikacji sam z siebie nie eskaluje Neury. Eventy typu `rhythmStarted`, `rhythmFinished`, `draftSaved`, `sentToPawel`, `published` i `manualReaction` daja tylko lekki kontekstowy impuls.
+
+`useSoundscape` przyjmuje `presenceState`. Ambient nadal respektuje unlock autoplay i globalny mute, ale jego glosnosc i minimalna zmiana tempa wynikaja z `ambientDepth`. Scheduler glitchy korzysta z `glitchIntensity`: zmienia odstepy, glosnosc i limit aktywnych warstw, z twardym limitem 3.
+
+Awatar zostal wydzielony do `src/neura/NeuraPet.tsx`, a proceduralny ruch do `src/neura/useNeuraAvatarMotion.ts`. Spritesheet nadal jest baza, ale CSS variables dodaja subpixel jitter, ghost frame, przesuniecie kontaktu wzrokowego, glitch slice i opoznienie klatki. `prefers-reduced-motion` oraz Low FX ograniczaja te efekty.
+
+Subtelne eventy srodowiskowe siedza w `src/neura/useEnvironmentalUiEvents.ts`. Dzialaja tylko na pulpicie: moga lekko przesunac aktywne okno, pokazac krotki stary tekst Neury i wyzwolic glitch audio. Nie dzialaja w sekcji rytmicznej, zeby nie psuc inputu.
+
+Panel debugowy Neury otwiera `F10`. Pokazuje power level, tag narracyjny, intensywnosc audio/avatara/UI, aktywne glitche i ostatnie eventy. Pozwala wymusic poziom 0-4 albo wrocic do Auto oraz przelaczyc Low FX. Override debugowy nie jest zapisywany do save'a gry; Low FX zapisuje sie osobnym kluczem `ustnik.neura.lowFxMode`.
+
 ## Patrol repozytorium 2026-05-12
 
 Zakres patrolu byl maly i bez rozszerzania gry. Sprawdzone zostaly: generator `anh://www.ustno.ai/create`, szuflada `anh://www.ustno.ai/me`, remix +1, jednorazowa publikacja, pliki publikacji na pulpicie, `Annihilation player.exe`, slowniki etykiet oraz zgodnosc typow z aktualna logika.
