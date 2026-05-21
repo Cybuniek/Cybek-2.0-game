@@ -7,7 +7,14 @@ import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/cha
 import { tracks } from './data/tracks';
 import { BeatmapEditor } from './editor/BeatmapEditor';
 import {
-  addMessage,
+  addUnique,
+  createRemixComparison,
+  resultFromDraft,
+  upsertDraft,
+  upsertPublished,
+  type RemixComparison,
+} from './gameFlow';
+import {
   applyStatDelta,
   createDraftFromResult,
   createPublishedTrack,
@@ -23,6 +30,7 @@ import {
   revealTitleFully,
   saveState,
 } from './storage';
+import { addMessage } from './storage';
 import {
   addresses,
   appLabels,
@@ -76,6 +84,8 @@ type NeuraAnimation = {
 
 const NEURA_SPRITESHEET_PATH = '/pets/neura/spritesheet.webp';
 const NEURA_COMMENT_INTERVAL_MS = 27500;
+const NEURA_PATROL_INTERVAL_MS = 5200;
+const NEURA_MANUAL_PAUSE_MS = 6500;
 const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
   idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },
   running: { row: 7, frames: 6, duration: '0.82s', label: 'przeciąganie' },
@@ -86,6 +96,7 @@ const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
   review: { row: 8, frames: 6, duration: '1.22s', label: 'analiza' },
 };
 const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'review', 'failed'];
+const NEURA_VOICE_LINE_IDS = Object.keys(neuraVoiceAssets) as NeuraVoiceLineId[];
 
 type ActiveRun = {
   track: Track;
@@ -95,15 +106,6 @@ type ActiveRun = {
 };
 
 type RhythmPhase = 'loading' | 'countdown' | 'playing';
-
-type RemixComparison = {
-  previousAccuracy: number;
-  previousGrade: string;
-  nextAccuracy: number;
-  nextGrade: string;
-  accuracyDelta: number;
-  verdict: 'better' | 'same' | 'worse';
-};
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
@@ -454,7 +456,7 @@ export default function App() {
         </Window>
       )}
 
-      {activeWindow === 'player' && selectedPublished && selectedPublishedTrack && (
+      {activeWindow === 'player' && selectedPublished && (
         <Window
           title={windowLabels.player}
           position={windowPositions.player}
@@ -469,54 +471,6 @@ export default function App() {
       )}
     </main>
   );
-}
-
-function addUnique(items: string[], item: string) {
-  return items.includes(item) ? items : [...items, item];
-}
-
-function upsertDraft(drafts: DraftTrack[], draft: DraftTrack) {
-  return [draft, ...drafts.filter((item) => item.id !== draft.id)];
-}
-
-function upsertPublished(publishedTracks: PublishedTrack[], published: PublishedTrack) {
-  return [published, ...publishedTracks.filter((item) => item.id !== published.id)];
-}
-
-function resultFromDraft(draft: DraftTrack): PerformanceResult {
-  return {
-    id: draft.id,
-    trackId: draft.trackId,
-    trackTitle: draft.trackTitle,
-    difficulty: draft.difficulty,
-    accuracy: draft.bestAccuracy,
-    grade: draft.bestGrade,
-    qualityProgress: draft.qualityProgress,
-    comboMultiplier: 1,
-    perfectHits: 0,
-    greatHits: 0,
-    goodHits: 0,
-    misses: 0,
-    emptyPresses: 0,
-    maxCombo: 0,
-    totalNotes: 0,
-    createdAt: draft.updatedAt,
-    status: draft.status,
-  };
-}
-
-function createRemixComparison(draft: DraftTrack, result: PerformanceResult): RemixComparison {
-  const accuracyDelta = result.accuracy - draft.bestAccuracy;
-  const verdict = accuracyDelta > 0 ? 'better' : accuracyDelta < 0 ? 'worse' : 'same';
-
-  return {
-    previousAccuracy: draft.bestAccuracy,
-    previousGrade: draft.bestGrade,
-    nextAccuracy: result.accuracy,
-    nextGrade: result.grade,
-    accuracyDelta,
-    verdict,
-  };
 }
 
 function DesktopIcon({
@@ -961,16 +915,16 @@ function RhythmScreen({
     const lane = nextSession.lastLane;
     if (!lane || !judgement || !['perfect', 'great', 'good', 'miss'].includes(judgement)) return;
 
-    const activeSmash = nextSession.notes.some((note) =>
+    const activeHold = nextSession.notes.some((note) =>
       note.lane === lane
       && !note.judged
       && note.startedAtMs !== undefined
-      && getRhythmNoteKind(note) === 'smash'
+      && getRhythmNoteKind(note) === 'hold'
     );
     const feedback: HitFeedback = {
       id: Date.now() + Math.random(),
       lane,
-      label: activeSmash && judgement === 'good' ? 'Mash' : judgementLabel(judgement),
+      label: activeHold && judgement === 'good' ? 'Hold' : judgementLabel(judgement),
       judgement: judgement as HitFeedback['judgement'],
     };
 
@@ -1100,8 +1054,7 @@ function RhythmScreen({
           kind: getRhythmNoteKind(note),
           timeToHitMs: note.timeToHitMs,
           durationMs: note.durationMs ?? 0,
-          requiredPresses: note.requiredPresses ?? 0,
-          endTimeToHitMs: note.endTimeToHitMs,
+                    endTimeToHitMs: note.endTimeToHitMs,
           yPercent: Math.round(note.yPercent),
           visualTopPercent: Math.round(note.visualTopPercent),
           durationPercent: note.durationPercent,
@@ -1199,7 +1152,7 @@ function RhythmScreen({
               .filter((note) => note.lane === lane)
               .map((note) => {
                 const kind = getRhythmNoteKind(note);
-                const isLong = kind === 'hold' || kind === 'smash';
+                const isLong = kind === 'hold';
                 return (
                   <span
                     className={[
@@ -1213,11 +1166,11 @@ function RhythmScreen({
                       top: `${isLong ? note.visualTopPercent : note.yPercent}%`,
                       opacity: note.opacity,
                       ...(isLong ? { '--note-height': `${note.durationPercent}%` } : {}),
-                      ...(kind === 'smash' ? { '--smash-progress-height': `${Math.round(note.smashProgress * 100)}%` } : {}),
+                      ...(kind === 'hold' ? { '--hold-progress-height': `${Math.round(note.holdProgress * 100)}%` } : {}),
                     } as CSSProperties}
                   >
-                    {kind === 'smash' && (
-                      <span className="smash-progress">
+                    {kind === 'hold' && (
+                      <span className="hold-progress">
                         {note.presses ?? 0}
                       </span>
                     )}
@@ -1370,14 +1323,14 @@ function ResultsScreen({
             <>
               <button onClick={onSave}>{buttonLabels.saveDraft}</button>
               <button onClick={onSendToPawel}>{buttonLabels.sendToPawel}</button>
-              <button onClick={onPublish} disabled={alreadyPublished}>
+              <button className="result-primary" onClick={onPublish} disabled={alreadyPublished}>
                 {alreadyPublished ? placeholderLabels.publishedLocked : buttonLabels.publish}
               </button>
             </>
           ) : (
-            <button onClick={onOverwrite}>{buttonLabels.overwriteDraft}</button>
+            <button className="result-primary" onClick={onOverwrite}>{buttonLabels.overwriteDraft}</button>
           )}
-          <button onClick={onBack}>{buttonLabels.backWithoutSave}</button>
+          <button className="result-secondary" onClick={onBack}>{buttonLabels.backWithoutSave}</button>
         </div>
       </section>
       <PersistentOverlays comment={neuraComment} />
@@ -1405,7 +1358,7 @@ function PlayerWindow({
   track,
 }: {
   published: PublishedTrack;
-  track: Track;
+  track: Track | null;
 }) {
   return (
     <div className="player-panel">
@@ -1414,7 +1367,11 @@ function PlayerWindow({
       <p>{placeholderLabels.grade}: {published.grade} / {published.accuracy}%</p>
       <p>{placeholderLabels.qualityProgress}: {published.qualityProgress}</p>
       <p>{placeholderLabels.quality}: {published.quality}</p>
-      <audio className="player-audio" src={track.audio.merged} controls preload="metadata" />
+      {track ? (
+        <audio className="player-audio" src={track.audio.merged} controls preload="metadata" />
+      ) : (
+        <p className="missing-audio">{placeholderLabels.missingPublishedAudio}</p>
+      )}
     </div>
   );
 }
@@ -1464,7 +1421,44 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function useNeuraVoice() {
+function useAvailableNeuraVoiceIds() {
+  const [availableIds, setAvailableIds] = useState<ReadonlySet<NeuraVoiceLineId>>(() => new Set());
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function hasAudio(path: string) {
+      try {
+        const response = await fetch(path, { method: 'HEAD', signal: controller.signal });
+        return response.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    async function resolveAvailability() {
+      const entries = await Promise.all(
+        NEURA_VOICE_LINE_IDS.map(async (lineId) => {
+          const sources = neuraVoiceAssets[lineId];
+          const hasPrimary = await hasAudio(sources.primary);
+          const hasFallback = hasPrimary ? false : await hasAudio(sources.fallback);
+          return [lineId, hasPrimary || hasFallback] as const;
+        }),
+      );
+
+      if (!controller.signal.aborted) {
+        setAvailableIds(new Set(entries.filter(([, isAvailable]) => isAvailable).map(([lineId]) => lineId)));
+      }
+    }
+
+    void resolveAvailability();
+    return () => controller.abort();
+  }, []);
+
+  return availableIds;
+}
+
+function useNeuraVoice(availableVoiceLineIds: ReadonlySet<NeuraVoiceLineId>) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isUnlockedRef = useRef(false);
   const canPlayOpusRef = useRef<boolean | null>(null);
@@ -1483,9 +1477,9 @@ function useNeuraVoice() {
 
   const createAudio = useCallback((lineId: NeuraVoiceLineId) => {
     const sources = neuraVoiceAssets[lineId];
-    if (!sources) return null;
+    if (!sources || !availableVoiceLineIds.has(lineId)) return null;
     return new Audio(canPlayOpus() ? sources.primary : sources.fallback);
-  }, []);
+  }, [availableVoiceLineIds]);
 
   const playQueuedLine = useCallback(() => {
     const queuedLineId = queuedLineIdRef.current;
@@ -1514,7 +1508,7 @@ function useNeuraVoice() {
 
   return useCallback((lineId: NeuraVoiceLineId, source: 'comment' | 'reaction') => {
     if (source === 'reaction') isUnlockedRef.current = true;
-    if (!isUnlockedRef.current) return;
+    if (!isUnlockedRef.current || !availableVoiceLineIds.has(lineId)) return;
 
     const currentAudio = audioRef.current;
     if (currentAudio && !currentAudio.paused && !currentAudio.ended) {
@@ -1525,7 +1519,7 @@ function useNeuraVoice() {
 
     queuedLineIdRef.current = lineId;
     playQueuedLine();
-  }, [playQueuedLine]);
+  }, [availableVoiceLineIds, playQueuedLine]);
 }
 
 function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
@@ -1534,8 +1528,12 @@ function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
   const dragRef = useRef<{ startX: number; startY: number; origin: Point; moved: boolean } | null>(null);
   const reactionIndexRef = useRef(0);
   const settleTimerRef = useRef<number | null>(null);
-  const playNeuraVoice = useNeuraVoice();
+  const patrolTimerRef = useRef<number | null>(null);
+  const manualPauseUntilRef = useRef(0);
+  const availableVoiceLineIds = useAvailableNeuraVoiceIds();
+  const playNeuraVoice = useNeuraVoice(availableVoiceLineIds);
   const animation = NEURA_ANIMATIONS[mood];
+  const hasCommentAudio = availableVoiceLineIds.has(comment.id);
 
   useEffect(() => {
     function handleResize() {
@@ -1548,11 +1546,35 @@ function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
 
   useEffect(() => () => {
     if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    if (patrolTimerRef.current !== null) window.clearInterval(patrolTimerRef.current);
   }, []);
 
   useEffect(() => {
+    if (!hasCommentAudio) return;
     playNeuraVoice(comment.id, 'comment');
-  }, [comment.id, playNeuraVoice]);
+  }, [comment.id, hasCommentAudio, playNeuraVoice]);
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
+
+    patrolTimerRef.current = window.setInterval(() => {
+      if (dragRef.current || Date.now() < manualPauseUntilRef.current) return;
+
+      setMood('running');
+      setPosition(getNextNeuraPatrolPosition());
+      if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = window.setTimeout(() => {
+        setMood('idle');
+        settleTimerRef.current = null;
+      }, 1200);
+    }, NEURA_PATROL_INTERVAL_MS);
+
+    return () => {
+      if (patrolTimerRef.current !== null) window.clearInterval(patrolTimerRef.current);
+      patrolTimerRef.current = null;
+    };
+  }, []);
 
   function settleMood(nextMood: NeuraPetMood, delayMs = 1500) {
     if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
@@ -1564,9 +1586,11 @@ function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
   }
 
   function playReaction(nextMood: NeuraPetMood) {
-    settleMood(nextMood);
     const reactionLineId = neuraReactionVoiceLineIds[nextMood as keyof typeof neuraReactionVoiceLineIds];
-    if (reactionLineId) playNeuraVoice(reactionLineId, 'reaction');
+    if (!reactionLineId || !availableVoiceLineIds.has(reactionLineId)) return;
+    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
+    settleMood(nextMood);
+    playNeuraVoice(reactionLineId, 'reaction');
   }
 
   function cycleReaction() {
@@ -1583,6 +1607,7 @@ function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
       moved: false,
     };
     if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
     setMood('running');
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -1601,6 +1626,7 @@ function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
 
     const wasMoved = dragRef.current.moved;
     dragRef.current = null;
+    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (wasMoved) {
       settleMood('jumping', 900);
@@ -1632,29 +1658,29 @@ function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
       >
         <span className="neura-sprite" aria-hidden="true" />
       </button>
-      <div className="neura-panel">
-        <div className="neura-status">
-          <strong>Neura</strong>
-          <span>{animation.label}</span>
-        </div>
-        <p>{comment.text}</p>
-        <div className="neura-actions" aria-label="Reakcje Neury">
-          <button type="button" onClick={() => playReaction('waving')}>Hej</button>
-          <button type="button" onClick={() => playReaction('review')}>Analiza</button>
-          <button type="button" onClick={() => playReaction('failed')}>Glitch</button>
-        </div>
-      </div>
     </aside>
   );
 }
 
 function getDefaultNeuraPosition(): Point {
-  return clampNeuraPosition({ x: window.innerWidth - 344, y: window.innerHeight - 242 });
+  return clampNeuraPosition({ x: window.innerWidth - 184, y: window.innerHeight - 190 });
+}
+
+function getNextNeuraPatrolPosition(): Point {
+  const minX = Math.max(24, Math.floor(window.innerWidth * 0.48));
+  const maxX = Math.max(minX, window.innerWidth - 178);
+  const minY = Math.max(74, Math.floor(window.innerHeight * 0.58));
+  const maxY = Math.max(minY, window.innerHeight - 184);
+
+  return clampNeuraPosition({
+    x: minX + Math.random() * (maxX - minX),
+    y: minY + Math.random() * (maxY - minY),
+  });
 }
 
 function clampNeuraPosition(position: Point): Point {
-  const maxX = Math.max(24, window.innerWidth - 324);
-  const maxY = Math.max(66, window.innerHeight - 214);
+  const maxX = Math.max(24, window.innerWidth - 156);
+  const maxY = Math.max(66, window.innerHeight - 174);
 
   return {
     x: Math.max(24, Math.min(maxX, position.x)),

@@ -37,13 +37,13 @@ Szuflada dodatkowo blokuje przycisk publikacji dla tytulu, ktory w zapisie jest 
 - poziom opublikowanej wersji,
 - ocene i dokladnosc,
 - wersje jakosciowa,
-- placeholder odsluchu.
+- realny odtwarzacz scalonego pliku audio.
 
-Przycisk `Odtworz` zmienia stan placeholdera na `Odtwarzanie...`. Nie ma jeszcze prawdziwego audio.
+Jesli stary save wskazuje opublikowany utwor, ktorego nie ma juz w `src/data/tracks.ts`, player nadal pokazuje metadane publikacji i jasny komunikat o braku pasujacego audio zamiast znikac.
 
 ## Glos Neury
 
-Neura ma osobny workflow glosowy oparty o statyczne pliki audio w `public/audio/neura`. Format podstawowy to OGG/Opus dla mniejszych plikow mowy, a fallbackiem jest MP3 dla kompatybilnosci. Aplikacja nie wywoluje ElevenLabs z przegladarki i nie zna klucza API. Pierwsze automatyczne odtworzenie komentarza jest ignorowane do czasu interakcji uzytkownika, zeby respektowac polityke autoplay przegladarki. Po kliknieciu Neury albo przycisku reakcji kolejne komentarze moga byc odtwarzane automatycznie. Odtwarzacz ma jeden aktywny glos i jeden slot kolejki dla komentarza systemowego. Reakcje wyzwalane przez gracza nie sa kolejkowane; jesli w danej chwili gra inna kwestia, kliknieta reakcja zostaje pominieta.
+Neura ma osobny workflow glosowy oparty o statyczne pliki audio w `public/audio/neura`. Format podstawowy to OGG/Opus dla mniejszych plikow mowy, a fallbackiem jest MP3 dla kompatybilnosci. Aplikacja nie wywoluje ElevenLabs z przegladarki i nie zna klucza API. Pierwsze automatyczne odtworzenie komentarza jest ignorowane do czasu interakcji uzytkownika, zeby respektowac polityke autoplay przegladarki. Po kliknieciu Neury kolejne komentarze moga byc odtwarzane automatycznie. Odtwarzacz ma jeden aktywny glos i jeden slot kolejki dla komentarza systemowego. Reakcje wyzwalane przez gracza nie sa kolejkowane; jesli w danej chwili gra inna kwestia, kliknieta reakcja zostaje pominieta.
 
 Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wymaga:
 
@@ -52,7 +52,7 @@ Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wyma
 - dobrania `styleTag` zgodnego z ElevenLabs V3,
 - ustawienia `trigger` na `comment` albo `reaction`.
 
-Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu.
+Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu, a tekst kwestii bez dostepnego audio nie jest pokazywany jako osobny dymek.
 
 Generowanie glosow:
 
@@ -62,6 +62,7 @@ Generowanie glosow:
 - uruchom `npm run voice:neura`, zeby wygenerowac brakujace pliki OGG/Opus,
 - uzyj `npm run voice:neura:force`, zeby nadpisac OGG/Opus,
 - uzyj `npm run voice:neura:with-fallback`, jesli swiadomie chcesz wygenerowac OGG/Opus i MP3,
+- uzyj `node --experimental-strip-types scripts/generate-neura-voices.ts --force --with-fallback`, jesli chcesz odswiezyc komplet OGG/Opus i MP3 fallbackow,
 - uzyj `npm run voice:neura:mp3`, jesli chcesz dogenerowac tylko fallback MP3,
 - opcjonalnie uruchom `node --experimental-strip-types scripts/generate-neura-voices.ts --only <id>`.
 
@@ -98,6 +99,7 @@ Webowy `Beatmap Editor` jest traktowany jako docelowy codzienny workflow edycji 
 - import pełnego `manualBeatmaps.json`,
 - eksport pełnego katalogu jako `manualBeatmaps.json`,
 - backup eksportu w `localStorage` i przywracanie backupu z poziomu UI.
+- guard niezapisanych zmian: po edycji nuty zmiana utworu/poziomu, import i powrot do pulpitu wymagaja najpierw `Eksport + backup` albo `Porzuc zmiany`.
 
 Widok nut w edytorze powinien być odniesieniem do właściwej gry, nie osobną wizualizacją. Dlatego tory są renderowane jako cztery osobne kolumny, nuty używają tej samej bazowej klasy `.note` co runtime, a domyślne okno czasu przy `zoom x1` wynika z gameplayowego `travelMs` danego poziomu trudności. Suwak `Zoom` zawęża albo rozszerza okno czasu, ale nie rozciąga DOM-u pionowo.
 
@@ -117,6 +119,7 @@ Praktyczny workflow developerski:
 4. Użyj `Eksport + backup`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
 5. Podmień `src/data/manualBeatmaps.json` pobranym plikiem dopiero po sprawdzeniu mapy.
 6. Jeśli edycja poszła w złą stronę, wybierz backup z listy i użyj `Przywróć`, potem ponownie wykonaj eksport.
+7. Jeśli chcesz zmienić utwór albo poziom bez zapisywania bieżących zmian, użyj `Porzuć zmiany`.
 
 Audyt 2026-05-14: webowy edytor ma już bliższy runtime'owi workflow niż WinUI, ale nadal nie ma części wygód desktopowych: nie kopiuje automatycznie pobranego pliku do repo, nie importuje nowych utworów do `tracks.ts`, nie zapisuje backupów w katalogu `backups/manualBeatmaps` i nie ma osobnej kalibracji input laga. Największe tarcie po tej zmianie to ręczny krok podmiany pobranego `manualBeatmaps.json` w repo; jest celowo ręczny, żeby webowy prototyp nie udawał dostępu do systemu plików i nie nadpisywał danych bez kontroli.
 
@@ -164,8 +167,22 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 - Beatmapy generowane są losowe, ale stabilne dla danego utworu, BPM-u, długości audio, poziomu i seeda.
 - Remix kumuluje progres tieru jakości zamiast zaczynać każdą próbę od zera.
 - Player opublikowanego utworu odtwarza scalony plik audio. Głos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
-- Neura i WebCam Cybka sa prostymi figurami CSS, nie finalnymi assetami.
+- Neura korzysta z atlasu `public/pets/neura/spritesheet.webp` i dziala jako niezalezny, przeciagalny awatar nad pulpitem. WebCam Cybka pozostaje prosta figura CSS.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
+
+## UI polish 2026-05-17
+
+Zakres byl wizualny i bez zmiany logiki gry. `src/styles.css` ma teraz wspolne zmienne dla neonowych kolorow, paneli, ramek i glow. Tlo pulpitu zostalo przygaszone, ikony maja czytelniejsze podpisy, aktywne okno mocniejszy focus, a prawa kolumna z WebCam/statystykami/Neura mniej zlewa sie z pulpitem.
+
+Sekcja rytmiczna zachowuje te same dane i input, ale ma mocniejsza linie trafienia, wyrazniejszy aktywny tor, bardziej czytelny countdown i dodatkowy feedback wizualny dla `Perfect/Great/Good/Miss`. Efekty sa ograniczone przez `prefers-reduced-motion`.
+
+Ekran wynikow dostal jasniejsza hierarchie akcji, remix comparison jest bardziej skanowalny, a `Annihilation player.exe` wyglada jak archiwum opublikowanego Wystepu z realnym odtwarzaczem audio. `Beatmap Editor` ma mocniej widoczny status niezapisanych zmian, panele oddzielone od playfieldu i tory spojne z runtime'em.
+
+## Neura 2.0 2026-05-19
+
+Neura zostala odczepiona od panelu UI. Komponent renderuje tylko klikalny i przeciagalny sprite, ktory lekko patroluje dolna czesc pulpitu i pauzuje patrol po recznym przeciaganiu. Tekst dialogu nie jest stale renderowany; komentarz glosowy zostaje odtworzony dopiero po odblokowaniu audio przez interakcje i tylko wtedy, gdy dla danej kwestii istnieje statyczny plik OGG albo MP3.
+
+Spritesheet Neury zostal podmieniony na poprawiony wariant w `public/pets/neura/spritesheet.webp`. Pelny komplet glosow nalezy odswiezac lokalnym skryptem przez ElevenLabs do OGG/Opus oraz MP3 fallbackow; skrypt wymaga `ELEVENLABS_API_KEY` w srodowisku albo `.env.local`.
 
 ## Patrol repozytorium 2026-05-12
 
@@ -182,6 +199,19 @@ Celowo odlozone:
 - warianty audio zalezne od poziomu publikacji,
 - pelna walidacja i czyszczenie historycznych save'ow,
 - wieksze testy przegladarkowe z Playwright.
+
+## Patrol stabilizacyjny 2026-05-17
+
+Zakres patrolu byl sredni, ale bez rozbudowy gry poza istniejace systemy. Priorytetem byly: stabilnosc prototypu, rytm/beatmapy oraz drobna spojnosc UI.
+
+Naprawione:
+
+- male helpery flow zostaly wydzielone z `src/App.tsx` do `src/gameFlow.ts`, zeby logika draftow, publikacji i porownania remixu byla testowalna poza komponentem,
+- migracja save'a ma publiczny punkt `migrateSavedState`, a `npm run test:state` pilnuje legacy drawer, `publishedTrackIds`, reveal tytulow i fallbacku tieru,
+- `npm run test:rhythm` waliduje teraz takze realny `src/data/manualBeatmaps.json`, zeby reczne mapy nie spadaly po cichu do generatora,
+- webowy `Beatmap Editor` blokuje ryzykowne przejscia przy niezapisanych zmianach,
+- player obsluguje stare publikacje bez pasujacego wpisu w `tracks.ts`,
+- etykieta szuflady zostala ujednolicona jako `Ustno.ai Me`.
 
 ## Sugerowane kolejne kroki
 

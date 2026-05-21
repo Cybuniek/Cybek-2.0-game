@@ -37,7 +37,7 @@ import {
   type ActiveRecordedPresses,
   type EditorMode,
   type ManualBeatmapCatalog,
-  type SmashDraft,
+  type HoldDraft,
 } from './beatmapEditorLogic';
 
 type DragState = {
@@ -77,6 +77,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
   const [zoom, setZoom] = useState(1);
   const [exportMessage, setExportMessage] = useState('Eksport gotowy.');
   const [importMessage, setImportMessage] = useState('Import gotowy.');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [backupEntries, setBackupEntries] = useState<BackupEntry[]>(() => listBackupEntries());
   const [selectedBackupKey, setSelectedBackupKey] = useState('');
   const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, difficulty));
@@ -88,7 +89,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const pressedKeysRef = useRef<ActiveRecordedPresses>({});
-  const smashDraftRef = useRef<SmashDraft | null>(null);
+  const holdDraftRef = useRef<HoldDraft | null>(null);
   const fallbackClockRef = useRef(0);
   const elapsedRef = useRef(elapsedMs);
   const beatmapRef = useRef(beatmap);
@@ -136,7 +137,9 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
 
   useEffect(() => {
     const editable = cloneBeatmapForEditing(resolvedBeatmap);
+    resetEditorAudio(editable.sourceStartMs ?? 0);
     setBeatmap(editable);
+    setHasUnsavedChanges(false);
     setSelectedNoteId(editable.notes[0]?.id ?? null);
     setElapsedMs(0);
     fallbackClockRef.current = 0;
@@ -168,6 +171,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
         const promotedBeatmap = promoteActiveRecordedHolds(beatmapRef.current, pressedKeysRef.current, Math.round(nextElapsed));
         if (promotedBeatmap !== beatmapRef.current) {
           beatmapRef.current = promotedBeatmap;
+          setHasUnsavedChanges(true);
           setBeatmap(promotedBeatmap);
         }
       }
@@ -207,20 +211,20 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
   }
 
   function resetTestMode() {
-    audioRef.current?.pause();
+    resetEditorAudio(sourceStartMs);
     setIsPlaying(false);
     setElapsedMs(0);
     fallbackClockRef.current = 0;
     pressedKeysRef.current = {};
-    smashDraftRef.current = null;
+    holdDraftRef.current = null;
     setSession(createRhythmSession(beatmapRef.current, difficulty));
   }
 
-  function createNoteAtPointer(event: ReactPointerEvent<HTMLDivElement>, kind: 'tap' | 'hold' | 'smash' = 'tap') {
+  function createNoteAtPointer(event: ReactPointerEvent<HTMLDivElement>, kind: 'tap' | 'hold'  = 'tap') {
     const point = pointerToLaneTime(event);
     if (!point) return;
     const note = createEditorNote(point.lane, point.timeMs, kind);
-    setBeatmap((current) => upsertNote(current, note));
+    applyBeatmapEdit((current) => upsertNote(current, note));
     setSelectedNoteId(note.id);
   }
 
@@ -255,7 +259,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     event.preventDefault();
 
     if (event.button === 2) {
-      setBeatmap((current) => deleteNote(current, noteId));
+      applyBeatmapEdit((current) => deleteNote(current, noteId));
       if (selectedNoteId === noteId) setSelectedNoteId(null);
       releasePointer(event);
       return;
@@ -282,7 +286,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     const point = pointerToLaneTime(event);
     if (!point) return;
 
-    setBeatmap((current) => updateNote(current, drag.noteId, (note) => {
+    applyBeatmapEdit((current) => updateNote(current, drag.noteId, (note) => {
       if (drag.mode === 'resize') {
         return {
           ...note,
@@ -329,16 +333,17 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     }
 
     if (!isPlayingRef.current) return;
-    const result = applyRecordedKeyDown(beatmapRef.current, pressedKeysRef.current, smashDraftRef.current, {
+    const result = applyRecordedKeyDown(beatmapRef.current, pressedKeysRef.current, holdDraftRef.current, {
       lane,
       timeMs: Math.round(elapsedRef.current),
       seed: performance.now(),
-      kind: event.shiftKey ? 'smash' : 'tap',
+      kind: event.shiftKey ? 'hold' : 'tap',
     });
     pressedKeysRef.current = result.activePresses;
-    smashDraftRef.current = result.smashDraft;
+    holdDraftRef.current = result.holdDraft;
     if (result.selectedNoteId) setSelectedNoteId(result.selectedNoteId);
     beatmapRef.current = result.beatmap;
+    setHasUnsavedChanges(true);
     setBeatmap(result.beatmap);
   }
 
@@ -357,14 +362,15 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     const result = applyRecordedKeyUp(
       beatmapRef.current,
       pressedKeysRef.current,
-      smashDraftRef.current,
+      holdDraftRef.current,
       lane,
       Math.round(elapsedRef.current),
     );
     pressedKeysRef.current = result.activePresses;
-    smashDraftRef.current = result.smashDraft;
+    holdDraftRef.current = result.holdDraft;
     if (result.selectedNoteId) setSelectedNoteId(result.selectedNoteId);
     beatmapRef.current = result.beatmap;
+    setHasUnsavedChanges(true);
     setBeatmap(result.beatmap);
   }
 
@@ -382,6 +388,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     localStorage.setItem(backupKey, json);
     setCatalog(nextCatalog);
     setCatalogSource(`ostatni eksport: ${selectedTrack.title} / ${difficulty}`);
+    setHasUnsavedChanges(false);
     refreshBackupEntries(backupKey);
     downloadJson('manualBeatmaps.json', json);
     setExportMessage(`Pobrano manualBeatmaps.json i zapisano backup: ${backupKey}`);
@@ -412,7 +419,9 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
     setCatalogSource(source);
     const importedBeatmap = resolveRhythmBeatmap(selectedTrack, difficulty, audioDurationMs, nextCatalog);
     const editable = cloneBeatmapForEditing(importedBeatmap);
+    resetEditorAudio(editable.sourceStartMs ?? 0);
     setBeatmap(editable);
+    setHasUnsavedChanges(false);
     setSelectedNoteId(editable.notes[0]?.id ?? null);
     setElapsedMs(0);
     fallbackClockRef.current = 0;
@@ -453,7 +462,46 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
 
   function updateSelectedNote(update: (note: RhythmNote) => RhythmNote) {
     if (!selectedNoteId) return;
-    setBeatmap((current) => updateNote(current, selectedNoteId, update));
+    applyBeatmapEdit((current) => updateNote(current, selectedNoteId, update));
+  }
+
+  function applyBeatmapEdit(update: (current: RhythmBeatmap) => RhythmBeatmap) {
+    setHasUnsavedChanges(true);
+    setBeatmap(update);
+  }
+
+  function blockUnsavedChanges(action: string) {
+    if (!hasUnsavedChanges) return false;
+    setImportMessage(`Najpierw użyj "Eksport + backup" albo "Porzuć zmiany", żeby ${action}.`);
+    return true;
+  }
+
+  function discardChanges() {
+    const editable = cloneBeatmapForEditing(resolvedBeatmap);
+    resetEditorAudio(editable.sourceStartMs ?? 0);
+    beatmapRef.current = editable;
+    setBeatmap(editable);
+    setSelectedNoteId(editable.notes[0]?.id ?? null);
+    setElapsedMs(0);
+    fallbackClockRef.current = 0;
+    setIsPlaying(false);
+    setSession(createRhythmSession(editable, difficulty));
+    pressedKeysRef.current = {};
+    holdDraftRef.current = null;
+    setHasUnsavedChanges(false);
+    setImportMessage('Porzucono niezapisane zmiany dla bieżącej mapy.');
+  }
+
+  function requestExit() {
+    if (blockUnsavedChanges('wrócić do pulpitu')) return;
+    onExit();
+  }
+
+  function resetEditorAudio(sourceStartMs = 0) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = sourceStartMs / 1000;
   }
 
   return (
@@ -475,11 +523,14 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
       />
 
       <aside className="editor-panel left">
-        <button onClick={onExit}>Pulpit</button>
+        <button onClick={requestExit}>Pulpit</button>
         <strong>Beatmap Editor</strong>
         <label>
           Utwór
-          <select value={trackId} onChange={(event) => setTrackId(event.target.value)}>
+          <select value={trackId} onChange={(event) => {
+            if (blockUnsavedChanges('zmienić utwór')) return;
+            setTrackId(event.target.value);
+          }}>
             {tracks.map((track) => (
               <option key={track.id} value={track.id}>{track.order}. {track.title}</option>
             ))}
@@ -487,7 +538,10 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
         </label>
         <label>
           Poziom
-          <select value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)}>
+          <select value={difficulty} onChange={(event) => {
+            if (blockUnsavedChanges('zmienić poziom')) return;
+            setDifficulty(event.target.value as Difficulty);
+          }}>
             {selectedTrack.difficulties.map((item) => <option key={item}>{item}</option>)}
           </select>
         </label>
@@ -522,6 +576,9 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
         <div className="editor-stats">
           <span>Źródło: {catalogSource}</span>
           <span>Nuty: {beatmap.notes.length}</span>
+          <span className={hasUnsavedChanges ? 'dirty-status active' : 'dirty-status'}>
+            Niezapisane zmiany: {hasUnsavedChanges ? 'tak' : 'nie'}
+          </span>
           <span>Widok: {formatTime(viewportStartMs)}-{formatTime(viewportEndMs)}</span>
           <span>Okno gry: {formatTime(editorWindowMs)} przy zoom x{zoom.toFixed(2)}</span>
           <span>Audio: {formatTime(audioDurationMs)}</span>
@@ -532,14 +589,17 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
           <span>Miss: {summary.misses}</span>
         </div>
         <div className="editor-file-tools">
-          <button onClick={() => importInputRef.current?.click()}>Import manualBeatmaps.json</button>
+          <button onClick={() => {
+            if (blockUnsavedChanges('zaimportować katalog')) return;
+            importInputRef.current?.click();
+          }}>Import manualBeatmaps.json</button>
           <input
             ref={importInputRef}
             accept="application/json,.json"
             className="editor-hidden-input"
             type="file"
             onChange={(event) => {
-              handleImportFile(event.target.files?.[0] ?? null);
+              if (!blockUnsavedChanges('zaimportować katalog')) handleImportFile(event.target.files?.[0] ?? null);
               event.target.value = '';
             }}
           />
@@ -554,8 +614,9 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
           </label>
           <div className="editor-button-row">
             <button onClick={() => refreshBackupEntries()}>Odśwież</button>
-            <button disabled={!selectedBackupKey} onClick={restoreSelectedBackup}>Przywróć</button>
+            <button disabled={!selectedBackupKey || hasUnsavedChanges} onClick={restoreSelectedBackup}>Przywróć</button>
           </div>
+          <button disabled={!hasUnsavedChanges} onClick={discardChanges}>Porzuć zmiany</button>
         </div>
         <p className="export-message">{exportMessage}</p>
         <p className="export-message">{importMessage}</p>
@@ -590,7 +651,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                 .filter((note) => note.lane === lane)
                 .map((note) => {
                   const kind = getRhythmNoteKind(note);
-                  const isLong = kind === 'hold' || kind === 'smash';
+                  const isLong = kind === 'hold';
                   const headPercent = timeToYPercent(note.timeMs, viewportStartMs, editorWindowMs);
                   const heightPercent = isLong ? editorNoteHeightPercent(note, editorWindowMs) : 0;
                   return (
@@ -613,7 +674,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                       onContextMenu={(event) => event.preventDefault()}
                       type="button"
                     >
-                      {kind === 'smash' && <span>{note.requiredPresses ?? 2}</span>}
+                      {kind === 'hold' && note.requiredPresses !== undefined && <span>{note.requiredPresses}</span>}
                       {isLong && (
                         <span
                           className="resize-handle"
@@ -635,7 +696,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
           <span>LPM: stwórz / przeciągnij</span>
           <span>PPM: usuń</span>
           <span>S D K L w Edit Mode: nagrywaj nuty podczas playbacku</span>
-          <span>Shift+S/D/K/L: nagrywaj smash</span>
+          <span>Shift+S/D/K/L: nagrywaj hold z pulsem</span>
           <span>Spacja: play/pauza</span>
         </div>
       </section>
@@ -651,11 +712,10 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                 ...note,
                 kind: event.target.value === 'tap' ? undefined : event.target.value as RhythmNote['kind'],
                 durationMs: event.target.value === 'tap' ? undefined : note.durationMs ?? 520,
-                requiredPresses: event.target.value === 'smash' ? note.requiredPresses ?? 3 : undefined,
+                requiredPresses: event.target.value === 'tap' ? undefined : note.requiredPresses,
               }))}>
                 <option value="tap">tap</option>
                 <option value="hold">hold</option>
-                <option value="smash">smash</option>
               </select>
             </label>
             <label>
@@ -677,17 +737,8 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                 onChange={(event) => updateSelectedNote((note) => ({ ...note, durationMs: Number(event.target.value) }))}
               />
             </label>
-            <label>
-              Smash hits
-              <input
-                type="number"
-                disabled={getRhythmNoteKind(selectedNote) !== 'smash'}
-                value={selectedNote.requiredPresses ?? 0}
-                onChange={(event) => updateSelectedNote((note) => ({ ...note, requiredPresses: Number(event.target.value) }))}
-              />
-            </label>
             <button onClick={() => {
-              setBeatmap((current) => deleteNote(current, selectedNote.id));
+              applyBeatmapEdit((current) => deleteNote(current, selectedNote.id));
               setSelectedNoteId(null);
             }}>Usuń nutę</button>
           </>

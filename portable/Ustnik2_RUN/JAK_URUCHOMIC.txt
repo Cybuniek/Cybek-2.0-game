@@ -1,0 +1,19 @@
+USTNIK 2.0 THE SHOW - THE GAME
+Przenosne demo lokalne
+
+1. Wejdz do tego folderu.
+2. Kliknij dwukrotnie RUN albo RUN.cmd.
+3. Launcher uruchomi lokalnego daemona i otworzy demo w przegladarce.
+4. Aby zatrzymac daemona, kliknij STOP.cmd.
+
+Demo dziala lokalnie pod adresem podobnym do:
+http://127.0.0.1:41773/
+
+Folder site/ zawiera zbudowana wersje gry.
+Folder daemon/ zawiera prosty lokalny serwer PowerShell.
+Folder .runtime/ zawiera pliki tymczasowe: pid, port i logi.
+
+Jesli RUN nie otworzy przegladarki:
+- sprawdz .runtime/launcher.log oraz .runtime/server.log,
+- uruchom STOP.cmd,
+- kliknij RUN.cmd ponownie.

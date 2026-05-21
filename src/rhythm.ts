@@ -21,7 +21,7 @@ export const EMPTY_PRESS_GRACE_COUNT = 2;
 export const EMPTY_PRESS_SPAM_WINDOW_MS = 1000;
 export const RHYTHM_HIT_LINE_PERCENT = 82;
 export const MIN_LONG_NOTE_DURATION_MS = 240;
-export const SMASH_MAX_PRESS_GAP_MS = 220;
+export const HOLD_MAX_PRESS_GAP_MS = 220;
 
 type HitJudgement = 'perfect' | 'great' | 'good';
 
@@ -29,7 +29,6 @@ type DifficultyConfig = {
   densityMultiplier: number;
   doubleChance: number;
   holdChance: number;
-  smashChance: number;
   travelMs: number;
   qualityMultiplier: number;
 };
@@ -44,7 +43,6 @@ export const difficultyConfig: Record<Difficulty, DifficultyConfig> = {
     densityMultiplier: 0.5,
     doubleChance: 0,
     holdChance: 0.08,
-    smashChance: 0.01,
     travelMs: 1750,
     qualityMultiplier: 0.85,
   },
@@ -52,7 +50,6 @@ export const difficultyConfig: Record<Difficulty, DifficultyConfig> = {
     densityMultiplier: 0.7,
     doubleChance: 0.06,
     holdChance: 0.12,
-    smashChance: 0.04,
     travelMs: 1400,
     qualityMultiplier: 1,
   },
@@ -60,7 +57,6 @@ export const difficultyConfig: Record<Difficulty, DifficultyConfig> = {
     densityMultiplier: 1,
     doubleChance: 0.14,
     holdChance: 0.16,
-    smashChance: 0.08,
     travelMs: 1120,
     qualityMultiplier: 1.15,
   },
@@ -75,7 +71,7 @@ export type RuntimeRhythmNote = RhythmNote & {
   releasedAtMs?: number;
   startJudgement?: HitJudgement;
   presses?: number;
-  lastSmashPressMs?: number;
+  lastHoldPressMs?: number;
 };
 
 export type VisibleRhythmNote = RuntimeRhythmNote & {
@@ -84,7 +80,7 @@ export type VisibleRhythmNote = RuntimeRhythmNote & {
   yPercent: number;
   visualTopPercent: number;
   durationPercent: number;
-  smashProgress: number;
+  holdProgress: number;
   opacity: number;
 };
 
@@ -213,9 +209,9 @@ export function syncRhythmSessionToElapsed(session: RhythmSession, elapsedMs: nu
 export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmSession {
   if (session.isFinished) return session;
 
-  const smashIndex = findActiveSmashCandidate(session, lane);
-  if (smashIndex !== -1) {
-    return recordSmashPress(session, smashIndex, lane);
+  const holdIndex = findActiveHoldCandidate(session, lane);
+  if (holdIndex !== -1) {
+    return recordHoldPress(session, holdIndex, lane);
   }
 
   const candidateIndex = findBestStartCandidate(session, lane);
@@ -246,8 +242,8 @@ export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmS
           ...item,
           startedAtMs: session.elapsedMs,
           startJudgement: judgement,
-          presses: getRhythmNoteKind(item) === 'smash' ? 1 : item.presses,
-          lastSmashPressMs: getRhythmNoteKind(item) === 'smash' ? session.elapsedMs : item.lastSmashPressMs,
+          presses: getRhythmNoteKind(item) === 'hold' ? 1 : item.presses,
+          lastHoldPressMs: getRhythmNoteKind(item) === 'hold' ? session.elapsedMs : item.lastHoldPressMs,
         }
       : item,
   );
@@ -365,7 +361,7 @@ export function getVisibleRhythmNotes(session: RhythmSession): VisibleRhythmNote
         yPercent,
         visualTopPercent: roundTo(visualTopPercent, 2),
         durationPercent: roundTo(durationPercent, 2),
-        smashProgress: getRhythmNoteKind(note) === 'smash' ? getSmashPulseHealth(note, session.elapsedMs) : 0,
+        holdProgress: getRhythmNoteKind(note) === 'hold' ? getHoldPulseHealth(note, session.elapsedMs) : 0,
         opacity: note.judgement === 'miss' ? roundTo(1 - missProgress, 2) : 1,
       };
     })
@@ -388,9 +384,14 @@ export function getRhythmNoteEndMs(note: Pick<RhythmNote, 'kind' | 'timeMs' | 'd
   return Math.round(note.timeMs + getRhythmNoteDurationMs(note));
 }
 
-export function getSmashRequiredPresses(note: Pick<RhythmNote, 'kind' | 'durationMs' | 'requiredPresses'>): number {
-  if (getRhythmNoteKind(note) !== 'smash') return 0;
+export function getHoldRequiredPresses(note: Pick<RhythmNote, 'kind' | 'durationMs' | 'requiredPresses'>): number {
+  if (getRhythmNoteKind(note) !== 'hold') return 0;
   return Math.max(2, Math.round(note.requiredPresses ?? Math.ceil(getRhythmNoteDurationMs(note) / 240)));
+}
+
+export function rhythmTickToMs(tick: number, bpm: number, ticksPerBeat = 4, startOffsetMs = 0): number {
+  const beatMs = 60000 / bpm;
+  return Math.round(startOffsetMs + (tick * beatMs) / Math.max(1, ticksPerBeat));
 }
 
 export function tierFromQualityProgress(progress: number): QualityTier {
@@ -424,7 +425,7 @@ function normalizeManualBeatmap(
   const notes: RhythmNote[] = [];
 
   for (let index = 0; index < beatmap.notes.length; index += 1) {
-    const normalized = normalizeManualNote(beatmap.notes[index], track.id, difficulty, durationMs, index);
+    const normalized = normalizeManualNote(beatmap.notes[index], track, difficulty, durationMs, index, beatmap.startOffsetMs ?? 0, beatmap.ticksPerBeat ?? 4);
     if (!normalized) return null;
     notes.push(normalized);
   }
@@ -443,23 +444,28 @@ function normalizeManualBeatmap(
 
 function normalizeManualNote(
   note: RhythmNote,
-  trackId: string,
+  track: Track,
   difficulty: Difficulty,
   beatmapDurationMs: number,
   index: number,
+  startOffsetMs: number,
+  ticksPerBeatDefault: number,
 ): RhythmNote | null {
-  if (!note || !RHYTHM_LANES.includes(note.lane) || !isPositiveNumber(note.timeMs)) return null;
+  if (!note || !RHYTHM_LANES.includes(note.lane)) return null;
+  const ticksPerBeat = Math.max(1, Math.round(ticksPerBeatDefault));
+  const tickMs = isPositiveNumber(note.tick) ? rhythmTickToMs(note.tick, track.bpm, ticksPerBeat, startOffsetMs) : null;
+  if (!isPositiveNumber(note.timeMs) && tickMs === null) return null;
 
   const kind = getRhythmNoteKind(note);
-  if (!['tap', 'hold', 'smash'].includes(kind)) return null;
+  if (!['tap', 'hold'].includes(kind)) return null;
 
-  const timeMs = Math.round(note.timeMs);
+  const timeMs = tickMs ?? Math.round(note.timeMs);
   if (timeMs > beatmapDurationMs) return null;
 
   const normalized: RhythmNote = {
     id: typeof note.id === 'string' && note.id.trim().length > 0
       ? note.id
-      : `${trackId}-${difficulty}-manual-${index}`,
+      : `${track.id}-${difficulty}-manual-${index}`,
     lane: note.lane,
     timeMs,
   };
@@ -467,12 +473,15 @@ function normalizeManualNote(
   if (kind !== 'tap') {
     if (!isPositiveNumber(note.durationMs)) return null;
     normalized.kind = kind;
-    normalized.durationMs = Math.max(MIN_LONG_NOTE_DURATION_MS, Math.round(note.durationMs));
+    const durationMs = isPositiveNumber(note.holdTicks)
+      ? rhythmTickToMs(note.holdTicks, track.bpm, ticksPerBeat, 0)
+      : Math.round(note.durationMs);
+    normalized.durationMs = Math.max(MIN_LONG_NOTE_DURATION_MS, durationMs);
     if (timeMs + normalized.durationMs > beatmapDurationMs + MISS_FADE_MS) return null;
   }
 
-  if (kind === 'smash') {
-    normalized.requiredPresses = Math.max(2, Math.round(note.requiredPresses ?? getSmashRequiredPresses(normalized)));
+  if (kind === 'hold' && note.requiredPresses !== undefined) {
+    normalized.requiredPresses = Math.max(2, Math.round(note.requiredPresses));
   }
 
   return normalized;
@@ -490,7 +499,9 @@ function normalizeNoteShape(note: RhythmNote): RhythmNote {
     durationMs: getRhythmNoteDurationMs(note),
   };
 
-  if (kind === 'smash') normalized.requiredPresses = getSmashRequiredPresses(note);
+  if (kind === 'hold' && note.requiredPresses !== undefined) {
+    normalized.requiredPresses = getHoldRequiredPresses(note);
+  }
 
   return normalized;
 }
@@ -503,9 +514,7 @@ function finishCompletedLongNotes(session: RhythmSession): RhythmSession {
     if (note.judged || note.startedAtMs === undefined || !isLongNote(note)) continue;
     if (nextSession.elapsedMs < getRhythmNoteEndMs(note)) continue;
 
-    nextSession = getRhythmNoteKind(note) === 'hold'
-      ? finishHoldNote(nextSession, index, getRhythmNoteEndMs(note), note.lane)
-      : finishSmashNote(nextSession, index, note.lane);
+    nextSession = finishHoldNote(nextSession, index, getRhythmNoteEndMs(note), note.lane);
   }
 
   return nextSession;
@@ -518,9 +527,7 @@ function finishAllActiveLongNotes(session: RhythmSession): RhythmSession {
     const note = nextSession.notes[index];
     if (note.judged || note.startedAtMs === undefined || !isLongNote(note)) continue;
 
-    nextSession = getRhythmNoteKind(note) === 'hold'
-      ? finishHoldNote(nextSession, index, Math.min(session.elapsedMs, getRhythmNoteEndMs(note)), note.lane)
-      : finishSmashNote(nextSession, index, note.lane);
+    nextSession = finishHoldNote(nextSession, index, Math.min(session.elapsedMs, getRhythmNoteEndMs(note)), note.lane);
   }
 
   return nextSession;
@@ -531,7 +538,11 @@ function finishHoldNote(session: RhythmSession, noteIndex: number, releaseAtMs: 
   const durationMs = getRhythmNoteDurationMs(note);
   const completionRatio = clamp((releaseAtMs - note.timeMs) / durationMs, 0, 1);
   const startJudgement = note.startJudgement ?? 'good';
-  const judgement = holdJudgementFromCompletion(startJudgement, completionRatio);
+  const requiredPresses = note.requiredPresses ?? 0;
+  const pressJudgement = requiredPresses > 1 && (note.presses ?? 0) < requiredPresses
+    ? degradeJudgement(startJudgement)
+    : startJudgement;
+  const judgement = holdJudgementFromCompletion(pressJudgement, completionRatio);
 
   return settleNote(
     {
@@ -544,18 +555,6 @@ function finishHoldNote(session: RhythmSession, noteIndex: number, releaseAtMs: 
     judgement,
     lane,
   );
-}
-
-function finishSmashNote(session: RhythmSession, noteIndex: number, lane: RhythmLane): RhythmSession {
-  const note = session.notes[noteIndex];
-  const startJudgement = note.startJudgement ?? 'good';
-  const presses = note.presses ?? 0;
-  const requiredPresses = getSmashRequiredPresses(note);
-  const judgement = smashHadGap(note, session.elapsedMs)
-    ? 'miss'
-    : presses >= requiredPresses ? startJudgement : degradeJudgement(startJudgement);
-
-  return settleNote(session, noteIndex, judgement, lane);
 }
 
 function holdJudgementFromCompletion(startJudgement: HitJudgement, completionRatio: number): HitJudgement | 'miss' {
@@ -579,9 +578,10 @@ function markMissedNotes(session: RhythmSession): RhythmSession {
     if (
       note.judged
       || note.startedAtMs === undefined
-      || getRhythmNoteKind(note) !== 'smash'
+      || getRhythmNoteKind(note) !== 'hold'
+      || (note.requiredPresses ?? 0) < 2
       || nextSession.elapsedMs >= getRhythmNoteEndMs(note)
-      || !smashHadGap(note, nextSession.elapsedMs)
+      || !holdHadGap(note, nextSession.elapsedMs)
     ) {
       continue;
     }
@@ -678,23 +678,14 @@ function findActiveHoldCandidate(session: RhythmSession, lane: RhythmLane) {
     !note.judged
     && note.startedAtMs !== undefined
     && note.lane === lane
-    && getRhythmNoteKind(note) === 'hold',
-  );
-}
-
-function findActiveSmashCandidate(session: RhythmSession, lane: RhythmLane) {
-  return session.notes.findIndex((note) =>
-    !note.judged
-    && note.startedAtMs !== undefined
-    && note.lane === lane
-    && getRhythmNoteKind(note) === 'smash'
+    && getRhythmNoteKind(note) === 'hold'
     && session.elapsedMs <= getRhythmNoteEndMs(note),
   );
 }
 
-function recordSmashPress(session: RhythmSession, noteIndex: number, lane: RhythmLane): RhythmSession {
+function recordHoldPress(session: RhythmSession, noteIndex: number, lane: RhythmLane): RhythmSession {
   const notes = session.notes.map((note, index) =>
-    index === noteIndex ? { ...note, presses: (note.presses ?? 0) + 1, lastSmashPressMs: session.elapsedMs } : note,
+    index === noteIndex ? { ...note, presses: (note.presses ?? 0) + 1, lastHoldPressMs: session.elapsedMs } : note,
   );
 
   return {
@@ -751,17 +742,6 @@ function createGeneratedNote(
     };
   }
 
-  if (kind === 'smash') {
-    const durationMs = Math.round(beatMs * (random() < 0.5 ? 1.25 : 1.75));
-    return {
-      id: `${trackId}-${difficulty}-${beatIndex}-${lane}-smash-${Math.round(timeMs)}`,
-      lane,
-      timeMs: Math.round(timeMs),
-      kind,
-      durationMs,
-    };
-  }
-
   return createTapNote(trackId, difficulty, beatIndex, lane, timeMs);
 }
 
@@ -775,8 +755,7 @@ function createTapNote(trackId: string, difficulty: Difficulty, beatIndex: numbe
 
 function pickNoteKind(random: () => number, config: DifficultyConfig): RhythmNoteKind {
   const roll = random();
-  if (roll < config.smashChance) return 'smash';
-  if (roll < config.smashChance + config.holdChance) return 'hold';
+  if (roll < config.holdChance) return 'hold';
   return 'tap';
 }
 
@@ -806,21 +785,21 @@ function degradeJudgement(judgement: HitJudgement): HitJudgement {
   return 'good';
 }
 
-function smashHadGap(note: RuntimeRhythmNote, elapsedMs: number): boolean {
-  const lastPressMs = note.lastSmashPressMs ?? note.startedAtMs ?? note.timeMs;
-  return elapsedMs - lastPressMs > SMASH_MAX_PRESS_GAP_MS;
+function holdHadGap(note: RuntimeRhythmNote, elapsedMs: number): boolean {
+  const lastPressMs = note.lastHoldPressMs ?? note.startedAtMs ?? note.timeMs;
+  return elapsedMs - lastPressMs > HOLD_MAX_PRESS_GAP_MS;
 }
 
-function getSmashPulseHealth(note: RuntimeRhythmNote, elapsedMs: number): number {
-  if (note.startedAtMs === undefined || note.judged) return 0;
+function getHoldPulseHealth(note: RuntimeRhythmNote, elapsedMs: number): number {
+  if (note.startedAtMs === undefined || note.judged || (note.requiredPresses ?? 0) < 2) return 0;
 
-  const lastPressMs = note.lastSmashPressMs ?? note.startedAtMs;
-  return clamp(1 - (elapsedMs - lastPressMs) / SMASH_MAX_PRESS_GAP_MS, 0, 1);
+  const lastPressMs = note.lastHoldPressMs ?? note.startedAtMs;
+  return clamp(1 - (elapsedMs - lastPressMs) / HOLD_MAX_PRESS_GAP_MS, 0, 1);
 }
 
 function isLongNote(note: Pick<RhythmNote, 'kind'>): boolean {
   const kind = getRhythmNoteKind(note);
-  return kind === 'hold' || kind === 'smash';
+  return kind === 'hold';
 }
 
 function isPositiveNumber(value: unknown): value is number {

@@ -6,11 +6,14 @@ function orderFromFolder(folder: string) {
   return Number.parseInt(folder.match(/^\d+/)?.[0] ?? '0', 10);
 }
 
-function audioFiles(folder: string, title: string) {
+function audioFiles(
+  folder: string,
+  files: { instrumental: string; vocals: string; merged: string },
+) {
   return {
-    instrumental: `${audioRoot}/${folder}/[Instrumental] ${title}.wav`,
-    vocals: `${audioRoot}/${folder}/[Lead Vocals] ${title}.wav`,
-    merged: `${audioRoot}/${folder}/${title}.wav`,
+    instrumental: `${audioRoot}/${folder}/${files.instrumental}`,
+    vocals: `${audioRoot}/${folder}/${files.vocals}`,
+    merged: `${audioRoot}/${folder}/${files.merged}`,
   };
 }
 
@@ -31,7 +34,11 @@ const unsortedTracks: Track[] = [
     audioFolder: wystepFolder,
     audioTitle: 'Występ Czekamy Czekamy',
     difficulties: ['Łatwy', 'Normalny', 'Cybart'],
-    audio: audioFiles(wystepFolder, 'Występ Czekamy Czekamy'),
+    audio: audioFiles(wystepFolder, {
+      instrumental: '03-[Instrumental] Występ Czekamy Czekamy.ogg',
+      vocals: '02-[Lead Vocals] Występ Czekamy Czekamy.ogg',
+      merged: '01-Występ Czekamy Czekamy.ogg',
+    }),
   },
   {
     id: 'wenezuelski-wystep-mashup',
@@ -45,7 +52,11 @@ const unsortedTracks: Track[] = [
     audioFolder: wenezuelskiFolder,
     audioTitle: 'Wenezuelski Występ (Mashup)',
     difficulties: ['Łatwy', 'Normalny', 'Cybart'],
-    audio: audioFiles(wenezuelskiFolder, 'Wenezuelski Występ (Mashup)'),
+    audio: audioFiles(wenezuelskiFolder, {
+      instrumental: '01-[Instrumental] Wenezuelski Występ (Mashup).ogg',
+      vocals: '02-[Lead Vocals] Wenezuelski Występ (Mashup).ogg',
+      merged: '03-Wenezuelski Występ (Mashup).ogg',
+    }),
   },
   {
     id: 'vlog-wildforest-rave-anho27',
@@ -59,7 +70,11 @@ const unsortedTracks: Track[] = [
     audioFolder: vlogFolder,
     audioTitle: 'Vlog Wildforest Rave – ANHO27',
     difficulties: ['Normalny', 'Cybart'],
-    audio: audioFiles(vlogFolder, 'Vlog Wildforest Rave – ANHO27'),
+    audio: audioFiles(vlogFolder, {
+      instrumental: '03-[Instrumental] Vlog Wildforest Rave – ANHO27.ogg',
+      vocals: '02-[Lead Vocals] Vlog Wildforest Rave – ANHO27.ogg',
+      merged: '01-Vlog Wildforest Rave – ANHO27.ogg',
+    }),
   },
 ];
 

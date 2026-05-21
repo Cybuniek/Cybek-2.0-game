@@ -37,6 +37,28 @@ Runtime rytmu 2026-05-14:
 - Po porównaniu screenów dopasowano edytor do układu runtime'u: cztery osobne tory z przerwami, osobne linie trafienia, klawisze w kolumnach oraz brak etykiet `tap` na samych nutach.
 - Naprawiono proporcje i nagrywanie edytora: `Zoom` zmienia okno czasu zamiast skalować DOM, okno `x1` bazuje na gameplayowym `travelMs`, zwykłe tapy powstają od razu na `keydown`, hold robi live preview podczas trzymania, a smash wymaga świadomego `Shift+S/D/K/L`.
 
+Patrol stabilizacyjny 2026-05-17:
+- Przywrócono środowisko przez `npm ci`; wcześniejszy `npm run build` nie startował, bo w worktree brakowało `node_modules` i lokalnego `tsc`.
+- Wydzielono czyste helpery flow do `src/gameFlow.ts`, bez zmiany zachowania generatora, szuflady, remixu i publikacji.
+- Dodano `migrateSavedState` oraz `npm run test:state` dla migracji legacy save, `publishedTrackIds`, reveal tytułów i fallbacku tieru jakości.
+- Rozszerzono `npm run test:rhythm` o walidację realnego `src/data/manualBeatmaps.json`, żeby ręczne mapy wskazywały istniejące utwory/poziomy i resolve'owały się jako `manual`.
+- Beatmap Editor ma guard niezapisanych zmian: zmiana utworu/poziomu, import i wyjście do pulpitu wymagają `Eksport + backup` albo `Porzuć zmiany`.
+- `Annihilation player.exe` pozostaje realnym odtwarzaczem scalonego audio i ma fallback dla starszych publikacji bez pasującego wpisu w katalogu utworów.
+- Ujednolicono etykietę szuflady jako `Ustno.ai Me`.
+
+UI polish 2026-05-17:
+- Uporządkowano warstwę wizualną przez zmienne CSS dla kolorów, ramek, paneli i glow oraz przygaszono tło pulpitu, żeby okna, ikony i prawa kolumna były czytelniejsze.
+- Wzmocniono game feel sekcji rytmicznej: mocniejsza linia trafienia, stan aktywnego toru, czytelniejszy countdown, wyraźniejsze `Perfect/Great/Good/Miss` i bardziej zwarty HUD.
+- Ekran wyników ma czytelniejszą hierarchię akcji, a player wygląda bardziej jak archiwum opublikowanego Występu.
+- Beatmap Editor dostał wyraźniejszy status niezapisanych zmian, lepszą separację paneli i tory spójniejsze z runtime'em.
+- Dodano podstawowe breakpointy dla węższych viewportów oraz `prefers-reduced-motion` dla efektów animowanych.
+
+Neura 2.0 2026-05-19:
+- Podmieniono `public/pets/neura/spritesheet.webp` na poprawiony wariant awatara.
+- Neura nie renderuje już panelu dialogowego; jest niezależnym awatarem nad pulpitem, którego można kliknąć, przeciągnąć i który lekko patroluje dolną część ekranu.
+- Teksty kwestii bez istniejącej ścieżki audio nie są pokazywane w UI, a odtwarzanie głosu pomija linie bez realnego pliku.
+- Pełny zestaw głosów Neury ma być generowany przez ElevenLabs do OGG/Opus oraz MP3 fallbacków; w tej sesji generator zatrzymał się na braku lokalnego `ELEVENLABS_API_KEY`.
+
 Patrol repozytorium 2026-05-12:
 - Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
 - Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.
