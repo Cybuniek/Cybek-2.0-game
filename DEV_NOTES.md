@@ -13,6 +13,7 @@
 - `src/data/neuraVoiceLines.ts` - teksty, style i identyfikatory kwestii glosowych Neury.
 - `src/data/neuraVoiceAssets.ts` - manifest sciezek MP3 dla kwestii Neury.
 - `src/data/chatReactions.ts` - dynamiczne reakcje czatu po wyslaniu draftu i publikacji.
+- `src/audio/useSoundscape.ts` - globalne tlo audio pulpitu: ambient OS, losowe glitche, mute i domyslne poziomy glosnosci.
 
 ## Nowy model flow
 
@@ -68,6 +69,12 @@ Generowanie glosow:
 
 Skrypt uzywa `voice_id` Neury, `model_id: eleven_v3`, `language_code: pl`, `output_format=opus_48000_32` dla OGG/Opus, `output_format=mp3_44100_128` dla fallbacku i kreatywnego profilu `voice_settings`. Klucza API nie wolno commitowac; `.env.local` jest ignorowany przez git. Klucz wklejony poza repo warto obrocic w panelu ElevenLabs.
 
+## Soundscape pulpitu
+
+Systemowe tlo audio siedzi w `src/audio/useSoundscape.ts`, a assety w `public/audio/bgs`. `BGS-ambientOS.mp3` jest preloadowany, zapetlony i startuje dopiero po pierwszej interakcji uzytkownika, z domyslna glosnoscia `0.6`. Konfiguracja ma tez `musicDefaultVolume: 0.8`, zeby przyszle utwory gameplayowe byly naturalnie wyzej niz ambient.
+
+Glitche sa losowane z `BGS-glitch_a.mp3` - `BGS-glitch_e.mp3`. Scheduler odpala je co 4-12 sekund po odblokowaniu audio, z fade in, krotkim szczytem i fade out. Limit aktywnych glitchy to 2, a `triggerGlitch()` jest zwracany z hooka do pozniejszego podpinania eventow fabularnych albo UI. Mute jest globalny, zapisuje sie w `localStorage`, pauzuje ambient i czysci aktywne glitche.
+
 ## Sekcja rytmiczna
 
 Ekran rytmiczny ma cztery tory na klawiszach `S`, `D`, `K`, `L`. Nuty spadają do linii trafienia, a wynik jest liczony z wejść gracza:
@@ -82,6 +89,8 @@ Obsługiwane typy nut:
 - `tap` - pojedyncze trafienie, także domyślny typ dla starszych beatmap bez pola `kind`,
 - `hold` - trafienie początku i trzymanie klawisza do końca `durationMs`,
 - `smash` - trafienie początku i mash tego samego klawisza do osiągnięcia `requiredPresses`.
+
+Efekty trafien sekcji rytmicznej sa statycznymi MP3 w `public/audio/sfx/rhythm`. Tap i puste uderzenie losuja jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`. Hold uruchamia dwie petle: `SE-hold_loop-keyboard_typing.mp3` i `SE-hold_loop-overlay_effect.mp3`. Gdy koniec holda minie linie trafienia, overlay schodzi fadeoutem, a warstwa keyboard typing zostaje aktywna do faktycznego puszczenia klawisza.
 
 Accuracy liczy się jako `(perfect + great * 0.85 + good * 0.65) / totalNotes * 100`. Grade jest tierem jakości `F/E/D/C/B/A/S`, wyliczanym z jakości próby, poziomu trudności i mnożnika combo. Próba trwa tyle, ile bazowy plik audio; jeśli metadane audio nie są jeszcze dostępne, runtime używa estymacji z BPM i liczby beatów tylko jako fallbacku.
 

@@ -5,6 +5,7 @@ import { neuraVoiceAssets } from './data/neuraVoiceAssets';
 import { neuraReactionVoiceLineIds, type NeuraVoiceLine, type NeuraVoiceLineId } from './data/neuraVoiceLines';
 import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
+import { useSoundscape } from './audio/useSoundscape';
 import { BeatmapEditor } from './editor/BeatmapEditor';
 import {
   addUnique,
@@ -49,6 +50,7 @@ import {
   estimateRhythmDurationMs,
   finishRhythmSession,
   getRhythmNoteKind,
+  getRhythmNoteEndMs,
   getRhythmDifficultyConfig,
   getRhythmSummary,
   getVisibleRhythmNotes,
@@ -86,6 +88,22 @@ const NEURA_SPRITESHEET_PATH = '/pets/neura/spritesheet.webp';
 const NEURA_COMMENT_INTERVAL_MS = 27500;
 const NEURA_PATROL_INTERVAL_MS = 5200;
 const NEURA_MANUAL_PAUSE_MS = 6500;
+const RHYTHM_TAP_SFX_SOURCES = [
+  '/audio/sfx/rhythm/SE-tap_note-keyboard_typing00.mp3',
+  '/audio/sfx/rhythm/SE-tap_note-keyboard_typing01.mp3',
+  '/audio/sfx/rhythm/SE-tap_note-keyboard_typing02.mp3',
+  '/audio/sfx/rhythm/SE-tap_note-keyboard_typing03.mp3',
+  '/audio/sfx/rhythm/SE-tap_note-keyboard_typing04.mp3',
+  '/audio/sfx/rhythm/SE-tap_note-keyboard_typing05.mp3',
+  '/audio/sfx/rhythm/SE-tap_note-keyboard_typing06.mp3',
+  '/audio/sfx/rhythm/SE-tap_note-keyboard_typing07.mp3',
+] as const;
+const RHYTHM_HOLD_KEYBOARD_SFX_SOURCE = '/audio/sfx/rhythm/SE-hold_loop-keyboard_typing.mp3';
+const RHYTHM_HOLD_OVERLAY_SFX_SOURCE = '/audio/sfx/rhythm/SE-hold_loop-overlay_effect.mp3';
+const RHYTHM_HOLD_OVERLAY_FADE_MS = 260;
+const RHYTHM_TAP_SFX_VOLUME = 0.72;
+const RHYTHM_HOLD_KEYBOARD_SFX_VOLUME = 0.42;
+const RHYTHM_HOLD_OVERLAY_SFX_VOLUME = 0.5;
 const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
   idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },
   running: { row: 7, frames: 6, duration: '0.82s', label: 'przeciąganie' },
@@ -117,6 +135,7 @@ export default function App() {
   const [neuraIndex, setNeuraIndex] = useState(0);
   const [corruptionTick, setCorruptionTick] = useState(0);
   const [selectedPublishedId, setSelectedPublishedId] = useState<string | null>(null);
+  const soundscape = useSoundscape();
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
     create: { x: 210, y: 116 },
@@ -164,9 +183,14 @@ export default function App() {
           difficulty: track.difficulty,
           quality: track.quality,
         })),
+        soundscape: {
+          unlocked: soundscape.isUnlocked,
+          muted: soundscape.isMuted,
+          activeGlitches: soundscape.activeGlitchCount,
+        },
       });
     window.advanceTime = () => undefined;
-  }, [activeRun, activeWindow, gameState, result, screen]);
+  }, [activeRun, activeWindow, gameState, result, screen, soundscape.activeGlitchCount, soundscape.isMuted, soundscape.isUnlocked]);
 
   const availableCreateTracks = useMemo(
     () => tracks.filter((track) => !gameState.createdTrackIds.includes(track.id)),
@@ -374,6 +398,13 @@ export default function App() {
           window.history.replaceState(null, '', '#editor');
           setScreen('editor');
         }}>Beatmap Editor</button>
+        <button
+          className={`audio-toggle ${soundscape.isMuted ? 'muted' : ''} ${soundscape.isUnlocked ? '' : 'waiting'}`}
+          onClick={soundscape.toggleMuted}
+          type="button"
+        >
+          Dźwięk: {soundscape.isMuted ? 'wył.' : 'wł.'}
+        </button>
         <button onClick={resetPrototype}>{buttonLabels.resetSave}</button>
       </header>
 
@@ -673,52 +704,127 @@ function MeWindow({
 }
 
 function useArcadeSfx() {
-  const contextRef = useRef<AudioContext | null>(null);
+  type HoldLoop = {
+    keyboard: HTMLAudioElement;
+    overlay: HTMLAudioElement;
+    overlayFadeFrame: number | null;
+    overlayFaded: boolean;
+  };
 
-  useEffect(() => () => {
-    void contextRef.current?.close();
+  const holdLoopsRef = useRef<Map<RhythmLane, HoldLoop>>(new Map());
+
+  const stopAudio = useCallback((audio: HTMLAudioElement) => {
+    audio.pause();
+    audio.currentTime = 0;
   }, []);
 
-  return useCallback((kind: 'keyboard' | 'hit') => {
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextCtor) return;
+  const stopHold = useCallback((lane: RhythmLane) => {
+    const loop = holdLoopsRef.current.get(lane);
+    if (!loop) return;
 
-    const context = contextRef.current ?? new AudioContextCtor();
-    contextRef.current = context;
-    if (context.state === 'suspended') void context.resume();
+    if (loop.overlayFadeFrame !== null) {
+      window.cancelAnimationFrame(loop.overlayFadeFrame);
+    }
+    stopAudio(loop.keyboard);
+    stopAudio(loop.overlay);
+    holdLoopsRef.current.delete(lane);
+  }, [stopAudio]);
 
-    const now = context.currentTime;
-    if (kind === 'hit') {
-      playTone(context, now, 660, 0.055, 0.06, 'square');
-      playTone(context, now + 0.055, 990, 0.06, 0.05, 'triangle');
+  const stopAllHolds = useCallback(() => {
+    Array.from(holdLoopsRef.current.keys()).forEach((lane) => stopHold(lane));
+  }, [stopHold]);
+
+  useEffect(() => stopAllHolds, [stopAllHolds]);
+
+  const playTap = useCallback(() => {
+    const source = RHYTHM_TAP_SFX_SOURCES[Math.floor(Math.random() * RHYTHM_TAP_SFX_SOURCES.length)];
+    const audio = new Audio(source);
+    audio.volume = RHYTHM_TAP_SFX_VOLUME;
+    audio.play().catch(() => undefined);
+  }, []);
+
+  const startHold = useCallback((lane: RhythmLane) => {
+    if (holdLoopsRef.current.has(lane)) return;
+
+    const keyboard = new Audio(RHYTHM_HOLD_KEYBOARD_SFX_SOURCE);
+    const overlay = new Audio(RHYTHM_HOLD_OVERLAY_SFX_SOURCE);
+    keyboard.loop = true;
+    overlay.loop = true;
+    keyboard.volume = RHYTHM_HOLD_KEYBOARD_SFX_VOLUME;
+    overlay.volume = RHYTHM_HOLD_OVERLAY_SFX_VOLUME;
+
+    holdLoopsRef.current.set(lane, {
+      keyboard,
+      overlay,
+      overlayFadeFrame: null,
+      overlayFaded: false,
+    });
+    keyboard.play().catch(() => undefined);
+    overlay.play().catch(() => undefined);
+  }, []);
+
+  const fadeOverlay = useCallback((lane: RhythmLane) => {
+    const loop = holdLoopsRef.current.get(lane);
+    if (!loop || loop.overlayFaded) return;
+
+    loop.overlayFaded = true;
+    const startedAt = performance.now();
+    const startVolume = loop.overlay.volume;
+
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / RHYTHM_HOLD_OVERLAY_FADE_MS);
+      loop.overlay.volume = startVolume * (1 - progress);
+      if (progress < 1 && holdLoopsRef.current.get(lane) === loop) {
+        loop.overlayFadeFrame = window.requestAnimationFrame(step);
+        return;
+      }
+
+      loop.overlayFadeFrame = null;
+      stopAudio(loop.overlay);
+    };
+
+    loop.overlayFadeFrame = window.requestAnimationFrame(step);
+  }, [stopAudio]);
+
+  return useMemo(() => ({
+    playTap,
+    startHold,
+    fadeOverlay,
+    stopHold,
+    stopAllHolds,
+  }), [fadeOverlay, playTap, startHold, stopAllHolds, stopHold]);
+}
+
+function didStartHoldLoop(previousSession: RhythmSession, nextSession: RhythmSession, lane: RhythmLane): boolean {
+  return nextSession.notes.some((note, index) => (
+    note.lane === lane
+    && getRhythmNoteKind(note) === 'hold'
+    && note.startedAtMs !== undefined
+    && !note.judged
+    && previousSession.notes[index]?.startedAtMs === undefined
+  ));
+}
+
+function fadeExpiredHoldOverlays(
+  previousSession: RhythmSession,
+  nextSession: RhythmSession,
+  heldLanes: Set<RhythmLane>,
+  fadeOverlay: (lane: RhythmLane) => void,
+) {
+  previousSession.notes.forEach((note) => {
+    if (
+      note.startedAtMs === undefined
+      || note.judged
+      || getRhythmNoteKind(note) !== 'hold'
+      || !heldLanes.has(note.lane)
+    ) {
       return;
     }
 
-    for (let index = 0; index < 4; index += 1) {
-      playTone(context, now + index * 0.018, 170 + index * 28, 0.014, 0.035, 'square');
+    if (previousSession.elapsedMs < getRhythmNoteEndMs(note) && nextSession.elapsedMs >= getRhythmNoteEndMs(note)) {
+      fadeOverlay(note.lane);
     }
-  }, []);
-}
-
-function playTone(
-  context: AudioContext,
-  startTime: number,
-  frequency: number,
-  duration: number,
-  gainValue: number,
-  type: OscillatorType,
-) {
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-
-  oscillator.type = type;
-  oscillator.frequency.setValueAtTime(frequency, startTime);
-  gain.gain.setValueAtTime(0.0001, startTime);
-  gain.gain.exponentialRampToValueAtTime(gainValue, startTime + 0.004);
-  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-  oscillator.connect(gain).connect(context.destination);
-  oscillator.start(startTime);
-  oscillator.stop(startTime + duration + 0.01);
+  });
 }
 
 function RhythmScreen({
@@ -754,7 +860,7 @@ function RhythmScreen({
   const phaseRef = useRef<RhythmPhase>(phase);
   const countdownRef = useRef(countdownMs);
   const gameClockFallbackMsRef = useRef(0);
-  const playSfx = useArcadeSfx();
+  const rhythmSfx = useArcadeSfx();
   const visibleNotes = getVisibleRhythmNotes(session);
   const summary = getRhythmSummary(session);
   const remainingSeconds = Math.max(0, Math.ceil((session.beatmap.durationMs - session.elapsedMs) / 1000));
@@ -782,8 +888,9 @@ function RhythmScreen({
     setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
     setHitFeedbacks([]);
     heldLanesRef.current.clear();
+    rhythmSfx.stopAllHolds();
     gameClockFallbackMsRef.current = 0;
-  }, [activeRun.difficulty, activeRun.track.bpm, beatmap]);
+  }, [activeRun.difficulty, activeRun.track.bpm, beatmap, rhythmSfx]);
 
   useEffect(() => {
     setAudioDurationMs(estimateRhythmDurationMs(activeRun.track));
@@ -843,27 +950,34 @@ function RhythmScreen({
   const completeRun = useCallback((sessionToFinish: RhythmSession) => {
     if (finishedRef.current) return;
 
+    rhythmSfx.stopAllHolds();
     const finalSession = finishRhythmSession(sessionToFinish);
     sessionRef.current = finalSession;
     finishedRef.current = true;
     setSession(finalSession);
     onFinishRef.current(getRhythmSummary(finalSession));
-  }, []);
+  }, [rhythmSfx]);
 
   const syncToElapsed = useCallback((elapsedMs: number) => {
     if (finishedRef.current) return;
 
-    let nextSession = syncRhythmSessionToElapsed(sessionRef.current, elapsedMs);
+    const previousSession = sessionRef.current;
+    let nextSession = syncRhythmSessionToElapsed(previousSession, elapsedMs);
     heldLanesRef.current.forEach((lane) => {
+      const beforeHold = nextSession;
       nextSession = holdRhythmLane(nextSession, lane);
+      if (didStartHoldLoop(beforeHold, nextSession, lane)) {
+        rhythmSfx.startHold(lane);
+      }
     });
+    fadeExpiredHoldOverlays(previousSession, nextSession, heldLanesRef.current, rhythmSfx.fadeOverlay);
     sessionRef.current = nextSession;
     setSession(nextSession);
 
     if (nextSession.isFinished) {
       window.setTimeout(() => completeRun(nextSession), 0);
     }
-  }, [completeRun]);
+  }, [completeRun, rhythmSfx]);
 
   const startPlayback = useCallback(() => {
     if (finishedRef.current || phaseRef.current === 'playing') return;
@@ -938,23 +1052,28 @@ function RhythmScreen({
     if (finishedRef.current || phaseRef.current !== 'playing') return;
 
     heldLanesRef.current.add(lane);
-    const nextSession = hitRhythmLane(sessionRef.current, lane);
+    const previousSession = sessionRef.current;
+    const nextSession = hitRhythmLane(previousSession, lane);
     sessionRef.current = nextSession;
     setSession(nextSession);
-    playSfx('keyboard');
+    if (didStartHoldLoop(previousSession, nextSession, lane)) {
+      rhythmSfx.startHold(lane);
+    } else {
+      rhythmSfx.playTap();
+    }
     showHitFeedback(nextSession);
-    if (['perfect', 'great', 'good'].includes(nextSession.lastJudgement ?? '')) playSfx('hit');
-  }, [playSfx, showHitFeedback]);
+  }, [rhythmSfx, showHitFeedback]);
 
   const releaseLane = useCallback((lane: RhythmLane) => {
     if (finishedRef.current || phaseRef.current !== 'playing') return;
 
     heldLanesRef.current.delete(lane);
+    rhythmSfx.stopHold(lane);
     const nextSession = releaseRhythmLane(sessionRef.current, lane);
     sessionRef.current = nextSession;
     setSession(nextSession);
     showHitFeedback(nextSession);
-  }, [showHitFeedback]);
+  }, [rhythmSfx, showHitFeedback]);
 
   const pressPointerLane = useCallback((event: PointerEvent<HTMLDivElement>, lane: RhythmLane) => {
     event.currentTarget.setPointerCapture(event.pointerId);

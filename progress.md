@@ -59,6 +59,20 @@ Neura 2.0 2026-05-19:
 - Teksty kwestii bez istniejącej ścieżki audio nie są pokazywane w UI, a odtwarzanie głosu pomija linie bez realnego pliku.
 - Pełny zestaw głosów Neury ma być generowany przez ElevenLabs do OGG/Opus oraz MP3 fallbacków; w tej sesji generator zatrzymał się na braku lokalnego `ELEVENLABS_API_KEY`.
 
+SFX rytmu 2026-05-21:
+- Dodano sample MP3 dla tapów i holdów w `public/audio/sfx/rhythm`.
+- Tap trafiony oraz puste uderzenie losują jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`.
+- Hold uruchamia zapętlone warstwy `SE-hold_loop-keyboard_typing.mp3` oraz `SE-hold_loop-overlay_effect.mp3`; overlay schodzi fadeoutem po końcu nuty, a keyboard typing zatrzymuje się dopiero po puszczeniu klawisza.
+- Weryfikacja: do uruchomienia po zmianach `npm run test:rhythm`, `npm run test:state` i `npm run build`.
+
+Soundscape pulpitu 2026-05-21:
+- Dodano globalny hook `src/audio/useSoundscape.ts` dla ambientu OS, losowych fal glitcha, mute i przyszłych warstw audio.
+- Assety tła trafiły do `public/audio/bgs`: `BGS-ambientOS.mp3` oraz `BGS-glitch_a.mp3` - `BGS-glitch_e.mp3`.
+- Ambient startuje po pierwszej interakcji użytkownika, zapętla się z głośnością `0.6`, a przyszła muzyka ma domyślny punkt odniesienia `0.8` w konfiguracji.
+- Glitche losują plik i obwiednię fade in / peak / fade out, startują co 4-12 sekund po odblokowaniu audio i mają limit 2 aktywnych warstw.
+- Pulpit dostał prosty globalny przycisk `Dźwięk: wł./wył.` zapisujący mute w `localStorage`.
+- Weryfikacja: `npm run test:rhythm` i `npm run test:state` przeszły; `npm run build` przeszedł po ponowieniu poza sandboxem z powodu znanego błędu Vite/esbuild `Cannot read directory "../.."`.
+
 Patrol repozytorium 2026-05-12:
 - Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
 - Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.

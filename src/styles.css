@@ -129,6 +129,20 @@ button:disabled {
   font-size: 12px;
 }
 
+.audio-toggle {
+  min-width: 92px;
+}
+
+.audio-toggle.waiting {
+  border-color: var(--accent-warn);
+}
+
+.audio-toggle.muted {
+  border-color: #59616a;
+  color: var(--text-soft);
+  background: rgba(12, 14, 26, 0.82);
+}
+
 .icons {
   display: grid;
   grid-template-columns: 92px;
