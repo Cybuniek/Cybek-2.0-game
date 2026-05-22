@@ -1,6 +1,6 @@
 import { neuraVoiceLines, type NeuraVoiceLineId } from './neuraVoiceLines';
 
-export const NEURA_VOICE_BASE_PATH = '/audio/neura';
+export const NEURA_VOICE_BASE_PATH = `${import.meta.env.BASE_URL}audio/neura`;
 
 export const neuraVoiceAssets = Object.fromEntries(
   neuraVoiceLines.map((line) => [

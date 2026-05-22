@@ -74,7 +74,7 @@ type NeuraAnimation = {
   label: string;
 };
 
-const NEURA_SPRITESHEET_PATH = '/pets/neura/spritesheet.webp';
+const NEURA_SPRITESHEET_PATH = `${import.meta.env.BASE_URL}pets/neura/spritesheet.webp`;
 const NEURA_COMMENT_INTERVAL_MS = 27500;
 const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
   idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },

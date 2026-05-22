@@ -1,6 +1,6 @@
 import type { Track } from '../types';
 
-const audioRoot = '/audio/music/ustno';
+const audioRoot = `${import.meta.env.BASE_URL}audio/music/ustno`;
 
 function orderFromFolder(folder: string) {
   return Number.parseInt(folder.match(/^\d+/)?.[0] ?? '0', 10);
