@@ -6,8 +6,8 @@
         "trackId": "wystep-czekamy-czekamy",
         "bpm": 122,
         "sourceStartMs": 0,
-        "sourceEndMs": 98635,
-        "durationMs": 98635,
+        "sourceEndMs": 98535,
+        "durationMs": 98535,
         "notes": [
           {
             "id": "edit-S-431-9gf.weeeeb5n",
@@ -296,11 +296,6 @@
             "timeMs": 26188
           },
           {
-            "id": "edit-L-26140-taq.weeeeb5n",
-            "lane": "L",
-            "timeMs": 26188
-          },
-          {
             "id": "edit-L-26431-tit",
             "lane": "L",
             "timeMs": 26434
@@ -325,22 +320,22 @@
           {
             "id": "edit-K-27856-um9.p77775l",
             "lane": "K",
-            "timeMs": 27909
+            "timeMs": 28029
           },
           {
             "id": "edit-K-28006-uqj.eeeeeb5n",
             "lane": "K",
-            "timeMs": 28032
+            "timeMs": 28122
           },
           {
             "id": "edit-K-28182-uvh.eeeeeb5n",
             "lane": "K",
-            "timeMs": 28155
+            "timeMs": 28205
           },
           {
             "id": "edit-K-28349-uzx.llllloud",
             "lane": "K",
-            "timeMs": 28401
+            "timeMs": 28291
           },
           {
             "id": "edit-S-28590-v6o.p77775l",
@@ -886,37 +881,37 @@
           {
             "id": "edit-K-71282-1s4i.lllllou",
             "lane": "K",
-            "timeMs": 71311
+            "timeMs": 71341
           },
           {
             "id": "edit-D-71507-1sax.weeeeb6",
             "lane": "D",
-            "timeMs": 71557
+            "timeMs": 71527
           },
           {
             "id": "edit-K-71848-1skg.weeeeb6",
             "lane": "K",
-            "timeMs": 71803
+            "timeMs": 71743
           },
           {
             "id": "edit-D-71965-1snr.eeeeeb6",
             "lane": "D",
-            "timeMs": 71926
+            "timeMs": 71936
           },
           {
             "id": "edit-K-72083-1sqw.lllllou",
             "lane": "K",
-            "timeMs": 72049
+            "timeMs": 72119
           },
           {
             "id": "edit-D-72282-1swa.lllllou",
             "lane": "D",
-            "timeMs": 72295
+            "timeMs": 72325
           },
           {
             "id": "edit-K-72440-1t0q.p77775l",
             "lane": "K",
-            "timeMs": 72418
+            "timeMs": 72478
           },
           {
             "id": "edit-S-72789-1taj.weeeeb6",
@@ -1266,7 +1261,7 @@
           {
             "id": "edit-D-94114-29r0.777775l",
             "lane": "D",
-            "timeMs": 94057
+            "timeMs": 94180
           },
           {
             "id": "edit-K-94123-29r3.p77775l",
@@ -1318,24 +1313,28 @@
             "lane": "D",
             "timeMs": 95286,
             "kind": "hold",
-            "durationMs": 3300
+            "durationMs": 3200
           },
           {
             "id": "edit-K-95257-2amh.eeeeeb6",
             "lane": "K",
             "timeMs": 95286,
             "kind": "hold",
-            "durationMs": 3300
+            "durationMs": 3200
           },
           {
             "id": "edit-L-98390-2d1j",
             "lane": "L",
-            "timeMs": 98360
+            "timeMs": 98114,
+            "kind": "hold",
+            "durationMs": 390
           },
           {
             "id": "edit-S-98631-2d8b.weeeeb6",
             "lane": "S",
-            "timeMs": 98360
+            "timeMs": 98114,
+            "kind": "hold",
+            "durationMs": 390
           }
         ]
       }

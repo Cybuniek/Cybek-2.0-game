@@ -37,6 +37,71 @@ Runtime rytmu 2026-05-14:
 - Po porównaniu screenów dopasowano edytor do układu runtime'u: cztery osobne tory z przerwami, osobne linie trafienia, klawisze w kolumnach oraz brak etykiet `tap` na samych nutach.
 - Naprawiono proporcje i nagrywanie edytora: `Zoom` zmienia okno czasu zamiast skalować DOM, okno `x1` bazuje na gameplayowym `travelMs`, zwykłe tapy powstają od razu na `keydown`, hold robi live preview podczas trzymania, a smash wymaga świadomego `Shift+S/D/K/L`.
 
+Patrol stabilizacyjny 2026-05-17:
+- Przywrócono środowisko przez `npm ci`; wcześniejszy `npm run build` nie startował, bo w worktree brakowało `node_modules` i lokalnego `tsc`.
+- Wydzielono czyste helpery flow do `src/gameFlow.ts`, bez zmiany zachowania generatora, szuflady, remixu i publikacji.
+- Dodano `migrateSavedState` oraz `npm run test:state` dla migracji legacy save, `publishedTrackIds`, reveal tytułów i fallbacku tieru jakości.
+- Rozszerzono `npm run test:rhythm` o walidację realnego `src/data/manualBeatmaps.json`, żeby ręczne mapy wskazywały istniejące utwory/poziomy i resolve'owały się jako `manual`.
+- Beatmap Editor ma guard niezapisanych zmian: zmiana utworu/poziomu, import i wyjście do pulpitu wymagają `Eksport + backup` albo `Porzuć zmiany`.
+- `Annihilation player.exe` pozostaje realnym odtwarzaczem scalonego audio i ma fallback dla starszych publikacji bez pasującego wpisu w katalogu utworów.
+- Ujednolicono etykietę szuflady jako `Ustno.ai Me`.
+
+UI polish 2026-05-17:
+- Uporządkowano warstwę wizualną przez zmienne CSS dla kolorów, ramek, paneli i glow oraz przygaszono tło pulpitu, żeby okna, ikony i prawa kolumna były czytelniejsze.
+- Wzmocniono game feel sekcji rytmicznej: mocniejsza linia trafienia, stan aktywnego toru, czytelniejszy countdown, wyraźniejsze `Perfect/Great/Good/Miss` i bardziej zwarty HUD.
+- Ekran wyników ma czytelniejszą hierarchię akcji, a player wygląda bardziej jak archiwum opublikowanego Występu.
+- Beatmap Editor dostał wyraźniejszy status niezapisanych zmian, lepszą separację paneli i tory spójniejsze z runtime'em.
+- Dodano podstawowe breakpointy dla węższych viewportów oraz `prefers-reduced-motion` dla efektów animowanych.
+
+Neura 2.0 2026-05-19:
+- Podmieniono `public/pets/neura/spritesheet.webp` na poprawiony wariant awatara.
+- Neura nie renderuje już panelu dialogowego; jest niezależnym awatarem nad pulpitem, którego można kliknąć, przeciągnąć i który lekko patroluje dolną część ekranu.
+- Teksty kwestii bez istniejącej ścieżki audio nie są pokazywane w UI, a odtwarzanie głosu pomija linie bez realnego pliku.
+- Pełny zestaw głosów Neury ma być generowany przez ElevenLabs do OGG/Opus oraz MP3 fallbacków; w tej sesji generator zatrzymał się na braku lokalnego `ELEVENLABS_API_KEY`.
+
+SFX rytmu 2026-05-21:
+- Dodano sample MP3 dla tapów i holdów w `public/audio/sfx/rhythm`.
+- Tap trafiony oraz puste uderzenie losują jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`.
+- Hold uruchamia zapętlone warstwy `SE-hold_loop-keyboard_typing.mp3` oraz `SE-hold_loop-overlay_effect.mp3`; overlay schodzi fadeoutem po końcu nuty, a keyboard typing zatrzymuje się dopiero po puszczeniu klawisza.
+- Weryfikacja: do uruchomienia po zmianach `npm run test:rhythm`, `npm run test:state` i `npm run build`.
+
+Soundscape pulpitu 2026-05-21:
+- Dodano globalny hook `src/audio/useSoundscape.ts` dla ambientu OS, losowych fal glitcha, mute i przyszłych warstw audio.
+- Assety tła trafiły do `public/audio/bgs`: `BGS-ambientOS.mp3` oraz `BGS-glitch_a.mp3` - `BGS-glitch_e.mp3`.
+- Ambient startuje po pierwszej interakcji użytkownika, zapętla się z głośnością `0.6`, a przyszła muzyka ma domyślny punkt odniesienia `0.8` w konfiguracji.
+- Glitche losują plik i obwiednię fade in / peak / fade out, startują co 4-12 sekund po odblokowaniu audio i mają limit 2 aktywnych warstw.
+- Pulpit dostał prosty globalny przycisk `Dźwięk: wł./wył.` zapisujący mute w `localStorage`.
+- Weryfikacja: `npm run test:rhythm` i `npm run test:state` przeszły; `npm run build` przeszedł po ponowieniu poza sandboxem z powodu znanego błędu Vite/esbuild `Cannot read directory "../.."`.
+
+Neura Presence 2026-05-21:
+- Dodano `OperationalPowerLevel` 0-4 oraz `NeuraPresenceState`, żeby audio, avatar, UI i debug korzystały z jednego modelu obecności.
+- Dodano data-driven presety w `src/data/neuraPresence.ts`: progi fabularne, parametry soundscape, avatara i autonomii UI oraz tagi `maskotka`, `niestabilny widget`, `proces`, `operator`, `martwy pulpit`.
+- Dodano czysty manager `src/neura/NeuraPresenceManager.ts`; obecność wynika z publikacji, draftów, jakości, presji czatu i eventów, a nie z samego upływu czasu.
+- `useSoundscape` reaguje na presence state: ambient robi się głębszy, a glitche zmieniają częstotliwość, głośność i limit aktywnych warstw.
+- Awatar Neury przeniesiono do `src/neura/NeuraPet.tsx`, a mikro-jitter/ghost/glitch slice do `src/neura/useNeuraAvatarMotion.ts`.
+- Dodano `src/neura/useEnvironmentalUiEvents.ts` dla subtelnych reakcji pulpitu oraz panel debugowy `F10` z override poziomu i Low FX.
+- Dodano test `npm run test:neura-presence` i podpięto go do `npm run test`.
+- Weryfikacja: `npm run test` przeszedł; `npm run build` przeszedł po ponowieniu poza sandboxem z powodu znanego błędu Vite/esbuild `Cannot read directory "../.."`; podgląd na `127.0.0.1:5173` renderuje pulpit, Neurę i panel debugowy F10 bez błędów aplikacji w konsoli.
+
+Neura Voice Director + prolog 2026-05-22:
+- Dodano data-driven katalog dialogów `src/data/dialogue/*`, kolejkę `src/neura/NeuraVoiceDirector.ts` i storage directora w `localStorage`.
+- Eventy gry nie odtwarzają głosu bezpośrednio: zapis draftu, wysyłka do Pawcia, publikacja, spike glitcha i start sesji aktualizują kolejkę, a director wybiera następną linię.
+- Dodano 12 prologowych linii Neury oraz wygenerowane pliki OGG w `public/audio/neura/prologue-003-*.ogg` - `prologue-014-*.ogg`.
+- Generator głosów obsługuje `--source dialogue-v2`, `--phase prologue` i skrypty `voice:neura:dialogue:*`.
+- Weryfikacja: `npm run test` przechodzi dla rytmu, state, presence i Neura Voice Director.
+
+Boot Cybek OS + merge 2026-05-22:
+- Dodano ekran startowy `Cybek OS v0.7.0`: terminal, lista `[OK]`, pasek ładowania, logi systemowe, logo CSS/HTML i przejście do pulpitu albo `#editor`.
+- Boot trwa ok. 4.5 sekundy, można go pominąć po pierwszej sekundzie kliknięciem albo dowolnym klawiszem; `window.advanceTime(ms)` przyspiesza go w testach.
+- `render_game_to_text` raportuje boot jako `screen: "boot"` z procentem, widocznymi krokami i statusem skipu.
+- Gałąź `NEURA_fabularne-skrypty` została włączona fast-forwardem do obecnej gałęzi bez commita. Konflikty po przywróceniu lokalnego stasha rozwiązano tak, żeby zachować boot, Neura Presence i data-driven story actions.
+- Weryfikacja po scaleniu: `npm run test` przeszedł; `npm run build` przeszedł po ponowieniu poza sandboxem z powodu znanego błędu Vite/esbuild `Cannot read directory "../.."`.
+
+Samouczek Neury 2026-05-22:
+- Dodano prowadzony przez Neurę panel samouczka, który wylicza krok z aktualnego stanu gry i prowadzi przez generator, zapis draftu, remix, publikację oraz sprawdzenie czatu.
+- Udźwiękowienie działa przez lokalne Web Speech API po kliknięciu `Włącz głos`; panel nie wysyła tekstów do zewnętrznego API i zostaje tekstowy, jeśli przeglądarka nie ma lokalnego TTS.
+- Dodano `src/neura/tutorialGuide.ts`, `src/neura/NeuraTutorialGuide.tsx` i test `npm run test:neura-tutorial`; `render_game_to_text` raportuje aktualny krok samouczka.
+
 Patrol repozytorium 2026-05-12:
 - Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
 - Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.

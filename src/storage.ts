@@ -1,6 +1,6 @@
-import { initialGroupMessages, initialPawelMessages } from './data/messages';
-import { tracks } from './data/tracks';
-import { tierFromQualityProgress } from './rhythm';
+import { initialGroupMessages, initialPawelMessages } from './data/messages.ts';
+import { tracks } from './data/tracks.ts';
+import { tierFromQualityProgress } from './rhythm.ts';
 import type { ChatMessage, Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, QualityTier, RhythmSummary, Stats } from './types';
 
 const STORAGE_KEY = 'ustnik-2-state';
@@ -38,7 +38,7 @@ export function loadState(): GameState {
   if (!raw) return defaultState;
 
   try {
-    return migrateState(JSON.parse(raw));
+    return migrateSavedState(JSON.parse(raw));
   } catch {
     return defaultState;
   }
@@ -210,6 +210,15 @@ export function createPublishedTrack(draft: DraftTrack): PublishedTrack {
     quality: getPublishedQuality(draft.bestGrade),
     publishedAt: new Date().toISOString(),
   };
+}
+
+export function migrateSavedState(saved: unknown): GameState {
+  if (!saved || typeof saved !== 'object') return defaultState;
+  return migrateState(saved as Partial<Omit<GameState, 'drafts' | 'publishedTracks'>> & {
+    drafts?: SavedDraft[];
+    drawer?: LegacyPerformanceResult[];
+    publishedTracks?: PublishedTrack[];
+  });
 }
 
 function migrateState(

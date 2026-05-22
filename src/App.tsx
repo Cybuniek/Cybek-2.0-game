@@ -1,13 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 import { neuraComments } from './data/messages';
-import { neuraVoiceAssets } from './data/neuraVoiceAssets';
-import { neuraReactionVoiceLineIds, type NeuraVoiceLine, type NeuraVoiceLineId } from './data/neuraVoiceLines';
+import type { NeuraVoiceLine } from './data/neuraVoiceLines';
 import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
+import { assetPath } from './assetPaths';
+import { useSoundscape } from './audio/useSoundscape';
 import { BeatmapEditor } from './editor/BeatmapEditor';
+import { NeuraPet } from './neura/NeuraPet';
+import { NeuraTutorialGuide } from './neura/NeuraTutorialGuide';
+import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
+import { useEnvironmentalUiEvents } from './neura/useEnvironmentalUiEvents';
 import {
-  addMessage,
+  createDefaultNeuraVoiceDirectorState,
+  createPresenceStateFromGameState,
+  createVoiceQueueItemsFromEvent,
+  getNextNeuraVoiceLine,
+  markVoiceLinePlayed,
+  renderNeuraVoiceDirectorDebug,
+} from './neura/NeuraVoiceDirector';
+import { loadNeuraVoiceDirectorState, saveNeuraVoiceDirectorState } from './neura/neuraVoiceDirectorStorage';
+import { getNeuraTutorialStep, type NeuraTutorialStep } from './neura/tutorialGuide';
+import type { NeuraPresenceEventId as DialoguePresenceEventId } from './data/dialogue/dialogueTypes';
+import {
+  addUnique,
+  createRemixComparison,
+  resultFromDraft,
+  upsertDraft,
+  upsertPublished,
+  type RemixComparison,
+} from './gameFlow';
+import {
   applyStatDelta,
   createDraftFromResult,
   createPublishedTrack,
@@ -23,6 +46,7 @@ import {
   revealTitleFully,
   saveState,
 } from './storage';
+import { addMessage } from './storage';
 import {
   addresses,
   appLabels,
@@ -41,6 +65,7 @@ import {
   estimateRhythmDurationMs,
   finishRhythmSession,
   getRhythmNoteKind,
+  getRhythmNoteEndMs,
   getRhythmDifficultyConfig,
   getRhythmSummary,
   getVisibleRhythmNotes,
@@ -54,12 +79,23 @@ import {
   type RhythmJudgement,
   type RhythmSession,
 } from './rhythm';
-import type { Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, RhythmLane, RhythmSummary, Track } from './types';
+import type {
+  Difficulty,
+  DraftTrack,
+  GameState,
+  NeuraPresenceEventId,
+  NeuraPresenceEventLogEntry,
+  OperationalPowerLevel,
+  PerformanceResult,
+  PublishedTrack,
+  RhythmLane,
+  RhythmSummary,
+  Track,
+} from './types';
 
 type WindowId = 'messenger' | 'create' | 'me' | 'player' | null;
-type Screen = 'desktop' | 'rhythm' | 'results' | 'editor';
+type Screen = 'boot' | 'desktop' | 'rhythm' | 'results' | 'editor';
 type Point = { x: number; y: number };
-type NeuraPetMood = 'idle' | 'waving' | 'jumping' | 'failed' | 'waiting' | 'running' | 'review';
 type HitFeedback = {
   id: number;
   lane: RhythmLane;
@@ -67,26 +103,46 @@ type HitFeedback = {
   judgement: 'perfect' | 'great' | 'good' | 'miss';
 };
 
-type NeuraAnimation = {
-  row: number;
-  frames: number;
-  duration: string;
-  label: string;
-};
-
-const NEURA_SPRITESHEET_PATH = `${import.meta.env.BASE_URL}pets/neura/spritesheet.webp`;
+const BOOT_DURATION_MS = 4500;
+const BOOT_SKIP_AFTER_MS = 1000;
 const NEURA_COMMENT_INTERVAL_MS = 27500;
-const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
-  idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },
-  running: { row: 7, frames: 6, duration: '0.82s', label: 'przeciąganie' },
-  waving: { row: 3, frames: 4, duration: '0.84s', label: 'kontakt' },
-  jumping: { row: 4, frames: 5, duration: '0.92s', label: 'impuls' },
-  failed: { row: 5, frames: 8, duration: '1.28s', label: 'glitch' },
-  waiting: { row: 6, frames: 6, duration: '1.16s', label: 'nasłuch' },
-  review: { row: 8, frames: 6, duration: '1.22s', label: 'analiza' },
-};
-const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'review', 'failed'];
-
+const NEURA_STORY_BEAT_INTERVAL_MS = 41000;
+const NEURA_LOW_FX_STORAGE_KEY = 'ustnik.neura.lowFxMode';
+const RHYTHM_TAP_SFX_SOURCES = [
+  assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing00.mp3'),
+  assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing01.mp3'),
+  assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing02.mp3'),
+  assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing03.mp3'),
+  assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing04.mp3'),
+  assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing05.mp3'),
+  assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing06.mp3'),
+  assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing07.mp3'),
+] as const;
+const RHYTHM_HOLD_KEYBOARD_SFX_SOURCE = assetPath('audio/sfx/rhythm/SE-hold_loop-keyboard_typing.mp3');
+const RHYTHM_HOLD_OVERLAY_SFX_SOURCE = assetPath('audio/sfx/rhythm/SE-hold_loop-overlay_effect.mp3');
+const RHYTHM_HOLD_OVERLAY_FADE_MS = 260;
+const RHYTHM_TAP_SFX_VOLUME = 0.72;
+const RHYTHM_HOLD_KEYBOARD_SFX_VOLUME = 0.42;
+const RHYTHM_HOLD_OVERLAY_SFX_VOLUME = 0.5;
+const BOOT_STEPS = [
+  'Sprawdzanie integralności systemu',
+  'Inicjalizacja kernela',
+  'Montowanie systemu plików',
+  'Ładowanie sterowników',
+  'Inicjalizacja urządzeń',
+  'Konfiguracja sieci',
+  'Uruchamianie usług systemowych',
+  'Inicjalizacja interfejsu',
+  'Ładowanie zasobów',
+] as const;
+const BOOT_LOGS = [
+  'Kernel 6.666.0-cybek initialized',
+  'CPU: CybekCore(TM) i9-9696K @ 4.20GHz',
+  'RAM: 16.0 GB',
+  'GPU: CybekVision 3070 Ti',
+  'Time: 2025-05-25 21:37:00',
+  'Witaj, USTNIK!',
+] as const;
 type ActiveRun = {
   track: Track;
   difficulty: Difficulty;
@@ -96,25 +152,51 @@ type ActiveRun = {
 
 type RhythmPhase = 'loading' | 'countdown' | 'playing';
 
-type RemixComparison = {
-  previousAccuracy: number;
-  previousGrade: string;
-  nextAccuracy: number;
-  nextGrade: string;
-  accuracyDelta: number;
-  verdict: 'better' | 'same' | 'worse';
-};
-
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
   const [activeWindow, setActiveWindow] = useState<WindowId>('messenger');
-  const [screen, setScreen] = useState<Screen>(() => (window.location.hash === '#editor' ? 'editor' : 'desktop'));
+  const initialScreenRef = useRef<Screen>(window.location.hash === '#editor' ? 'editor' : 'desktop');
+  const [screen, setScreen] = useState<Screen>('boot');
+  const [bootElapsedMs, setBootElapsedMs] = useState(0);
   const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
   const [result, setResult] = useState<PerformanceResult | null>(null);
   const [messengerTab, setMessengerTab] = useState<'pawel' | 'group'>('pawel');
   const [neuraIndex, setNeuraIndex] = useState(0);
   const [corruptionTick, setCorruptionTick] = useState(0);
   const [selectedPublishedId, setSelectedPublishedId] = useState<string | null>(null);
+  const [lastNeuraEventId, setLastNeuraEventId] = useState<NeuraPresenceEventId>('boot');
+  const [neuraDebugOverride, setNeuraDebugOverride] = useState<OperationalPowerLevel | null>(null);
+  const [neuraLowFxMode, setNeuraLowFxModeState] = useState(() => readStoredNeuraLowFxMode());
+  const [neuraEventLog, setNeuraEventLog] = useState<NeuraPresenceEventLogEntry[]>(() => (
+    [{ id: 'boot', at: new Date().toISOString() }]
+  ));
+  const [isNeuraDebugOpen, setIsNeuraDebugOpen] = useState(false);
+  const [environmentEcho, setEnvironmentEcho] = useState<{ id: number; text: string } | null>(null);
+  const [storyVoiceLineId, setStoryVoiceLineId] = useState<string | null>(null);
+  const [lastDialogueEventId, setLastDialogueEventId] = useState<DialoguePresenceEventId | null>(null);
+  const [neuraVoiceDirectorState, setNeuraVoiceDirectorState] = useState(() => loadNeuraVoiceDirectorState());
+  const [neuraVoiceDirectorDebug, setNeuraVoiceDirectorDebug] = useState('');
+  const neuraVoiceDirectorStateRef = useRef(neuraVoiceDirectorState);
+  const neuraPresence = useMemo(
+    () => createNeuraPresenceState(gameState, {
+      lastEventId: lastNeuraEventId,
+      debugOverride: neuraDebugOverride,
+      lowFxMode: neuraLowFxMode,
+      eventLog: neuraEventLog,
+    }),
+    [gameState, lastNeuraEventId, neuraDebugOverride, neuraEventLog, neuraLowFxMode],
+  );
+  const neuraTutorialStep = useMemo(
+    () => getNeuraTutorialStep({
+      gameState,
+      screen,
+      activeWindow,
+      messengerTab,
+      runMode: activeRun?.mode ?? null,
+    }),
+    [activeRun?.mode, activeWindow, gameState, messengerTab, screen],
+  );
+  const soundscape = useSoundscape(neuraPresence);
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
     create: { x: 210, y: 116 },
@@ -122,7 +204,52 @@ export default function App() {
     player: { x: 300, y: 180 },
   });
 
+  const recordNeuraPresenceEvent = useCallback((eventId: NeuraPresenceEventId) => {
+    setLastNeuraEventId(eventId);
+    setNeuraEventLog((log) => appendNeuraPresenceEvent(log, eventId));
+  }, []);
+
+  const setNeuraLowFxMode = useCallback((enabled: boolean) => {
+    setNeuraLowFxModeState(enabled);
+    try {
+      window.localStorage.setItem(NEURA_LOW_FX_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      // localStorage may be unavailable in strict browser privacy modes.
+    }
+    recordNeuraPresenceEvent('debugSetPower');
+  }, [recordNeuraPresenceEvent]);
+
+  const setNeuraOverride = useCallback((level: OperationalPowerLevel | null) => {
+    setNeuraDebugOverride(level);
+    recordNeuraPresenceEvent('debugSetPower');
+  }, [recordNeuraPresenceEvent]);
+
+  const showEnvironmentalEcho = useCallback((text: string) => {
+    const id = Date.now() + Math.random();
+    setEnvironmentEcho({ id, text });
+    window.setTimeout(() => {
+      setEnvironmentEcho((current) => (current?.id === id ? null : current));
+    }, 3400);
+  }, []);
+
+  const triggerEnvironmentalGlitch = useCallback((intensity: number) => {
+    soundscape.triggerGlitch({ reason: 'environment', intensity });
+  }, [soundscape.triggerGlitch]);
+
+  useEnvironmentalUiEvents<Exclude<WindowId, null>>({
+    isDesktop: screen === 'desktop',
+    presenceState: neuraPresence,
+    activeWindow,
+    setWindowPositions,
+    onEcho: showEnvironmentalEcho,
+    onGlitch: triggerEnvironmentalGlitch,
+  });
+
   useEffect(() => saveState(gameState), [gameState]);
+  useEffect(() => saveNeuraVoiceDirectorState(neuraVoiceDirectorState), [neuraVoiceDirectorState]);
+  useEffect(() => {
+    neuraVoiceDirectorStateRef.current = neuraVoiceDirectorState;
+  }, [neuraVoiceDirectorState]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -138,7 +265,72 @@ export default function App() {
     return () => window.clearInterval(id);
   }, []);
 
+  const focusNeuraTutorialTarget = useCallback((step: NeuraTutorialStep) => {
+    if (step.targetWindow) setActiveWindow(step.targetWindow);
+    if (step.targetMessengerTab) setMessengerTab(step.targetMessengerTab);
+  }, []);
+
+  const completeBoot = useCallback(() => {
+    setBootElapsedMs(BOOT_DURATION_MS);
+    setScreen((current) => (current === 'boot' ? initialScreenRef.current : current));
+  }, []);
+
+  const advanceBoot = useCallback((ms: number) => {
+    setBootElapsedMs((current) => {
+      const next = Math.min(BOOT_DURATION_MS, current + Math.max(0, ms));
+      if (next >= BOOT_DURATION_MS) window.setTimeout(completeBoot, 0);
+      return next;
+    });
+  }, [completeBoot]);
+
   useEffect(() => {
+    if (screen !== 'boot') return;
+
+    const id = window.setInterval(() => advanceBoot(150), 150);
+    return () => window.clearInterval(id);
+  }, [advanceBoot, screen]);
+
+  useEffect(() => {
+    if (screen !== 'boot') return;
+
+    function skipBoot() {
+      if (bootElapsedMs >= BOOT_SKIP_AFTER_MS) completeBoot();
+    }
+
+    window.addEventListener('pointerdown', skipBoot);
+    window.addEventListener('keydown', skipBoot);
+    return () => {
+      window.removeEventListener('pointerdown', skipBoot);
+      window.removeEventListener('keydown', skipBoot);
+    };
+  }, [bootElapsedMs, completeBoot, screen]);
+
+  useEffect(() => {
+    function handleDebugKey(event: KeyboardEvent) {
+      if (event.key !== 'F10') return;
+      event.preventDefault();
+      setIsNeuraDebugOpen((current) => !current);
+    }
+
+    window.addEventListener('keydown', handleDebugKey);
+    return () => window.removeEventListener('keydown', handleDebugKey);
+  }, []);
+
+  useEffect(() => {
+    if (screen === 'boot') {
+      const bootProgress = getBootProgress(bootElapsedMs);
+      window.render_game_to_text = () =>
+        JSON.stringify({
+          screen: 'boot',
+          progress: bootProgress,
+          visibleSteps: getVisibleBootSteps(bootProgress),
+          canSkip: bootElapsedMs >= BOOT_SKIP_AFTER_MS,
+          nextScreen: initialScreenRef.current,
+        });
+      window.advanceTime = advanceBoot;
+      return;
+    }
+
     if (screen === 'rhythm') return;
 
     window.render_game_to_text = () =>
@@ -162,9 +354,119 @@ export default function App() {
           difficulty: track.difficulty,
           quality: track.quality,
         })),
+        soundscape: {
+          unlocked: soundscape.isUnlocked,
+          muted: soundscape.isMuted,
+          activeGlitches: soundscape.activeGlitchCount,
+        },
+        neuraPresence,
+        neuraVoiceDirector: {
+          activeStoryVoiceLineId: storyVoiceLineId,
+          lastDialogueEventId,
+          queue: neuraVoiceDirectorState.queue.map((item) => ({
+            lineId: item.lineId,
+            priority: item.priority,
+            sourceEventId: item.sourceEventId,
+          })),
+          unlockedPacks: neuraVoiceDirectorState.unlockedPackIds,
+          debug: neuraVoiceDirectorDebug,
+        },
+        neuraTutorial: neuraTutorialStep
+          ? {
+              id: neuraTutorialStep.id,
+              title: neuraTutorialStep.title,
+              order: neuraTutorialStep.order,
+              total: neuraTutorialStep.total,
+              targetWindow: neuraTutorialStep.targetWindow ?? null,
+            }
+          : null,
       });
     window.advanceTime = () => undefined;
-  }, [activeRun, activeWindow, gameState, result, screen]);
+  }, [
+    activeRun,
+    activeWindow,
+    advanceBoot,
+    bootElapsedMs,
+    gameState,
+    lastDialogueEventId,
+    neuraPresence,
+    neuraTutorialStep,
+    neuraVoiceDirectorDebug,
+    neuraVoiceDirectorState.queue,
+    neuraVoiceDirectorState.unlockedPackIds,
+    result,
+    screen,
+    soundscape.activeGlitchCount,
+    soundscape.isMuted,
+    soundscape.isUnlocked,
+    storyVoiceLineId,
+  ]);
+
+  const runStoryAction = useCallback((eventId: DialoguePresenceEventId, nextGameState: GameState) => {
+    const now = Date.now();
+    const context = {
+      gameState: nextGameState,
+      presence: createPresenceStateFromGameState(nextGameState, {
+        activeWindow,
+        screen,
+        lastPresenceEventId: eventId,
+      }),
+      now,
+    };
+    const queued = createVoiceQueueItemsFromEvent(neuraVoiceDirectorStateRef.current, { eventId, context, now });
+    const next = getNextNeuraVoiceLine(queued.state, context);
+    let nextDirectorState = next.state;
+
+    if (next.line) {
+      nextDirectorState = markVoiceLinePlayed(nextDirectorState, { lineId: next.line.id, playedAt: now });
+      setStoryVoiceLineId(next.line.audio.id);
+      if (next.line.effects?.triggerGlitch) soundscape.triggerGlitch({ reason: 'story', intensity: next.line.glitchIntensity });
+    }
+
+    setLastDialogueEventId(eventId);
+    setNeuraVoiceDirectorDebug(renderNeuraVoiceDirectorDebug(nextDirectorState, context, next.rejections));
+    neuraVoiceDirectorStateRef.current = nextDirectorState;
+    setNeuraVoiceDirectorState(nextDirectorState);
+  }, [activeWindow, screen, soundscape]);
+
+  const runAmbientStoryBeat = useCallback((nextGameState: GameState) => {
+    const now = Date.now();
+    const context = {
+      gameState: nextGameState,
+      presence: createPresenceStateFromGameState(nextGameState, {
+        activeWindow,
+        screen,
+        lastPresenceEventId: lastDialogueEventId,
+      }),
+      now,
+    };
+    const next = getNextNeuraVoiceLine(neuraVoiceDirectorStateRef.current, context);
+    let nextDirectorState = next.state;
+
+    if (next.line) {
+      nextDirectorState = markVoiceLinePlayed(nextDirectorState, { lineId: next.line.id, playedAt: now });
+      setStoryVoiceLineId(next.line.audio.id);
+      if (next.line.effects?.triggerGlitch) soundscape.triggerGlitch({ reason: 'story', intensity: next.line.glitchIntensity });
+    }
+
+    setNeuraVoiceDirectorDebug(renderNeuraVoiceDirectorDebug(nextDirectorState, context, next.rejections));
+    neuraVoiceDirectorStateRef.current = nextDirectorState;
+    setNeuraVoiceDirectorState(nextDirectorState);
+  }, [activeWindow, lastDialogueEventId, screen, soundscape]);
+
+  useEffect(() => {
+    runStoryAction('session.start', gameState);
+    // Start sesji ma wejść tylko raz po montażu aplikacji.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (screen !== 'desktop') return;
+      runAmbientStoryBeat(gameState);
+    }, NEURA_STORY_BEAT_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [gameState, runAmbientStoryBeat, screen]);
 
   const availableCreateTracks = useMemo(
     () => tracks.filter((track) => !gameState.createdTrackIds.includes(track.id)),
@@ -195,6 +497,7 @@ export default function App() {
   }
 
   function startRun(track: Track, difficulty: Difficulty, mode: ActiveRun['mode'], draftId?: string) {
+    recordNeuraPresenceEvent('rhythmStarted');
     setActiveRun({ track, difficulty, mode, draftId });
     setResult(null);
     setScreen('rhythm');
@@ -202,6 +505,7 @@ export default function App() {
 
   function finishRun(summary: RhythmSummary) {
     if (!activeRun) return;
+    recordNeuraPresenceEvent('rhythmFinished');
     setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty, summary));
     setScreen('results');
   }
@@ -209,32 +513,35 @@ export default function App() {
   function saveInitialDraft(status: DraftTrack['status']) {
     if (!result) return;
     const draft = createDraftFromResult(result, status);
-
-    setGameState((state) => ({
-      ...state,
-      createdTrackIds: addUnique(state.createdTrackIds, result.trackId),
-      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, result.trackId, result.accuracy),
-      drafts: upsertDraft(state.drafts, draft),
+    const nextState = {
+      ...gameState,
+      createdTrackIds: addUnique(gameState.createdTrackIds, result.trackId),
+      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, result.trackId, result.accuracy),
+      drafts: upsertDraft(gameState.drafts, draft),
       pawelMessages:
         status === 'sentToPawel'
           ? addMessage(
-              state.pawelMessages,
+              gameState.pawelMessages,
               chatAuthors.cybek,
               pawelDraftMessage(
                 result,
                 maskTrackTitle(
                   result.trackTitle,
-                  getTitleReveal(state.titleRevealByTrackId, result.trackId, state.publishedTrackIds.includes(result.trackId)),
+                  getTitleReveal(gameState.titleRevealByTrackId, result.trackId, gameState.publishedTrackIds.includes(result.trackId)),
                   result.trackId,
                   corruptionTick,
                 ),
               ),
             )
-          : state.pawelMessages,
-      stats: applyStatDelta(state.stats, getStatDelta(result, status === 'sentToPawel' ? 'sendToPawel' : 'saveDraft')),
-    }));
+          : gameState.pawelMessages,
+      stats: applyStatDelta(gameState.stats, getStatDelta(result, status === 'sentToPawel' ? 'sendToPawel' : 'saveDraft')),
+    };
+
+    setGameState(nextState);
+    runStoryAction(status === 'sentToPawel' ? 'draft.sentToPawel' : 'draft.saved', nextState);
 
     returnToDesktop(status === 'sentToPawel' ? 'messenger' : 'me');
+    recordNeuraPresenceEvent(status === 'sentToPawel' ? 'sentToPawel' : 'draftSaved');
     if (status === 'sentToPawel') setMessengerTab('pawel');
   }
 
@@ -242,37 +549,43 @@ export default function App() {
     if (!result || !activeRun?.draftId) return;
     const current = gameState.drafts.find((draft) => draft.id === activeRun.draftId);
     if (!current) return;
+    const nextState = {
+      ...gameState,
+      drafts: upsertDraft(gameState.drafts, improveDraftWithResult(current, result)),
+      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, result.trackId, result.accuracy),
+      stats: applyStatDelta(gameState.stats, getStatDelta(result, 'saveDraft')),
+    };
 
-    setGameState((state) => ({
-      ...state,
-      drafts: upsertDraft(state.drafts, improveDraftWithResult(current, result)),
-      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, result.trackId, result.accuracy),
-      stats: applyStatDelta(state.stats, getStatDelta(result, 'saveDraft')),
-    }));
+    setGameState(nextState);
+    runStoryAction('draft.saved', nextState);
+    recordNeuraPresenceEvent('draftSaved');
     returnToDesktop('me');
   }
 
   function sendDraftToPawel(draft: DraftTrack) {
     const resultLike = resultFromDraft(draft);
-    setGameState((state) => ({
-      ...state,
-      drafts: upsertDraft(state.drafts, { ...draft, status: 'sentToPawel', updatedAt: new Date().toISOString() }),
-      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, draft.trackId, draft.bestAccuracy),
+    const nextState = {
+      ...gameState,
+      drafts: upsertDraft(gameState.drafts, { ...draft, status: 'sentToPawel', updatedAt: new Date().toISOString() }),
+      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, draft.trackId, draft.bestAccuracy),
       pawelMessages: addMessage(
-        state.pawelMessages,
+        gameState.pawelMessages,
         chatAuthors.cybek,
         pawelDraftMessage(
           draft,
           maskTrackTitle(
             draft.trackTitle,
-            getTitleReveal(state.titleRevealByTrackId, draft.trackId, state.publishedTrackIds.includes(draft.trackId)),
+            getTitleReveal(gameState.titleRevealByTrackId, draft.trackId, gameState.publishedTrackIds.includes(draft.trackId)),
             draft.trackId,
             corruptionTick,
           ),
         ),
       ),
-      stats: applyStatDelta(state.stats, getStatDelta(resultLike, 'sendToPawel')),
-    }));
+      stats: applyStatDelta(gameState.stats, getStatDelta(resultLike, 'sendToPawel')),
+    };
+    setGameState(nextState);
+    runStoryAction('draft.sentToPawel', nextState);
+    recordNeuraPresenceEvent('sentToPawel');
     setActiveWindow('messenger');
     setMessengerTab('pawel');
   }
@@ -286,20 +599,20 @@ export default function App() {
     if (gameState.publishedTrackIds.includes(draft.trackId)) return;
 
     const published = createPublishedTrack(draft);
-    setGameState((state) => {
-      if (state.publishedTrackIds.includes(draft.trackId)) return state;
-
-      return {
-        ...state,
-        createdTrackIds: addUnique(state.createdTrackIds, draft.trackId),
-        titleRevealByTrackId: revealTitleFully(state.titleRevealByTrackId, draft.trackId),
-        drafts: state.drafts.filter((item) => item.trackId !== draft.trackId),
-        publishedTracks: upsertPublished(state.publishedTracks, published),
-        publishedTrackIds: addUnique(state.publishedTrackIds, draft.trackId),
-        groupMessages: [...state.groupMessages, ...groupPublishMessages(published)],
-        stats: applyStatDelta(state.stats, getStatDelta(resultFromDraft(draft), 'publish')),
-      };
-    });
+    const nextState = {
+      ...gameState,
+      createdTrackIds: addUnique(gameState.createdTrackIds, draft.trackId),
+      titleRevealByTrackId: revealTitleFully(gameState.titleRevealByTrackId, draft.trackId),
+      drafts: gameState.drafts.filter((item) => item.trackId !== draft.trackId),
+      publishedTracks: upsertPublished(gameState.publishedTracks, published),
+      publishedTrackIds: addUnique(gameState.publishedTrackIds, draft.trackId),
+      groupMessages: [...gameState.groupMessages, ...groupPublishMessages(published)],
+      stats: applyStatDelta(gameState.stats, getStatDelta(resultFromDraft(draft), 'publish')),
+    };
+    setGameState(nextState);
+    runStoryAction('track.published', nextState);
+    if (nextState.stats.chatPressure >= 35) runStoryAction('neura.glitchSpike', nextState);
+    recordNeuraPresenceEvent('published');
     returnToDesktop('messenger');
     setMessengerTab('group');
   }
@@ -318,11 +631,22 @@ export default function App() {
 
   function resetPrototype() {
     setGameState(defaultState);
+    const resetDirectorState = createDefaultNeuraVoiceDirectorState();
+    neuraVoiceDirectorStateRef.current = resetDirectorState;
+    setNeuraVoiceDirectorState(resetDirectorState);
+    setStoryVoiceLineId(null);
+    setLastDialogueEventId(null);
+    setNeuraVoiceDirectorDebug('');
     setActiveWindow('messenger');
-    setScreen('desktop');
+    setBootElapsedMs(0);
+    initialScreenRef.current = 'desktop';
+    setScreen('boot');
     setActiveRun(null);
     setResult(null);
     setSelectedPublishedId(null);
+    setNeuraDebugOverride(null);
+    setLastNeuraEventId('boot');
+    setNeuraEventLog([{ id: 'boot', at: new Date().toISOString() }]);
   }
 
   if (screen === 'rhythm' && activeRun) {
@@ -331,10 +655,17 @@ export default function App() {
         activeRun={activeRun}
         displayTitle={getDisplayTitle(activeRun.track.id, activeRun.track.title)}
         neuraComment={neuraComments[neuraIndex]}
+        neuraPresence={neuraPresence}
+        tutorialStep={neuraTutorialStep}
+        onNeuraPresenceEvent={recordNeuraPresenceEvent}
         onFinish={finishRun}
         onExit={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
       />
     );
+  }
+
+  if (screen === 'boot') {
+    return <BootScreen elapsedMs={bootElapsedMs} onSkip={completeBoot} />;
   }
 
   if (screen === 'editor') {
@@ -353,6 +684,9 @@ export default function App() {
         remixComparison={activeRemixDraft ? createRemixComparison(activeRemixDraft, result) : null}
         alreadyPublished={gameState.publishedTrackIds.includes(result.trackId)}
         neuraComment={neuraComments[neuraIndex]}
+        neuraPresence={neuraPresence}
+        tutorialStep={neuraTutorialStep}
+        onNeuraPresenceEvent={recordNeuraPresenceEvent}
         onSave={() => saveInitialDraft('inDrawer')}
         onSendToPawel={() => saveInitialDraft('sentToPawel')}
         onPublish={publishInitialResult}
@@ -372,6 +706,13 @@ export default function App() {
           window.history.replaceState(null, '', '#editor');
           setScreen('editor');
         }}>Beatmap Editor</button>
+        <button
+          className={`audio-toggle ${soundscape.isMuted ? 'muted' : ''} ${soundscape.isUnlocked ? '' : 'waiting'}`}
+          onClick={soundscape.toggleMuted}
+          type="button"
+        >
+          Dźwięk: {soundscape.isMuted ? 'wył.' : 'wł.'}
+        </button>
         <button onClick={resetPrototype}>{buttonLabels.resetSave}</button>
       </header>
 
@@ -391,7 +732,23 @@ export default function App() {
       </section>
 
       <StatsPanel stats={gameState.stats} />
-      <PersistentOverlays comment={neuraComments[neuraIndex]} />
+      <PersistentOverlays
+        comment={neuraComments[neuraIndex]}
+        presenceState={neuraPresence}
+        onPresenceEvent={recordNeuraPresenceEvent}
+        storyVoiceLineId={storyVoiceLineId}
+        tutorialStep={neuraTutorialStep}
+        onTutorialTarget={focusNeuraTutorialTarget}
+      />
+      {environmentEcho && <aside className="neura-echo">{environmentEcho.text}</aside>}
+      {isNeuraDebugOpen && (
+        <NeuraDebugPanel
+          presenceState={neuraPresence}
+          activeGlitchCount={soundscape.activeGlitchCount}
+          onSetOverride={setNeuraOverride}
+          onToggleLowFx={() => setNeuraLowFxMode(!neuraPresence.lowFxMode)}
+        />
+      )}
 
       <aside className="todo-widget">
         <strong>{placeholderLabels.todoTitle}</strong>
@@ -454,7 +811,7 @@ export default function App() {
         </Window>
       )}
 
-      {activeWindow === 'player' && selectedPublished && selectedPublishedTrack && (
+      {activeWindow === 'player' && selectedPublished && (
         <Window
           title={windowLabels.player}
           position={windowPositions.player}
@@ -471,52 +828,77 @@ export default function App() {
   );
 }
 
-function addUnique(items: string[], item: string) {
-  return items.includes(item) ? items : [...items, item];
+function BootScreen({ elapsedMs, onSkip }: { elapsedMs: number; onSkip: () => void }) {
+  const progress = getBootProgress(elapsedMs);
+  const visibleSteps = getVisibleBootSteps(progress);
+  const visibleLogs = getVisibleBootLogs(progress);
+  const canSkip = elapsedMs >= BOOT_SKIP_AFTER_MS;
+
+  return (
+    <main className="boot-screen" onClick={canSkip ? onSkip : undefined}>
+      <div className="boot-scanlines" />
+      <section className="boot-terminal" aria-label="Cybek OS boot">
+        <h1>Cybek OS v0.7.0</h1>
+        <p className="boot-subtitle">Inicjalizacja systemu...</p>
+
+        <div className="boot-checklist">
+          {BOOT_STEPS.map((step, index) => {
+            const isVisible = index < visibleSteps;
+            const isLoading = index === visibleSteps - 1 && progress < 100;
+            return (
+              <div className={isVisible ? 'boot-step visible' : 'boot-step'} key={step}>
+                <span>{isLoading ? '[...]' : '[OK]'}</span>
+                <strong>{step}</strong>
+                {isLoading && (
+                  <em>
+                    <i style={{ '--boot-progress': `${Math.max(10, progress)}%` } as CSSProperties} />
+                    {progress}%
+                  </em>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="boot-log">
+          {BOOT_LOGS.slice(0, visibleLogs).map((line) => (
+            <p key={line}>
+              <span>&gt; [SYS]</span> {line}
+            </p>
+          ))}
+        </div>
+
+        <footer className="boot-footer">
+          <strong>Cybek OS gotowy.</strong>
+          <span>{progress >= 100 ? 'Wczytywanie pulpitu...' : canSkip ? 'Kliknij albo naciśnij klawisz, żeby pominąć...' : 'Wczytywanie pulpitu...'}</span>
+        </footer>
+      </section>
+
+      <aside className="boot-brand" aria-hidden="true">
+        <div className="boot-face">
+          <span className="boot-hair" />
+          <span className="boot-head">
+            <i />
+            <i />
+            <b />
+          </span>
+        </div>
+        <strong>CYBEK <span>OS</span></strong>
+      </aside>
+    </main>
+  );
 }
 
-function upsertDraft(drafts: DraftTrack[], draft: DraftTrack) {
-  return [draft, ...drafts.filter((item) => item.id !== draft.id)];
+function getBootProgress(elapsedMs: number) {
+  return Math.min(100, Math.round((elapsedMs / BOOT_DURATION_MS) * 100));
 }
 
-function upsertPublished(publishedTracks: PublishedTrack[], published: PublishedTrack) {
-  return [published, ...publishedTracks.filter((item) => item.id !== published.id)];
+function getVisibleBootSteps(progress: number) {
+  return Math.max(1, Math.min(BOOT_STEPS.length, Math.ceil((progress / 100) * BOOT_STEPS.length)));
 }
 
-function resultFromDraft(draft: DraftTrack): PerformanceResult {
-  return {
-    id: draft.id,
-    trackId: draft.trackId,
-    trackTitle: draft.trackTitle,
-    difficulty: draft.difficulty,
-    accuracy: draft.bestAccuracy,
-    grade: draft.bestGrade,
-    qualityProgress: draft.qualityProgress,
-    comboMultiplier: 1,
-    perfectHits: 0,
-    greatHits: 0,
-    goodHits: 0,
-    misses: 0,
-    emptyPresses: 0,
-    maxCombo: 0,
-    totalNotes: 0,
-    createdAt: draft.updatedAt,
-    status: draft.status,
-  };
-}
-
-function createRemixComparison(draft: DraftTrack, result: PerformanceResult): RemixComparison {
-  const accuracyDelta = result.accuracy - draft.bestAccuracy;
-  const verdict = accuracyDelta > 0 ? 'better' : accuracyDelta < 0 ? 'worse' : 'same';
-
-  return {
-    previousAccuracy: draft.bestAccuracy,
-    previousGrade: draft.bestGrade,
-    nextAccuracy: result.accuracy,
-    nextGrade: result.grade,
-    accuracyDelta,
-    verdict,
-  };
+function getVisibleBootLogs(progress: number) {
+  return Math.max(0, Math.min(BOOT_LOGS.length, Math.floor(((progress - 42) / 58) * (BOOT_LOGS.length + 1))));
 }
 
 function DesktopIcon({
@@ -719,64 +1101,145 @@ function MeWindow({
 }
 
 function useArcadeSfx() {
-  const contextRef = useRef<AudioContext | null>(null);
+  type HoldLoop = {
+    keyboard: HTMLAudioElement;
+    overlay: HTMLAudioElement;
+    overlayFadeFrame: number | null;
+    overlayFaded: boolean;
+  };
 
-  useEffect(() => () => {
-    void contextRef.current?.close();
+  const holdLoopsRef = useRef<Map<RhythmLane, HoldLoop>>(new Map());
+
+  const stopAudio = useCallback((audio: HTMLAudioElement) => {
+    audio.pause();
+    audio.currentTime = 0;
   }, []);
 
-  return useCallback((kind: 'keyboard' | 'hit') => {
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextCtor) return;
+  const stopHold = useCallback((lane: RhythmLane) => {
+    const loop = holdLoopsRef.current.get(lane);
+    if (!loop) return;
 
-    const context = contextRef.current ?? new AudioContextCtor();
-    contextRef.current = context;
-    if (context.state === 'suspended') void context.resume();
+    if (loop.overlayFadeFrame !== null) {
+      window.cancelAnimationFrame(loop.overlayFadeFrame);
+    }
+    stopAudio(loop.keyboard);
+    stopAudio(loop.overlay);
+    holdLoopsRef.current.delete(lane);
+  }, [stopAudio]);
 
-    const now = context.currentTime;
-    if (kind === 'hit') {
-      playTone(context, now, 660, 0.055, 0.06, 'square');
-      playTone(context, now + 0.055, 990, 0.06, 0.05, 'triangle');
+  const stopAllHolds = useCallback(() => {
+    Array.from(holdLoopsRef.current.keys()).forEach((lane) => stopHold(lane));
+  }, [stopHold]);
+
+  useEffect(() => stopAllHolds, [stopAllHolds]);
+
+  const playTap = useCallback(() => {
+    const source = RHYTHM_TAP_SFX_SOURCES[Math.floor(Math.random() * RHYTHM_TAP_SFX_SOURCES.length)];
+    const audio = new Audio(source);
+    audio.volume = RHYTHM_TAP_SFX_VOLUME;
+    audio.play().catch(() => undefined);
+  }, []);
+
+  const startHold = useCallback((lane: RhythmLane) => {
+    if (holdLoopsRef.current.has(lane)) return;
+
+    const keyboard = new Audio(RHYTHM_HOLD_KEYBOARD_SFX_SOURCE);
+    const overlay = new Audio(RHYTHM_HOLD_OVERLAY_SFX_SOURCE);
+    keyboard.loop = true;
+    overlay.loop = true;
+    keyboard.volume = RHYTHM_HOLD_KEYBOARD_SFX_VOLUME;
+    overlay.volume = RHYTHM_HOLD_OVERLAY_SFX_VOLUME;
+
+    holdLoopsRef.current.set(lane, {
+      keyboard,
+      overlay,
+      overlayFadeFrame: null,
+      overlayFaded: false,
+    });
+    keyboard.play().catch(() => undefined);
+    overlay.play().catch(() => undefined);
+  }, []);
+
+  const fadeOverlay = useCallback((lane: RhythmLane) => {
+    const loop = holdLoopsRef.current.get(lane);
+    if (!loop || loop.overlayFaded) return;
+
+    loop.overlayFaded = true;
+    const startedAt = performance.now();
+    const startVolume = loop.overlay.volume;
+
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / RHYTHM_HOLD_OVERLAY_FADE_MS);
+      loop.overlay.volume = startVolume * (1 - progress);
+      if (progress < 1 && holdLoopsRef.current.get(lane) === loop) {
+        loop.overlayFadeFrame = window.requestAnimationFrame(step);
+        return;
+      }
+
+      loop.overlayFadeFrame = null;
+      stopAudio(loop.overlay);
+    };
+
+    loop.overlayFadeFrame = window.requestAnimationFrame(step);
+  }, [stopAudio]);
+
+  return useMemo(() => ({
+    playTap,
+    startHold,
+    fadeOverlay,
+    stopHold,
+    stopAllHolds,
+  }), [fadeOverlay, playTap, startHold, stopAllHolds, stopHold]);
+}
+
+function didStartHoldLoop(previousSession: RhythmSession, nextSession: RhythmSession, lane: RhythmLane): boolean {
+  return nextSession.notes.some((note, index) => (
+    note.lane === lane
+    && getRhythmNoteKind(note) === 'hold'
+    && note.startedAtMs !== undefined
+    && !note.judged
+    && previousSession.notes[index]?.startedAtMs === undefined
+  ));
+}
+
+function fadeExpiredHoldOverlays(
+  previousSession: RhythmSession,
+  nextSession: RhythmSession,
+  heldLanes: Set<RhythmLane>,
+  fadeOverlay: (lane: RhythmLane) => void,
+) {
+  previousSession.notes.forEach((note) => {
+    if (
+      note.startedAtMs === undefined
+      || note.judged
+      || getRhythmNoteKind(note) !== 'hold'
+      || !heldLanes.has(note.lane)
+    ) {
       return;
     }
 
-    for (let index = 0; index < 4; index += 1) {
-      playTone(context, now + index * 0.018, 170 + index * 28, 0.014, 0.035, 'square');
+    if (previousSession.elapsedMs < getRhythmNoteEndMs(note) && nextSession.elapsedMs >= getRhythmNoteEndMs(note)) {
+      fadeOverlay(note.lane);
     }
-  }, []);
-}
-
-function playTone(
-  context: AudioContext,
-  startTime: number,
-  frequency: number,
-  duration: number,
-  gainValue: number,
-  type: OscillatorType,
-) {
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-
-  oscillator.type = type;
-  oscillator.frequency.setValueAtTime(frequency, startTime);
-  gain.gain.setValueAtTime(0.0001, startTime);
-  gain.gain.exponentialRampToValueAtTime(gainValue, startTime + 0.004);
-  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-  oscillator.connect(gain).connect(context.destination);
-  oscillator.start(startTime);
-  oscillator.stop(startTime + duration + 0.01);
+  });
 }
 
 function RhythmScreen({
   activeRun,
   displayTitle,
   neuraComment,
+  neuraPresence,
+  tutorialStep,
+  onNeuraPresenceEvent,
   onFinish,
   onExit,
 }: {
   activeRun: ActiveRun;
   displayTitle: string;
   neuraComment: NeuraVoiceLine;
+  neuraPresence: ReturnType<typeof createNeuraPresenceState>;
+  tutorialStep: NeuraTutorialStep | null;
+  onNeuraPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   onFinish: (summary: RhythmSummary) => void;
   onExit: () => void;
 }) {
@@ -800,7 +1263,7 @@ function RhythmScreen({
   const phaseRef = useRef<RhythmPhase>(phase);
   const countdownRef = useRef(countdownMs);
   const gameClockFallbackMsRef = useRef(0);
-  const playSfx = useArcadeSfx();
+  const rhythmSfx = useArcadeSfx();
   const visibleNotes = getVisibleRhythmNotes(session);
   const summary = getRhythmSummary(session);
   const remainingSeconds = Math.max(0, Math.ceil((session.beatmap.durationMs - session.elapsedMs) / 1000));
@@ -828,8 +1291,9 @@ function RhythmScreen({
     setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
     setHitFeedbacks([]);
     heldLanesRef.current.clear();
+    rhythmSfx.stopAllHolds();
     gameClockFallbackMsRef.current = 0;
-  }, [activeRun.difficulty, activeRun.track.bpm, beatmap]);
+  }, [activeRun.difficulty, activeRun.track.bpm, beatmap, rhythmSfx]);
 
   useEffect(() => {
     setAudioDurationMs(estimateRhythmDurationMs(activeRun.track));
@@ -889,27 +1353,34 @@ function RhythmScreen({
   const completeRun = useCallback((sessionToFinish: RhythmSession) => {
     if (finishedRef.current) return;
 
+    rhythmSfx.stopAllHolds();
     const finalSession = finishRhythmSession(sessionToFinish);
     sessionRef.current = finalSession;
     finishedRef.current = true;
     setSession(finalSession);
     onFinishRef.current(getRhythmSummary(finalSession));
-  }, []);
+  }, [rhythmSfx]);
 
   const syncToElapsed = useCallback((elapsedMs: number) => {
     if (finishedRef.current) return;
 
-    let nextSession = syncRhythmSessionToElapsed(sessionRef.current, elapsedMs);
+    const previousSession = sessionRef.current;
+    let nextSession = syncRhythmSessionToElapsed(previousSession, elapsedMs);
     heldLanesRef.current.forEach((lane) => {
+      const beforeHold = nextSession;
       nextSession = holdRhythmLane(nextSession, lane);
+      if (didStartHoldLoop(beforeHold, nextSession, lane)) {
+        rhythmSfx.startHold(lane);
+      }
     });
+    fadeExpiredHoldOverlays(previousSession, nextSession, heldLanesRef.current, rhythmSfx.fadeOverlay);
     sessionRef.current = nextSession;
     setSession(nextSession);
 
     if (nextSession.isFinished) {
       window.setTimeout(() => completeRun(nextSession), 0);
     }
-  }, [completeRun]);
+  }, [completeRun, rhythmSfx]);
 
   const startPlayback = useCallback(() => {
     if (finishedRef.current || phaseRef.current === 'playing') return;
@@ -961,16 +1432,16 @@ function RhythmScreen({
     const lane = nextSession.lastLane;
     if (!lane || !judgement || !['perfect', 'great', 'good', 'miss'].includes(judgement)) return;
 
-    const activeSmash = nextSession.notes.some((note) =>
+    const activeHold = nextSession.notes.some((note) =>
       note.lane === lane
       && !note.judged
       && note.startedAtMs !== undefined
-      && getRhythmNoteKind(note) === 'smash'
+      && getRhythmNoteKind(note) === 'hold'
     );
     const feedback: HitFeedback = {
       id: Date.now() + Math.random(),
       lane,
-      label: activeSmash && judgement === 'good' ? 'Mash' : judgementLabel(judgement),
+      label: activeHold && judgement === 'good' ? 'Hold' : judgementLabel(judgement),
       judgement: judgement as HitFeedback['judgement'],
     };
 
@@ -984,23 +1455,28 @@ function RhythmScreen({
     if (finishedRef.current || phaseRef.current !== 'playing') return;
 
     heldLanesRef.current.add(lane);
-    const nextSession = hitRhythmLane(sessionRef.current, lane);
+    const previousSession = sessionRef.current;
+    const nextSession = hitRhythmLane(previousSession, lane);
     sessionRef.current = nextSession;
     setSession(nextSession);
-    playSfx('keyboard');
+    if (didStartHoldLoop(previousSession, nextSession, lane)) {
+      rhythmSfx.startHold(lane);
+    } else {
+      rhythmSfx.playTap();
+    }
     showHitFeedback(nextSession);
-    if (['perfect', 'great', 'good'].includes(nextSession.lastJudgement ?? '')) playSfx('hit');
-  }, [playSfx, showHitFeedback]);
+  }, [rhythmSfx, showHitFeedback]);
 
   const releaseLane = useCallback((lane: RhythmLane) => {
     if (finishedRef.current || phaseRef.current !== 'playing') return;
 
     heldLanesRef.current.delete(lane);
+    rhythmSfx.stopHold(lane);
     const nextSession = releaseRhythmLane(sessionRef.current, lane);
     sessionRef.current = nextSession;
     setSession(nextSession);
     showHitFeedback(nextSession);
-  }, [showHitFeedback]);
+  }, [rhythmSfx, showHitFeedback]);
 
   const pressPointerLane = useCallback((event: PointerEvent<HTMLDivElement>, lane: RhythmLane) => {
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -1095,13 +1571,21 @@ function RhythmScreen({
         comboMultiplier: currentSummary.comboMultiplier,
         lastJudgement: currentSession.lastJudgement,
         score: currentSummary,
+        neuraPresence,
+        neuraTutorial: tutorialStep
+          ? {
+              id: tutorialStep.id,
+              title: tutorialStep.title,
+              order: tutorialStep.order,
+              total: tutorialStep.total,
+            }
+          : null,
         nextNotes: currentVisibleNotes.slice(0, 12).map((note) => ({
           lane: note.lane,
           kind: getRhythmNoteKind(note),
           timeToHitMs: note.timeToHitMs,
           durationMs: note.durationMs ?? 0,
-          requiredPresses: note.requiredPresses ?? 0,
-          endTimeToHitMs: note.endTimeToHitMs,
+                    endTimeToHitMs: note.endTimeToHitMs,
           yPercent: Math.round(note.yPercent),
           visualTopPercent: Math.round(note.visualTopPercent),
           durationPercent: note.durationPercent,
@@ -1113,7 +1597,7 @@ function RhythmScreen({
     return () => {
       window.advanceTime = () => undefined;
     };
-  }, [activeRun, audioDurationMs, stepByMs]);
+  }, [activeRun, audioDurationMs, neuraPresence, stepByMs, tutorialStep]);
 
   const debugPayload = {
     audioDurationMs,
@@ -1199,7 +1683,7 @@ function RhythmScreen({
               .filter((note) => note.lane === lane)
               .map((note) => {
                 const kind = getRhythmNoteKind(note);
-                const isLong = kind === 'hold' || kind === 'smash';
+                const isLong = kind === 'hold';
                 return (
                   <span
                     className={[
@@ -1213,11 +1697,11 @@ function RhythmScreen({
                       top: `${isLong ? note.visualTopPercent : note.yPercent}%`,
                       opacity: note.opacity,
                       ...(isLong ? { '--note-height': `${note.durationPercent}%` } : {}),
-                      ...(kind === 'smash' ? { '--smash-progress-height': `${Math.round(note.smashProgress * 100)}%` } : {}),
+                      ...(kind === 'hold' ? { '--hold-progress-height': `${Math.round(note.holdProgress * 100)}%` } : {}),
                     } as CSSProperties}
                   >
-                    {kind === 'smash' && (
-                      <span className="smash-progress">
+                    {kind === 'hold' && (
+                      <span className="hold-progress">
                         {note.presses ?? 0}
                       </span>
                     )}
@@ -1249,7 +1733,12 @@ function RhythmScreen({
       <button className="primary-action" onClick={() => completeRun(sessionRef.current)}>
         {buttonLabels.finishTrial}
       </button>
-      <PersistentOverlays comment={neuraComment} />
+      <PersistentOverlays
+        comment={neuraComment}
+        presenceState={neuraPresence}
+        onPresenceEvent={onNeuraPresenceEvent}
+        tutorialStep={tutorialStep}
+      />
     </main>
   );
 }
@@ -1322,6 +1811,9 @@ function ResultsScreen({
   remixComparison,
   alreadyPublished,
   neuraComment,
+  neuraPresence,
+  tutorialStep,
+  onNeuraPresenceEvent,
   onSave,
   onSendToPawel,
   onPublish,
@@ -1334,6 +1826,9 @@ function ResultsScreen({
   remixComparison: RemixComparison | null;
   alreadyPublished: boolean;
   neuraComment: NeuraVoiceLine;
+  neuraPresence: ReturnType<typeof createNeuraPresenceState>;
+  tutorialStep: NeuraTutorialStep | null;
+  onNeuraPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   onSave: () => void;
   onSendToPawel: () => void;
   onPublish: () => void;
@@ -1370,17 +1865,22 @@ function ResultsScreen({
             <>
               <button onClick={onSave}>{buttonLabels.saveDraft}</button>
               <button onClick={onSendToPawel}>{buttonLabels.sendToPawel}</button>
-              <button onClick={onPublish} disabled={alreadyPublished}>
+              <button className="result-primary" onClick={onPublish} disabled={alreadyPublished}>
                 {alreadyPublished ? placeholderLabels.publishedLocked : buttonLabels.publish}
               </button>
             </>
           ) : (
-            <button onClick={onOverwrite}>{buttonLabels.overwriteDraft}</button>
+            <button className="result-primary" onClick={onOverwrite}>{buttonLabels.overwriteDraft}</button>
           )}
-          <button onClick={onBack}>{buttonLabels.backWithoutSave}</button>
+          <button className="result-secondary" onClick={onBack}>{buttonLabels.backWithoutSave}</button>
         </div>
       </section>
-      <PersistentOverlays comment={neuraComment} />
+      <PersistentOverlays
+        comment={neuraComment}
+        presenceState={neuraPresence}
+        onPresenceEvent={onNeuraPresenceEvent}
+        tutorialStep={tutorialStep}
+      />
     </main>
   );
 }
@@ -1405,7 +1905,7 @@ function PlayerWindow({
   track,
 }: {
   published: PublishedTrack;
-  track: Track;
+  track: Track | null;
 }) {
   return (
     <div className="player-panel">
@@ -1414,7 +1914,11 @@ function PlayerWindow({
       <p>{placeholderLabels.grade}: {published.grade} / {published.accuracy}%</p>
       <p>{placeholderLabels.qualityProgress}: {published.qualityProgress}</p>
       <p>{placeholderLabels.quality}: {published.quality}</p>
-      <audio className="player-audio" src={track.audio.merged} controls preload="metadata" />
+      {track ? (
+        <audio className="player-audio" src={track.audio.merged} controls preload="metadata" />
+      ) : (
+        <p className="missing-audio">{placeholderLabels.missingPublishedAudio}</p>
+      )}
     </div>
   );
 }
@@ -1464,204 +1968,6 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function useNeuraVoice() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const isUnlockedRef = useRef(false);
-  const canPlayOpusRef = useRef<boolean | null>(null);
-  const queuedLineIdRef = useRef<NeuraVoiceLineId | null>(null);
-
-  useEffect(() => () => {
-    audioRef.current?.pause();
-  }, []);
-
-  function canPlayOpus() {
-    if (canPlayOpusRef.current !== null) return canPlayOpusRef.current;
-    const audio = document.createElement('audio');
-    canPlayOpusRef.current = audio.canPlayType('audio/ogg; codecs="opus"') !== '';
-    return canPlayOpusRef.current;
-  }
-
-  const createAudio = useCallback((lineId: NeuraVoiceLineId) => {
-    const sources = neuraVoiceAssets[lineId];
-    if (!sources) return null;
-    return new Audio(canPlayOpus() ? sources.primary : sources.fallback);
-  }, []);
-
-  const playQueuedLine = useCallback(() => {
-    const queuedLineId = queuedLineIdRef.current;
-    queuedLineIdRef.current = null;
-    if (!queuedLineId) return;
-
-    const audio = createAudio(queuedLineId);
-    if (!audio) return;
-
-    audioRef.current = audio;
-    audio.addEventListener('ended', playQueuedLine, { once: true });
-    audio.addEventListener('error', playQueuedLine, { once: true });
-    audio.play().catch(() => {
-      const sources = neuraVoiceAssets[queuedLineId];
-      if (!sources || audio.src.endsWith(sources.fallback)) {
-        playQueuedLine();
-        return;
-      }
-      const fallbackAudio = new Audio(sources.fallback);
-      audioRef.current = fallbackAudio;
-      fallbackAudio.addEventListener('ended', playQueuedLine, { once: true });
-      fallbackAudio.addEventListener('error', playQueuedLine, { once: true });
-      fallbackAudio.play().catch(() => undefined);
-    });
-  }, [createAudio]);
-
-  return useCallback((lineId: NeuraVoiceLineId, source: 'comment' | 'reaction') => {
-    if (source === 'reaction') isUnlockedRef.current = true;
-    if (!isUnlockedRef.current) return;
-
-    const currentAudio = audioRef.current;
-    if (currentAudio && !currentAudio.paused && !currentAudio.ended) {
-      if (source === 'reaction') return;
-      queuedLineIdRef.current = lineId;
-      return;
-    }
-
-    queuedLineIdRef.current = lineId;
-    playQueuedLine();
-  }, [playQueuedLine]);
-}
-
-function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
-  const [mood, setMood] = useState<NeuraPetMood>('idle');
-  const [position, setPosition] = useState<Point>(() => getDefaultNeuraPosition());
-  const dragRef = useRef<{ startX: number; startY: number; origin: Point; moved: boolean } | null>(null);
-  const reactionIndexRef = useRef(0);
-  const settleTimerRef = useRef<number | null>(null);
-  const playNeuraVoice = useNeuraVoice();
-  const animation = NEURA_ANIMATIONS[mood];
-
-  useEffect(() => {
-    function handleResize() {
-      setPosition((current) => clampNeuraPosition(current));
-    }
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => () => {
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-  }, []);
-
-  useEffect(() => {
-    playNeuraVoice(comment.id, 'comment');
-  }, [comment.id, playNeuraVoice]);
-
-  function settleMood(nextMood: NeuraPetMood, delayMs = 1500) {
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-    setMood(nextMood);
-    settleTimerRef.current = window.setTimeout(() => {
-      setMood('idle');
-      settleTimerRef.current = null;
-    }, delayMs);
-  }
-
-  function playReaction(nextMood: NeuraPetMood) {
-    settleMood(nextMood);
-    const reactionLineId = neuraReactionVoiceLineIds[nextMood as keyof typeof neuraReactionVoiceLineIds];
-    if (reactionLineId) playNeuraVoice(reactionLineId, 'reaction');
-  }
-
-  function cycleReaction() {
-    const nextMood = NEURA_REACTION_SEQUENCE[reactionIndexRef.current % NEURA_REACTION_SEQUENCE.length];
-    reactionIndexRef.current += 1;
-    playReaction(nextMood);
-  }
-
-  function beginDrag(event: PointerEvent<HTMLButtonElement>) {
-    dragRef.current = {
-      startX: event.clientX,
-      startY: event.clientY,
-      origin: position,
-      moved: false,
-    };
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-    setMood('running');
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function drag(event: PointerEvent<HTMLButtonElement>) {
-    if (!dragRef.current) return;
-
-    const dx = event.clientX - dragRef.current.startX;
-    const dy = event.clientY - dragRef.current.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 6) dragRef.current.moved = true;
-    setPosition(clampNeuraPosition({ x: dragRef.current.origin.x + dx, y: dragRef.current.origin.y + dy }));
-  }
-
-  function endDrag(event: PointerEvent<HTMLButtonElement>) {
-    if (!dragRef.current) return;
-
-    const wasMoved = dragRef.current.moved;
-    dragRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    if (wasMoved) {
-      settleMood('jumping', 900);
-      return;
-    }
-    cycleReaction();
-  }
-
-  const style = {
-    '--neura-x': `${position.x}px`,
-    '--neura-y': `${position.y}px`,
-    '--neura-row': animation.row,
-    '--neura-frames': animation.frames,
-    '--neura-duration': animation.duration,
-    '--neura-sprite': `url("${NEURA_SPRITESHEET_PATH}")`,
-  } as CSSProperties;
-
-  return (
-    <aside className={`neura neura-${mood}`} style={style} aria-live="polite">
-      <button
-        className="neura-sprite-pad"
-        type="button"
-        onPointerDown={beginDrag}
-        onPointerMove={drag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        aria-label="Neura: kliknij lub przeciągnij"
-        title="Kliknij lub przeciągnij Neurę"
-      >
-        <span className="neura-sprite" aria-hidden="true" />
-      </button>
-      <div className="neura-panel">
-        <div className="neura-status">
-          <strong>Neura</strong>
-          <span>{animation.label}</span>
-        </div>
-        <p>{comment.text}</p>
-        <div className="neura-actions" aria-label="Reakcje Neury">
-          <button type="button" onClick={() => playReaction('waving')}>Hej</button>
-          <button type="button" onClick={() => playReaction('review')}>Analiza</button>
-          <button type="button" onClick={() => playReaction('failed')}>Glitch</button>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function getDefaultNeuraPosition(): Point {
-  return clampNeuraPosition({ x: window.innerWidth - 344, y: window.innerHeight - 242 });
-}
-
-function clampNeuraPosition(position: Point): Point {
-  const maxX = Math.max(24, window.innerWidth - 324);
-  const maxY = Math.max(66, window.innerHeight - 214);
-
-  return {
-    x: Math.max(24, Math.min(maxX, position.x)),
-    y: Math.max(66, Math.min(maxY, position.y)),
-  };
-}
-
 function CybekWebcam() {
   return (
     <aside className="webcam">
@@ -1685,13 +1991,95 @@ function CybekWebcam() {
   );
 }
 
-function PersistentOverlays({ comment }: { comment: NeuraVoiceLine }) {
+function NeuraDebugPanel({
+  presenceState,
+  activeGlitchCount,
+  onSetOverride,
+  onToggleLowFx,
+}: {
+  presenceState: ReturnType<typeof createNeuraPresenceState>;
+  activeGlitchCount: number;
+  onSetOverride: (level: OperationalPowerLevel | null) => void;
+  onToggleLowFx: () => void;
+}) {
+  const levels: OperationalPowerLevel[] = [0, 1, 2, 3, 4];
+
+  return (
+    <aside className="neura-debug" aria-label="Neura debug">
+      <div>
+        <strong>Neura debug</strong>
+        <button onClick={() => onSetOverride(null)}>Auto</button>
+      </div>
+      <span>poziom: {presenceState.powerLevel} / {presenceState.narrativeTag}</span>
+      <span>glitch: {formatPresenceValue(presenceState.glitchIntensity)}</span>
+      <span>ambient: {formatPresenceValue(presenceState.ambientDepth)}</span>
+      <span>avatar: {formatPresenceValue(presenceState.avatarInstability)}</span>
+      <span>UI: {formatPresenceValue(presenceState.uiAutonomy)}</span>
+      <span>aktywne glitche: {activeGlitchCount}</span>
+      <span>ostatni event: {presenceState.lastEventId}</span>
+      <div className="neura-debug-levels">
+        {levels.map((level) => (
+          <button
+            key={level}
+            className={presenceState.debugOverride === level ? 'active' : ''}
+            onClick={() => onSetOverride(level)}
+          >
+            {level}
+          </button>
+        ))}
+      </div>
+      <button onClick={onToggleLowFx}>
+        Low FX: {presenceState.lowFxMode ? 'wł.' : 'wył.'}
+      </button>
+      <div className="neura-debug-log">
+        {presenceState.eventLog.map((event, index) => (
+          <span key={`${event.id}-${event.at}-${index}`}>{event.id}</span>
+        ))}
+      </div>
+      <em>F10 ukrywa panel</em>
+    </aside>
+  );
+}
+
+function formatPresenceValue(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function PersistentOverlays({
+  comment,
+  presenceState,
+  onPresenceEvent,
+  storyVoiceLineId,
+  tutorialStep,
+  onTutorialTarget,
+}: {
+  comment: NeuraVoiceLine;
+  presenceState: ReturnType<typeof createNeuraPresenceState>;
+  onPresenceEvent: (eventId: NeuraPresenceEventId) => void;
+  storyVoiceLineId?: string | null;
+  tutorialStep?: NeuraTutorialStep | null;
+  onTutorialTarget?: (step: NeuraTutorialStep) => void;
+}) {
   return (
     <>
       <CybekWebcam />
-      <NeuraPet comment={comment} />
+      <NeuraTutorialGuide step={tutorialStep ?? null} onOpenTarget={onTutorialTarget} />
+      <NeuraPet
+        comment={comment}
+        presenceState={presenceState}
+        onPresenceEvent={onPresenceEvent}
+        storyVoiceLineId={storyVoiceLineId}
+      />
     </>
   );
+}
+
+function readStoredNeuraLowFxMode() {
+  try {
+    return window.localStorage.getItem(NEURA_LOW_FX_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
 }
 
 declare global {

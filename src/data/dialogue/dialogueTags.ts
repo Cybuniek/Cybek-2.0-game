@@ -1,0 +1,48 @@
+import type { DialogueTag } from './dialogueTypes.ts';
+
+export const dialogueTagPresets: Record<string, DialogueTag> = {
+  finalReveal: {
+    neuraDisclosure: 'revealed',
+    emotion: 'calm',
+    narrativeFunction: 'checkpoint',
+    foreshadowType: 'identity',
+    finalSceneRelation: 'payoff',
+    canAppearAsGlitchEcho: false,
+    uiBinding: 'desktop',
+    audioBinding: 'voice',
+    powerBand: 'high',
+  },
+  lateBridge: {
+    neuraDisclosure: 'hinted',
+    emotion: 'distant',
+    narrativeFunction: 'lore',
+    foreshadowType: 'control',
+    finalSceneRelation: 'bridge',
+    canAppearAsGlitchEcho: true,
+    uiBinding: 'messenger',
+    audioBinding: 'glitch',
+    powerBand: 'mid',
+  },
+  middleTrace: {
+    neuraDisclosure: 'hinted',
+    emotion: 'curious',
+    narrativeFunction: 'foreshadow',
+    foreshadowType: 'presence',
+    finalSceneRelation: 'seed',
+    canAppearAsGlitchEcho: true,
+    uiBinding: 'create',
+    audioBinding: 'ambient',
+    powerBand: 'mid',
+  },
+  prologueMask: {
+    neuraDisclosure: 'masked',
+    emotion: 'dry',
+    narrativeFunction: 'ambient',
+    foreshadowType: 'none',
+    finalSceneRelation: 'seed',
+    canAppearAsGlitchEcho: false,
+    uiBinding: 'desktop',
+    audioBinding: 'voice',
+    powerBand: 'low',
+  },
+};

@@ -13,6 +13,8 @@ import {
   RHYTHM_LANES,
   stepRhythmSession,
 } from '../src/rhythm.ts';
+import manualBeatmaps from '../src/data/manualBeatmaps.json' with { type: 'json' };
+import { tracks } from '../src/data/tracks.ts';
 import {
   applyRecordedKeyDown,
   applyRecordedKeyUp,
@@ -124,7 +126,7 @@ const emptyEditMap: RhythmBeatmap = {
 let recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'S', timeMs: 1000, seed: 1 });
 assertEqual(recordState.beatmap.notes.length, 1, 'editor tap is created immediately on key down');
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'tap', 'single key down starts as visible tap');
-recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'S', 1090);
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'S', 1090);
 assertEqual(recordState.beatmap.notes.length, 1, 'quick key up keeps one tap instead of duplicating or delaying it');
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'tap', 'quick key up keeps the note as tap');
 
@@ -132,21 +134,21 @@ recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'D', timeMs
 recordState = { ...recordState, beatmap: promoteActiveRecordedHolds(recordState.beatmap, recordState.activePresses, 1500) };
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'held key becomes a visible hold before key up');
 assertEqual(recordState.beatmap.notes[0].durationMs, 300, 'live hold preview grows from key down to current song time');
-recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'D', 1700);
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'D', 1700);
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'held key upgrades the visible tap to hold on release');
 assertEqual(recordState.beatmap.notes[0].durationMs, 500, 'hold duration is based on key down/up song time');
 
 recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'K', timeMs: 2000, seed: 3 });
-recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'K', 2050);
-recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.smashDraft, { lane: 'K', timeMs: 2140, seed: 4 });
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'K', 2050);
+recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.holdDraft, { lane: 'K', timeMs: 2140, seed: 4 });
 assertEqual(recordState.beatmap.notes.length, 2, 'rapid tap tap creates two separate taps by default');
-assert(recordState.beatmap.notes.every((note) => getRhythmNoteKind(note) === 'tap'), 'default rapid taps are not guessed into smash');
+assert(recordState.beatmap.notes.every((note) => getRhythmNoteKind(note) === 'tap'), 'default rapid taps are not guessed into hold pulse');
 
-recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'L', timeMs: 2200, seed: 5, kind: 'smash' });
-recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.smashDraft, 'L', 2250);
-recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.smashDraft, { lane: 'L', timeMs: 2340, seed: 6, kind: 'smash' });
-assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'smash', 'explicit smash recording upgrades the visible note deterministically');
-assertEqual(recordState.beatmap.notes[0].requiredPresses, 2, 'explicit smash press count is updated immediately');
+recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'L', timeMs: 2200, seed: 5, kind: 'hold' });
+recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'L', 2250);
+recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.holdDraft, { lane: 'L', timeMs: 2340, seed: 6, kind: 'hold' });
+assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'explicit hold recording upgrades the visible note deterministically');
+assertEqual(recordState.beatmap.notes[0].requiredPresses, 2, 'explicit hold press count is updated immediately');
 
 session = createRhythmSession(holdMap, 'Łatwy');
 session = stepRhythmSession(session, 500);
@@ -199,56 +201,56 @@ session = stepRhythmSession(session, 200);
 session = releaseRhythmLane(session, 'S');
 assertEqual(session.misses, 1, 'very early hold release is a miss');
 
-const smashMap: RhythmBeatmap = {
+const chainedHoldMap: RhythmBeatmap = {
   trackId: 'manual',
   bpm: 120,
   durationMs: 3000,
   notes: [
-    { id: 'smash-1', lane: 'D', timeMs: 1000, kind: 'smash', durationMs: 800 },
+    { id: 'hold-chain-1', lane: 'D', timeMs: 1000, kind: 'hold', durationMs: 800, requiredPresses: 4 },
   ],
 };
 
-session = createRhythmSession(smashMap, 'Normalny');
+session = createRhythmSession(chainedHoldMap, 'Normalny');
 session = stepRhythmSession(session, 500);
-const visibleSmash = getVisibleRhythmNotes(session)[0];
-assert(visibleSmash.visualTopPercent < visibleSmash.yPercent, 'smash rapid segment is rendered above the gameplay head');
+const visibleChainedHold = getVisibleRhythmNotes(session)[0];
+assert(visibleChainedHold.visualTopPercent < visibleChainedHold.yPercent, 'hold pulse segment is rendered above the gameplay head');
 assertClose(
-  visibleSmash.visualTopPercent + visibleSmash.durationPercent,
-  visibleSmash.yPercent,
+  visibleChainedHold.visualTopPercent + visibleChainedHold.durationPercent,
+  visibleChainedHold.yPercent,
   0.02,
-  'smash gameplay head stays anchored at the collision point',
+  'hold pulse gameplay head stays anchored at the collision point',
 );
 
-session = createRhythmSession(smashMap, 'Normalny');
+session = createRhythmSession(chainedHoldMap, 'Normalny');
 session = stepRhythmSession(session, 1000);
 session = hitRhythmLane(session, 'D');
-assertEqual(session.notes[0].presses, 1, 'smash note counts the start tap immediately');
+assertEqual(session.notes[0].presses, 1, 'hold pulse counts the start tap immediately');
 session = stepRhythmSession(session, 180);
 session = hitRhythmLane(session, 'D');
-assertEqual(session.notes[0].presses, 2, 'smash note counts live taps during the note');
+assertEqual(session.notes[0].presses, 2, 'hold pulse counts live taps during the note');
 session = stepRhythmSession(session, 180);
 session = hitRhythmLane(session, 'D');
 session = stepRhythmSession(session, 220);
 session = hitRhythmLane(session, 'D');
 session = stepRhythmSession(session, 220);
-assertEqual(session.perfectHits, 1, 'smash note passes regardless of tap count when no gap is too long');
+assertEqual(session.perfectHits, 1, 'hold pulse passes when no gap is too long');
 
-session = createRhythmSession(smashMap, 'Normalny');
+session = createRhythmSession(chainedHoldMap, 'Normalny');
 session = stepRhythmSession(session, 1000);
 session = hitRhythmLane(session, 'D');
 session = stepRhythmSession(session, 240);
-assertEqual(session.misses, 1, 'smash note fails when the gap between taps is too long');
+assertEqual(session.misses, 1, 'hold pulse fails when the gap between taps is too long');
 
-const lowPressSmashMap: RhythmBeatmap = {
+const lowPressHoldMap: RhythmBeatmap = {
   trackId: 'manual',
   bpm: 120,
   durationMs: 3000,
   notes: [
-    { id: 'smash-low-press', lane: 'K', timeMs: 1000, kind: 'smash', durationMs: 500, requiredPresses: 4 },
+    { id: 'hold-low-press', lane: 'K', timeMs: 1000, kind: 'hold', durationMs: 500, requiredPresses: 4 },
   ],
 };
 
-session = createRhythmSession(lowPressSmashMap, 'Normalny');
+session = createRhythmSession(lowPressHoldMap, 'Normalny');
 session = stepRhythmSession(session, 1000);
 session = hitRhythmLane(session, 'K');
 session = stepRhythmSession(session, 180);
@@ -256,8 +258,8 @@ session = hitRhythmLane(session, 'K');
 session = stepRhythmSession(session, 160);
 session = hitRhythmLane(session, 'K');
 session = stepRhythmSession(session, 160);
-assertEqual(session.misses, 0, 'smash below requiredPresses does not miss without a long gap');
-assertEqual(session.greatHits, 1, 'smash below requiredPresses downgrades quality without becoming a miss');
+assertEqual(session.misses, 0, 'hold below requiredPresses does not miss without a long gap');
+assertEqual(session.greatHits, 1, 'hold below requiredPresses downgrades quality without becoming a miss');
 
 const validManualCatalog = {
   schemaVersion: 1,
@@ -344,3 +346,27 @@ const invalidManualCatalog = {
 
 const resolvedFallback = resolveRhythmBeatmap(testTrack, 'Normalny', estimateRhythmDurationMs(testTrack), invalidManualCatalog);
 assert(resolvedFallback.notes.length > 40, 'invalid manual beatmap falls back to generated map');
+
+const manualCatalog = manualBeatmaps as {
+  schemaVersion?: number;
+  tracks?: Record<string, Partial<Record<Difficulty, RhythmBeatmap>>>;
+};
+assertEqual(manualCatalog.schemaVersion, 2, 'real manual beatmap catalog uses schemaVersion 2');
+
+for (const [trackId, mapsByDifficulty] of Object.entries(manualCatalog.tracks ?? {})) {
+  const track = tracks.find((item) => item.id === trackId);
+  assert(track, `manual beatmap references existing track: ${trackId}`);
+
+  for (const [difficulty, manualMap] of Object.entries(mapsByDifficulty) as Array<[Difficulty, RhythmBeatmap]>) {
+    assert(track.difficulties.includes(difficulty), `${trackId}/${difficulty} references an available difficulty`);
+    const audioDurationMs = track.durationMs ?? estimateRhythmDurationMs(track);
+    const resolved = resolveRhythmBeatmap(track, difficulty, audioDurationMs, manualCatalog);
+    assertEqual(resolved.source, 'manual', `${trackId}/${difficulty} resolves to the manual map`);
+    assertEqual(resolved.trackId, track.id, `${trackId}/${difficulty} keeps the track id`);
+    assert(resolved.notes.length === manualMap.notes.length, `${trackId}/${difficulty} keeps all manual notes`);
+    assert((resolved.sourceStartMs ?? 0) >= 0, `${trackId}/${difficulty} starts inside the audio file`);
+    assert((resolved.sourceEndMs ?? resolved.durationMs) <= audioDurationMs + 620, `${trackId}/${difficulty} ends inside the audio file tolerance`);
+    assert(resolved.durationMs > 0, `${trackId}/${difficulty} has positive duration`);
+    assert(resolved.notes.every((note) => note.timeMs >= 0 && note.timeMs <= resolved.durationMs), `${trackId}/${difficulty} has notes inside the playable range`);
+  }
+}

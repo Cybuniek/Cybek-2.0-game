@@ -20,7 +20,7 @@ export const addresses = {
 export const iconLabels = {
   messenger: 'Messenger',
   create: 'Ustno.ai Utwórz',
-  me: 'Ustno.ai Ja',
+  me: 'Ustno.ai Me',
   todo: 'todo.tmp',
   publishedFilePrefix: 'plik',
 };
@@ -76,6 +76,7 @@ export const placeholderLabels = {
   level: 'Poziom',
   quality: 'Jakość',
   listenPlaceholder: 'Scalony odsłuch opublikowanego utworu.',
+  missingPublishedAudio: 'Ten opublikowany plik pochodzi ze starszego zapisu. Metadane zostały zachowane, ale katalog utworów nie ma już pasującego audio.',
   timeLeft: 'czas',
   combo: 'combo',
   comboMultiplier: 'mnożnik',
