@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent } from 'react';
 import { getNeuraPresencePreset } from '../data/neuraPresence.ts';
-import { neuraVoiceAssets } from '../data/neuraVoiceAssets';
+import { NEURA_VOICE_BASE_PATH, neuraVoiceAssets } from '../data/neuraVoiceAssets';
+import { neuraVoiceLinesV2 } from '../data/dialogue/neuraVoiceLines';
 import { neuraReactionVoiceLineIds, type NeuraVoiceLine, type NeuraVoiceLineId } from '../data/neuraVoiceLines';
 import type { NeuraPresenceEventId, NeuraPresenceState } from '../types.ts';
 import { useNeuraAvatarMotion } from './useNeuraAvatarMotion.ts';
@@ -27,16 +28,20 @@ const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
   review: { row: 8, frames: 6, duration: '1.22s', label: 'analiza' },
 };
 const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'review', 'failed'];
-const NEURA_VOICE_LINE_IDS = Object.keys(neuraVoiceAssets) as NeuraVoiceLineId[];
+const LEGACY_NEURA_VOICE_LINE_IDS = Object.keys(neuraVoiceAssets) as NeuraVoiceLineId[];
+const DIALOGUE_NEURA_VOICE_LINE_IDS = neuraVoiceLinesV2.map((line) => line.audio.id);
+const NEURA_VOICE_LINE_IDS = [...LEGACY_NEURA_VOICE_LINE_IDS, ...DIALOGUE_NEURA_VOICE_LINE_IDS];
 
 export function NeuraPet({
   comment,
   presenceState,
   onPresenceEvent,
+  storyVoiceLineId,
 }: {
   comment: NeuraVoiceLine;
   presenceState: NeuraPresenceState;
   onPresenceEvent: (eventId: NeuraPresenceEventId) => void;
+  storyVoiceLineId?: string | null;
 }) {
   const [mood, setMood] = useState<NeuraPetMood>('idle');
   const [position, setPosition] = useState<Point>(() => getDefaultNeuraPosition());
@@ -49,6 +54,7 @@ export function NeuraPet({
   const playNeuraVoice = useNeuraVoice(availableVoiceLineIds);
   const animation = NEURA_ANIMATIONS[mood];
   const hasCommentAudio = availableVoiceLineIds.has(comment.id);
+  const hasStoryAudio = storyVoiceLineId ? availableVoiceLineIds.has(storyVoiceLineId) : false;
   const motionVars = useNeuraAvatarMotion(presenceState);
   const preset = getNeuraPresencePreset(presenceState.powerLevel);
 
@@ -70,6 +76,13 @@ export function NeuraPet({
     if (!hasCommentAudio) return;
     playNeuraVoice(comment.id, 'comment');
   }, [comment.id, hasCommentAudio, playNeuraVoice]);
+
+  useEffect(() => {
+    if (!storyVoiceLineId || !hasStoryAudio) return;
+    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
+    settleMood('review', 1300);
+    playNeuraVoice(storyVoiceLineId, 'story');
+  }, [hasStoryAudio, playNeuraVoice, storyVoiceLineId]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -189,7 +202,7 @@ export function NeuraPet({
 }
 
 function useAvailableNeuraVoiceIds() {
-  const [availableIds, setAvailableIds] = useState<ReadonlySet<NeuraVoiceLineId>>(() => new Set());
+  const [availableIds, setAvailableIds] = useState<ReadonlySet<string>>(() => new Set());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -206,7 +219,7 @@ function useAvailableNeuraVoiceIds() {
     async function resolveAvailability() {
       const entries = await Promise.all(
         NEURA_VOICE_LINE_IDS.map(async (lineId) => {
-          const sources = neuraVoiceAssets[lineId];
+          const sources = getNeuraVoiceSources(lineId);
           const hasPrimary = await hasAudio(sources.primary);
           const hasFallback = hasPrimary ? false : await hasAudio(sources.fallback);
           return [lineId, hasPrimary || hasFallback] as const;
@@ -225,11 +238,11 @@ function useAvailableNeuraVoiceIds() {
   return availableIds;
 }
 
-function useNeuraVoice(availableVoiceLineIds: ReadonlySet<NeuraVoiceLineId>) {
+function useNeuraVoice(availableVoiceLineIds: ReadonlySet<string>) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isUnlockedRef = useRef(false);
   const canPlayOpusRef = useRef<boolean | null>(null);
-  const queuedLineIdRef = useRef<NeuraVoiceLineId | null>(null);
+  const queuedLineIdRef = useRef<string | null>(null);
 
   useEffect(() => () => {
     audioRef.current?.pause();
@@ -242,8 +255,8 @@ function useNeuraVoice(availableVoiceLineIds: ReadonlySet<NeuraVoiceLineId>) {
     return canPlayOpusRef.current;
   }
 
-  const createAudio = useCallback((lineId: NeuraVoiceLineId) => {
-    const sources = neuraVoiceAssets[lineId];
+  const createAudio = useCallback((lineId: string) => {
+    const sources = getNeuraVoiceSources(lineId);
     if (!sources || !availableVoiceLineIds.has(lineId)) return null;
     return new Audio(canPlayOpus() ? sources.primary : sources.fallback);
   }, [availableVoiceLineIds]);
@@ -260,7 +273,7 @@ function useNeuraVoice(availableVoiceLineIds: ReadonlySet<NeuraVoiceLineId>) {
     audio.addEventListener('ended', playQueuedLine, { once: true });
     audio.addEventListener('error', playQueuedLine, { once: true });
     audio.play().catch(() => {
-      const sources = neuraVoiceAssets[queuedLineId];
+      const sources = getNeuraVoiceSources(queuedLineId);
       if (!sources || audio.src.endsWith(sources.fallback)) {
         playQueuedLine();
         return;
@@ -273,8 +286,8 @@ function useNeuraVoice(availableVoiceLineIds: ReadonlySet<NeuraVoiceLineId>) {
     });
   }, [createAudio]);
 
-  return useCallback((lineId: NeuraVoiceLineId, source: 'comment' | 'reaction') => {
-    if (source === 'reaction') isUnlockedRef.current = true;
+  return useCallback((lineId: string, source: 'comment' | 'reaction' | 'story') => {
+    if (source === 'reaction' || source === 'story') isUnlockedRef.current = true;
     if (!isUnlockedRef.current || !availableVoiceLineIds.has(lineId)) return;
 
     const currentAudio = audioRef.current;
@@ -287,6 +300,13 @@ function useNeuraVoice(availableVoiceLineIds: ReadonlySet<NeuraVoiceLineId>) {
     queuedLineIdRef.current = lineId;
     playQueuedLine();
   }, [availableVoiceLineIds, playQueuedLine]);
+}
+
+function getNeuraVoiceSources(lineId: string) {
+  return neuraVoiceAssets[lineId as NeuraVoiceLineId] ?? {
+    primary: `${NEURA_VOICE_BASE_PATH}/${lineId}.ogg`,
+    fallback: `${NEURA_VOICE_BASE_PATH}/${lineId}.mp3`,
+  };
 }
 
 function getDefaultNeuraPosition(): Point {

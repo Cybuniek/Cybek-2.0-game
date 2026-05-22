@@ -62,6 +62,236 @@ button:disabled {
   box-shadow: none;
 }
 
+.boot-screen {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(460px, 1fr) minmax(280px, 42vw);
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  padding: 42px clamp(28px, 4vw, 72px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 73% 46%, rgba(255, 46, 221, 0.16), transparent 18%),
+    radial-gradient(circle at 80% 60%, rgba(57, 255, 224, 0.12), transparent 22%),
+    linear-gradient(180deg, #020205 0%, #050611 58%, #020205 100%);
+  color: #dfe7ed;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+.boot-scanlines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 5px
+    ),
+    linear-gradient(90deg, rgba(255, 46, 221, 0.06), transparent 38%, rgba(57, 255, 224, 0.04));
+  mix-blend-mode: screen;
+}
+
+.boot-terminal {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  text-shadow: 0 0 12px rgba(57, 255, 224, 0.18);
+}
+
+.boot-terminal h1 {
+  margin: 0 0 8px;
+  color: #ca47ff;
+  font-size: 28px;
+  letter-spacing: 0;
+  text-shadow: 0 0 18px rgba(202, 71, 255, 0.5);
+}
+
+.boot-subtitle,
+.boot-footer span {
+  margin: 0;
+  color: #19fff2;
+  font-size: 24px;
+}
+
+.boot-checklist {
+  display: grid;
+  gap: 10px;
+  margin: 44px 0 34px;
+  min-height: 342px;
+}
+
+.boot-step {
+  display: grid;
+  grid-template-columns: 78px minmax(260px, auto) 330px;
+  align-items: center;
+  min-height: 26px;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.boot-step.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.boot-step span,
+.boot-log span {
+  color: #24ff72;
+}
+
+.boot-step strong {
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.boot-step em {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #19fff2;
+  font-size: 18px;
+  font-style: normal;
+}
+
+.boot-step em i {
+  position: relative;
+  width: 230px;
+  height: 28px;
+  border: 1px solid rgba(202, 71, 255, 0.54);
+  background: rgba(5, 5, 12, 0.72);
+  box-shadow: inset 0 0 16px rgba(202, 71, 255, 0.1);
+}
+
+.boot-step em i::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  width: calc(var(--boot-progress) - 10px);
+  max-width: calc(100% - 10px);
+  background: repeating-linear-gradient(
+    90deg,
+    #ca47ff 0 10px,
+    transparent 10px 15px
+  );
+  box-shadow: 0 0 16px rgba(202, 71, 255, 0.55);
+}
+
+.boot-log {
+  display: grid;
+  gap: 9px;
+  min-height: 174px;
+  color: #19fff2;
+  font-size: 20px;
+}
+
+.boot-log p {
+  margin: 0;
+}
+
+.boot-log p:last-child {
+  color: #e5e9ee;
+}
+
+.boot-log p:last-child span {
+  color: #19fff2;
+}
+
+.boot-log p:last-child::first-letter {
+  color: #ca47ff;
+}
+
+.boot-footer {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  font-size: 23px;
+}
+
+.boot-brand {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 34px;
+  color: #ca47ff;
+  filter: drop-shadow(0 0 24px rgba(202, 71, 255, 0.55));
+}
+
+.boot-face {
+  position: relative;
+  width: 250px;
+  height: 250px;
+}
+
+.boot-hair {
+  position: absolute;
+  inset: 0 0 76px;
+  border-radius: 50% 50% 42% 42%;
+  background: linear-gradient(180deg, #ff64d9, #f038bb);
+  box-shadow: 0 0 48px rgba(255, 94, 231, 0.72);
+}
+
+.boot-head {
+  position: absolute;
+  left: 44px;
+  right: 44px;
+  bottom: 18px;
+  height: 132px;
+  border-radius: 38px;
+  background: linear-gradient(180deg, #ffd9fb, #ffa2e8);
+  box-shadow: 0 0 26px rgba(255, 168, 236, 0.72);
+}
+
+.boot-head i {
+  position: absolute;
+  top: 46px;
+  width: 48px;
+  height: 16px;
+  background: #33134e;
+}
+
+.boot-head i:first-child {
+  left: 26px;
+  transform: rotate(35deg);
+}
+
+.boot-head i:nth-child(2) {
+  right: 26px;
+  transform: rotate(-35deg);
+}
+
+.boot-head b {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  width: 50px;
+  height: 58px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 34%, #1a082c, #2b0e42);
+  transform: translateX(-50%);
+}
+
+.boot-brand strong {
+  font-size: clamp(54px, 7vw, 100px);
+  line-height: 1;
+  color: #d64fff;
+  text-shadow:
+    0 0 10px rgba(214, 79, 255, 0.75),
+    0 0 34px rgba(214, 79, 255, 0.42);
+}
+
+.boot-brand strong span {
+  color: #19fff2;
+  text-shadow:
+    0 0 10px rgba(25, 255, 242, 0.78),
+    0 0 34px rgba(25, 255, 242, 0.44);
+}
+
 .desktop {
   position: relative;
   width: 100vw;

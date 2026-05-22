@@ -10,6 +10,16 @@ import { NeuraPet } from './neura/NeuraPet';
 import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
 import { useEnvironmentalUiEvents } from './neura/useEnvironmentalUiEvents';
 import {
+  createDefaultNeuraVoiceDirectorState,
+  createPresenceStateFromGameState,
+  createVoiceQueueItemsFromEvent,
+  getNextNeuraVoiceLine,
+  markVoiceLinePlayed,
+  renderNeuraVoiceDirectorDebug,
+} from './neura/NeuraVoiceDirector';
+import { loadNeuraVoiceDirectorState, saveNeuraVoiceDirectorState } from './neura/neuraVoiceDirectorStorage';
+import type { NeuraPresenceEventId as DialoguePresenceEventId } from './data/dialogue/dialogueTypes';
+import {
   addUnique,
   createRemixComparison,
   resultFromDraft,
@@ -81,7 +91,7 @@ import type {
 } from './types';
 
 type WindowId = 'messenger' | 'create' | 'me' | 'player' | null;
-type Screen = 'desktop' | 'rhythm' | 'results' | 'editor';
+type Screen = 'boot' | 'desktop' | 'rhythm' | 'results' | 'editor';
 type Point = { x: number; y: number };
 type HitFeedback = {
   id: number;
@@ -90,7 +100,10 @@ type HitFeedback = {
   judgement: 'perfect' | 'great' | 'good' | 'miss';
 };
 
+const BOOT_DURATION_MS = 4500;
+const BOOT_SKIP_AFTER_MS = 1000;
 const NEURA_COMMENT_INTERVAL_MS = 27500;
+const NEURA_STORY_BEAT_INTERVAL_MS = 41000;
 const NEURA_LOW_FX_STORAGE_KEY = 'ustnik.neura.lowFxMode';
 const RHYTHM_TAP_SFX_SOURCES = [
   '/audio/sfx/rhythm/SE-tap_note-keyboard_typing00.mp3',
@@ -108,6 +121,25 @@ const RHYTHM_HOLD_OVERLAY_FADE_MS = 260;
 const RHYTHM_TAP_SFX_VOLUME = 0.72;
 const RHYTHM_HOLD_KEYBOARD_SFX_VOLUME = 0.42;
 const RHYTHM_HOLD_OVERLAY_SFX_VOLUME = 0.5;
+const BOOT_STEPS = [
+  'Sprawdzanie integralności systemu',
+  'Inicjalizacja kernela',
+  'Montowanie systemu plików',
+  'Ładowanie sterowników',
+  'Inicjalizacja urządzeń',
+  'Konfiguracja sieci',
+  'Uruchamianie usług systemowych',
+  'Inicjalizacja interfejsu',
+  'Ładowanie zasobów',
+] as const;
+const BOOT_LOGS = [
+  'Kernel 6.666.0-cybek initialized',
+  'CPU: CybekCore(TM) i9-9696K @ 4.20GHz',
+  'RAM: 16.0 GB',
+  'GPU: CybekVision 3070 Ti',
+  'Time: 2025-05-25 21:37:00',
+  'Witaj, USTNIK!',
+] as const;
 type ActiveRun = {
   track: Track;
   difficulty: Difficulty;
@@ -120,7 +152,9 @@ type RhythmPhase = 'loading' | 'countdown' | 'playing';
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
   const [activeWindow, setActiveWindow] = useState<WindowId>('messenger');
-  const [screen, setScreen] = useState<Screen>(() => (window.location.hash === '#editor' ? 'editor' : 'desktop'));
+  const initialScreenRef = useRef<Screen>(window.location.hash === '#editor' ? 'editor' : 'desktop');
+  const [screen, setScreen] = useState<Screen>('boot');
+  const [bootElapsedMs, setBootElapsedMs] = useState(0);
   const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
   const [result, setResult] = useState<PerformanceResult | null>(null);
   const [messengerTab, setMessengerTab] = useState<'pawel' | 'group'>('pawel');
@@ -135,6 +169,11 @@ export default function App() {
   ));
   const [isNeuraDebugOpen, setIsNeuraDebugOpen] = useState(false);
   const [environmentEcho, setEnvironmentEcho] = useState<{ id: number; text: string } | null>(null);
+  const [storyVoiceLineId, setStoryVoiceLineId] = useState<string | null>(null);
+  const [lastDialogueEventId, setLastDialogueEventId] = useState<DialoguePresenceEventId | null>(null);
+  const [neuraVoiceDirectorState, setNeuraVoiceDirectorState] = useState(() => loadNeuraVoiceDirectorState());
+  const [neuraVoiceDirectorDebug, setNeuraVoiceDirectorDebug] = useState('');
+  const neuraVoiceDirectorStateRef = useRef(neuraVoiceDirectorState);
   const neuraPresence = useMemo(
     () => createNeuraPresenceState(gameState, {
       lastEventId: lastNeuraEventId,
@@ -194,6 +233,10 @@ export default function App() {
   });
 
   useEffect(() => saveState(gameState), [gameState]);
+  useEffect(() => saveNeuraVoiceDirectorState(neuraVoiceDirectorState), [neuraVoiceDirectorState]);
+  useEffect(() => {
+    neuraVoiceDirectorStateRef.current = neuraVoiceDirectorState;
+  }, [neuraVoiceDirectorState]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -209,6 +252,41 @@ export default function App() {
     return () => window.clearInterval(id);
   }, []);
 
+  const completeBoot = useCallback(() => {
+    setBootElapsedMs(BOOT_DURATION_MS);
+    setScreen((current) => (current === 'boot' ? initialScreenRef.current : current));
+  }, []);
+
+  const advanceBoot = useCallback((ms: number) => {
+    setBootElapsedMs((current) => {
+      const next = Math.min(BOOT_DURATION_MS, current + Math.max(0, ms));
+      if (next >= BOOT_DURATION_MS) window.setTimeout(completeBoot, 0);
+      return next;
+    });
+  }, [completeBoot]);
+
+  useEffect(() => {
+    if (screen !== 'boot') return;
+
+    const id = window.setInterval(() => advanceBoot(150), 150);
+    return () => window.clearInterval(id);
+  }, [advanceBoot, screen]);
+
+  useEffect(() => {
+    if (screen !== 'boot') return;
+
+    function skipBoot() {
+      if (bootElapsedMs >= BOOT_SKIP_AFTER_MS) completeBoot();
+    }
+
+    window.addEventListener('pointerdown', skipBoot);
+    window.addEventListener('keydown', skipBoot);
+    return () => {
+      window.removeEventListener('pointerdown', skipBoot);
+      window.removeEventListener('keydown', skipBoot);
+    };
+  }, [bootElapsedMs, completeBoot, screen]);
+
   useEffect(() => {
     function handleDebugKey(event: KeyboardEvent) {
       if (event.key !== 'F10') return;
@@ -221,6 +299,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (screen === 'boot') {
+      const bootProgress = getBootProgress(bootElapsedMs);
+      window.render_game_to_text = () =>
+        JSON.stringify({
+          screen: 'boot',
+          progress: bootProgress,
+          visibleSteps: getVisibleBootSteps(bootProgress),
+          canSkip: bootElapsedMs >= BOOT_SKIP_AFTER_MS,
+          nextScreen: initialScreenRef.current,
+        });
+      window.advanceTime = advanceBoot;
+      return;
+    }
+
     if (screen === 'rhythm') return;
 
     window.render_game_to_text = () =>
@@ -250,9 +342,103 @@ export default function App() {
           activeGlitches: soundscape.activeGlitchCount,
         },
         neuraPresence,
+        neuraVoiceDirector: {
+          activeStoryVoiceLineId: storyVoiceLineId,
+          lastDialogueEventId,
+          queue: neuraVoiceDirectorState.queue.map((item) => ({
+            lineId: item.lineId,
+            priority: item.priority,
+            sourceEventId: item.sourceEventId,
+          })),
+          unlockedPacks: neuraVoiceDirectorState.unlockedPackIds,
+          debug: neuraVoiceDirectorDebug,
+        },
       });
     window.advanceTime = () => undefined;
-  }, [activeRun, activeWindow, gameState, neuraPresence, result, screen, soundscape.activeGlitchCount, soundscape.isMuted, soundscape.isUnlocked]);
+  }, [
+    activeRun,
+    activeWindow,
+    advanceBoot,
+    bootElapsedMs,
+    gameState,
+    lastDialogueEventId,
+    neuraPresence,
+    neuraVoiceDirectorDebug,
+    neuraVoiceDirectorState.queue,
+    neuraVoiceDirectorState.unlockedPackIds,
+    result,
+    screen,
+    soundscape.activeGlitchCount,
+    soundscape.isMuted,
+    soundscape.isUnlocked,
+    storyVoiceLineId,
+  ]);
+
+  const runStoryAction = useCallback((eventId: DialoguePresenceEventId, nextGameState: GameState) => {
+    const now = Date.now();
+    const context = {
+      gameState: nextGameState,
+      presence: createPresenceStateFromGameState(nextGameState, {
+        activeWindow,
+        screen,
+        lastPresenceEventId: eventId,
+      }),
+      now,
+    };
+    const queued = createVoiceQueueItemsFromEvent(neuraVoiceDirectorStateRef.current, { eventId, context, now });
+    const next = getNextNeuraVoiceLine(queued.state, context);
+    let nextDirectorState = next.state;
+
+    if (next.line) {
+      nextDirectorState = markVoiceLinePlayed(nextDirectorState, { lineId: next.line.id, playedAt: now });
+      setStoryVoiceLineId(next.line.audio.id);
+      if (next.line.effects?.triggerGlitch) soundscape.triggerGlitch({ reason: 'story', intensity: next.line.glitchIntensity });
+    }
+
+    setLastDialogueEventId(eventId);
+    setNeuraVoiceDirectorDebug(renderNeuraVoiceDirectorDebug(nextDirectorState, context, next.rejections));
+    neuraVoiceDirectorStateRef.current = nextDirectorState;
+    setNeuraVoiceDirectorState(nextDirectorState);
+  }, [activeWindow, screen, soundscape]);
+
+  const runAmbientStoryBeat = useCallback((nextGameState: GameState) => {
+    const now = Date.now();
+    const context = {
+      gameState: nextGameState,
+      presence: createPresenceStateFromGameState(nextGameState, {
+        activeWindow,
+        screen,
+        lastPresenceEventId: lastDialogueEventId,
+      }),
+      now,
+    };
+    const next = getNextNeuraVoiceLine(neuraVoiceDirectorStateRef.current, context);
+    let nextDirectorState = next.state;
+
+    if (next.line) {
+      nextDirectorState = markVoiceLinePlayed(nextDirectorState, { lineId: next.line.id, playedAt: now });
+      setStoryVoiceLineId(next.line.audio.id);
+      if (next.line.effects?.triggerGlitch) soundscape.triggerGlitch({ reason: 'story', intensity: next.line.glitchIntensity });
+    }
+
+    setNeuraVoiceDirectorDebug(renderNeuraVoiceDirectorDebug(nextDirectorState, context, next.rejections));
+    neuraVoiceDirectorStateRef.current = nextDirectorState;
+    setNeuraVoiceDirectorState(nextDirectorState);
+  }, [activeWindow, lastDialogueEventId, screen, soundscape]);
+
+  useEffect(() => {
+    runStoryAction('session.start', gameState);
+    // Start sesji ma wejść tylko raz po montażu aplikacji.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (screen !== 'desktop') return;
+      runAmbientStoryBeat(gameState);
+    }, NEURA_STORY_BEAT_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [gameState, runAmbientStoryBeat, screen]);
 
   const availableCreateTracks = useMemo(
     () => tracks.filter((track) => !gameState.createdTrackIds.includes(track.id)),
@@ -299,30 +485,32 @@ export default function App() {
   function saveInitialDraft(status: DraftTrack['status']) {
     if (!result) return;
     const draft = createDraftFromResult(result, status);
-
-    setGameState((state) => ({
-      ...state,
-      createdTrackIds: addUnique(state.createdTrackIds, result.trackId),
-      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, result.trackId, result.accuracy),
-      drafts: upsertDraft(state.drafts, draft),
+    const nextState = {
+      ...gameState,
+      createdTrackIds: addUnique(gameState.createdTrackIds, result.trackId),
+      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, result.trackId, result.accuracy),
+      drafts: upsertDraft(gameState.drafts, draft),
       pawelMessages:
         status === 'sentToPawel'
           ? addMessage(
-              state.pawelMessages,
+              gameState.pawelMessages,
               chatAuthors.cybek,
               pawelDraftMessage(
                 result,
                 maskTrackTitle(
                   result.trackTitle,
-                  getTitleReveal(state.titleRevealByTrackId, result.trackId, state.publishedTrackIds.includes(result.trackId)),
+                  getTitleReveal(gameState.titleRevealByTrackId, result.trackId, gameState.publishedTrackIds.includes(result.trackId)),
                   result.trackId,
                   corruptionTick,
                 ),
               ),
             )
-          : state.pawelMessages,
-      stats: applyStatDelta(state.stats, getStatDelta(result, status === 'sentToPawel' ? 'sendToPawel' : 'saveDraft')),
-    }));
+          : gameState.pawelMessages,
+      stats: applyStatDelta(gameState.stats, getStatDelta(result, status === 'sentToPawel' ? 'sendToPawel' : 'saveDraft')),
+    };
+
+    setGameState(nextState);
+    runStoryAction(status === 'sentToPawel' ? 'draft.sentToPawel' : 'draft.saved', nextState);
 
     returnToDesktop(status === 'sentToPawel' ? 'messenger' : 'me');
     recordNeuraPresenceEvent(status === 'sentToPawel' ? 'sentToPawel' : 'draftSaved');
@@ -333,38 +521,42 @@ export default function App() {
     if (!result || !activeRun?.draftId) return;
     const current = gameState.drafts.find((draft) => draft.id === activeRun.draftId);
     if (!current) return;
+    const nextState = {
+      ...gameState,
+      drafts: upsertDraft(gameState.drafts, improveDraftWithResult(current, result)),
+      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, result.trackId, result.accuracy),
+      stats: applyStatDelta(gameState.stats, getStatDelta(result, 'saveDraft')),
+    };
 
-    setGameState((state) => ({
-      ...state,
-      drafts: upsertDraft(state.drafts, improveDraftWithResult(current, result)),
-      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, result.trackId, result.accuracy),
-      stats: applyStatDelta(state.stats, getStatDelta(result, 'saveDraft')),
-    }));
+    setGameState(nextState);
+    runStoryAction('draft.saved', nextState);
     recordNeuraPresenceEvent('draftSaved');
     returnToDesktop('me');
   }
 
   function sendDraftToPawel(draft: DraftTrack) {
     const resultLike = resultFromDraft(draft);
-    setGameState((state) => ({
-      ...state,
-      drafts: upsertDraft(state.drafts, { ...draft, status: 'sentToPawel', updatedAt: new Date().toISOString() }),
-      titleRevealByTrackId: revealTitleByAccuracy(state.titleRevealByTrackId, draft.trackId, draft.bestAccuracy),
+    const nextState = {
+      ...gameState,
+      drafts: upsertDraft(gameState.drafts, { ...draft, status: 'sentToPawel', updatedAt: new Date().toISOString() }),
+      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, draft.trackId, draft.bestAccuracy),
       pawelMessages: addMessage(
-        state.pawelMessages,
+        gameState.pawelMessages,
         chatAuthors.cybek,
         pawelDraftMessage(
           draft,
           maskTrackTitle(
             draft.trackTitle,
-            getTitleReveal(state.titleRevealByTrackId, draft.trackId, state.publishedTrackIds.includes(draft.trackId)),
+            getTitleReveal(gameState.titleRevealByTrackId, draft.trackId, gameState.publishedTrackIds.includes(draft.trackId)),
             draft.trackId,
             corruptionTick,
           ),
         ),
       ),
-      stats: applyStatDelta(state.stats, getStatDelta(resultLike, 'sendToPawel')),
-    }));
+      stats: applyStatDelta(gameState.stats, getStatDelta(resultLike, 'sendToPawel')),
+    };
+    setGameState(nextState);
+    runStoryAction('draft.sentToPawel', nextState);
     recordNeuraPresenceEvent('sentToPawel');
     setActiveWindow('messenger');
     setMessengerTab('pawel');
@@ -379,20 +571,19 @@ export default function App() {
     if (gameState.publishedTrackIds.includes(draft.trackId)) return;
 
     const published = createPublishedTrack(draft);
-    setGameState((state) => {
-      if (state.publishedTrackIds.includes(draft.trackId)) return state;
-
-      return {
-        ...state,
-        createdTrackIds: addUnique(state.createdTrackIds, draft.trackId),
-        titleRevealByTrackId: revealTitleFully(state.titleRevealByTrackId, draft.trackId),
-        drafts: state.drafts.filter((item) => item.trackId !== draft.trackId),
-        publishedTracks: upsertPublished(state.publishedTracks, published),
-        publishedTrackIds: addUnique(state.publishedTrackIds, draft.trackId),
-        groupMessages: [...state.groupMessages, ...groupPublishMessages(published)],
-        stats: applyStatDelta(state.stats, getStatDelta(resultFromDraft(draft), 'publish')),
-      };
-    });
+    const nextState = {
+      ...gameState,
+      createdTrackIds: addUnique(gameState.createdTrackIds, draft.trackId),
+      titleRevealByTrackId: revealTitleFully(gameState.titleRevealByTrackId, draft.trackId),
+      drafts: gameState.drafts.filter((item) => item.trackId !== draft.trackId),
+      publishedTracks: upsertPublished(gameState.publishedTracks, published),
+      publishedTrackIds: addUnique(gameState.publishedTrackIds, draft.trackId),
+      groupMessages: [...gameState.groupMessages, ...groupPublishMessages(published)],
+      stats: applyStatDelta(gameState.stats, getStatDelta(resultFromDraft(draft), 'publish')),
+    };
+    setGameState(nextState);
+    runStoryAction('track.published', nextState);
+    if (nextState.stats.chatPressure >= 35) runStoryAction('neura.glitchSpike', nextState);
     recordNeuraPresenceEvent('published');
     returnToDesktop('messenger');
     setMessengerTab('group');
@@ -412,8 +603,16 @@ export default function App() {
 
   function resetPrototype() {
     setGameState(defaultState);
+    const resetDirectorState = createDefaultNeuraVoiceDirectorState();
+    neuraVoiceDirectorStateRef.current = resetDirectorState;
+    setNeuraVoiceDirectorState(resetDirectorState);
+    setStoryVoiceLineId(null);
+    setLastDialogueEventId(null);
+    setNeuraVoiceDirectorDebug('');
     setActiveWindow('messenger');
-    setScreen('desktop');
+    setBootElapsedMs(0);
+    initialScreenRef.current = 'desktop';
+    setScreen('boot');
     setActiveRun(null);
     setResult(null);
     setSelectedPublishedId(null);
@@ -434,6 +633,10 @@ export default function App() {
         onExit={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
       />
     );
+  }
+
+  if (screen === 'boot') {
+    return <BootScreen elapsedMs={bootElapsedMs} onSkip={completeBoot} />;
   }
 
   if (screen === 'editor') {
@@ -503,6 +706,7 @@ export default function App() {
         comment={neuraComments[neuraIndex]}
         presenceState={neuraPresence}
         onPresenceEvent={recordNeuraPresenceEvent}
+        storyVoiceLineId={storyVoiceLineId}
       />
       {environmentEcho && <aside className="neura-echo">{environmentEcho.text}</aside>}
       {isNeuraDebugOpen && (
@@ -590,6 +794,79 @@ export default function App() {
       )}
     </main>
   );
+}
+
+function BootScreen({ elapsedMs, onSkip }: { elapsedMs: number; onSkip: () => void }) {
+  const progress = getBootProgress(elapsedMs);
+  const visibleSteps = getVisibleBootSteps(progress);
+  const visibleLogs = getVisibleBootLogs(progress);
+  const canSkip = elapsedMs >= BOOT_SKIP_AFTER_MS;
+
+  return (
+    <main className="boot-screen" onClick={canSkip ? onSkip : undefined}>
+      <div className="boot-scanlines" />
+      <section className="boot-terminal" aria-label="Cybek OS boot">
+        <h1>Cybek OS v0.7.0</h1>
+        <p className="boot-subtitle">Inicjalizacja systemu...</p>
+
+        <div className="boot-checklist">
+          {BOOT_STEPS.map((step, index) => {
+            const isVisible = index < visibleSteps;
+            const isLoading = index === visibleSteps - 1 && progress < 100;
+            return (
+              <div className={isVisible ? 'boot-step visible' : 'boot-step'} key={step}>
+                <span>{isLoading ? '[...]' : '[OK]'}</span>
+                <strong>{step}</strong>
+                {isLoading && (
+                  <em>
+                    <i style={{ '--boot-progress': `${Math.max(10, progress)}%` } as CSSProperties} />
+                    {progress}%
+                  </em>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="boot-log">
+          {BOOT_LOGS.slice(0, visibleLogs).map((line) => (
+            <p key={line}>
+              <span>&gt; [SYS]</span> {line}
+            </p>
+          ))}
+        </div>
+
+        <footer className="boot-footer">
+          <strong>Cybek OS gotowy.</strong>
+          <span>{progress >= 100 ? 'Wczytywanie pulpitu...' : canSkip ? 'Kliknij albo naciśnij klawisz, żeby pominąć...' : 'Wczytywanie pulpitu...'}</span>
+        </footer>
+      </section>
+
+      <aside className="boot-brand" aria-hidden="true">
+        <div className="boot-face">
+          <span className="boot-hair" />
+          <span className="boot-head">
+            <i />
+            <i />
+            <b />
+          </span>
+        </div>
+        <strong>CYBEK <span>OS</span></strong>
+      </aside>
+    </main>
+  );
+}
+
+function getBootProgress(elapsedMs: number) {
+  return Math.min(100, Math.round((elapsedMs / BOOT_DURATION_MS) * 100));
+}
+
+function getVisibleBootSteps(progress: number) {
+  return Math.max(1, Math.min(BOOT_STEPS.length, Math.ceil((progress / 100) * BOOT_STEPS.length)));
+}
+
+function getVisibleBootLogs(progress: number) {
+  return Math.max(0, Math.min(BOOT_LOGS.length, Math.floor(((progress - 42) / 58) * (BOOT_LOGS.length + 1))));
 }
 
 function DesktopIcon({
@@ -1726,15 +2003,22 @@ function PersistentOverlays({
   comment,
   presenceState,
   onPresenceEvent,
+  storyVoiceLineId,
 }: {
   comment: NeuraVoiceLine;
   presenceState: ReturnType<typeof createNeuraPresenceState>;
   onPresenceEvent: (eventId: NeuraPresenceEventId) => void;
+  storyVoiceLineId?: string | null;
 }) {
   return (
     <>
       <CybekWebcam />
-      <NeuraPet comment={comment} presenceState={presenceState} onPresenceEvent={onPresenceEvent} />
+      <NeuraPet
+        comment={comment}
+        presenceState={presenceState}
+        onPresenceEvent={onPresenceEvent}
+        storyVoiceLineId={storyVoiceLineId}
+      />
     </>
   );
 }

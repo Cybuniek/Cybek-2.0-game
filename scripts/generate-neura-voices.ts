@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { neuraVoiceLines } from '../src/data/neuraVoiceLines.ts';
+import { neuraVoiceLines as legacyNeuraVoiceLines } from '../src/data/neuraVoiceLines.ts';
+import { neuraVoiceLinesV2 } from '../src/data/dialogue/neuraVoiceLines.ts';
 
 const ELEVENLABS_VOICE_ID = 'Zv1ztCl7Qbbb5F07Yrud';
 const ELEVENLABS_MODEL_ID = 'eleven_v3';
@@ -17,6 +18,13 @@ const VOICE_OUTPUTS = {
   },
 } as const;
 type VoiceOutputKind = keyof typeof VOICE_OUTPUTS;
+type VoiceSource = 'legacy' | 'dialogue-v2';
+type VoiceLineForGeneration = {
+  id: string;
+  text: string;
+  styleTag: string;
+  phase?: string;
+};
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(scriptDir, '..');
@@ -26,6 +34,9 @@ type Options = {
   dryRun: boolean;
   force: boolean;
   formats: VoiceOutputKind[];
+  source: VoiceSource;
+  phase?: string;
+  fromId?: string;
   only?: string;
 };
 
@@ -35,7 +46,20 @@ function parseOptions(): Options {
     dryRun: args.includes('--dry-run'),
     force: args.includes('--force'),
     formats: args.includes('--mp3-only') ? ['mp3'] : args.includes('--with-fallback') ? ['opus', 'mp3'] : ['opus'],
+    source: 'legacy',
   };
+  const sourceIndex = args.indexOf('--source');
+  if (sourceIndex !== -1) {
+    const source = args[sourceIndex + 1];
+    if (source !== 'legacy' && source !== 'dialogue-v2') {
+      throw new Error(`Nieznane źródło głosu: ${source}. Użyj legacy albo dialogue-v2.`);
+    }
+    options.source = source;
+  }
+  const phaseIndex = args.indexOf('--phase');
+  if (phaseIndex !== -1) options.phase = args[phaseIndex + 1];
+  const fromIdIndex = args.indexOf('--from-id');
+  if (fromIdIndex !== -1) options.fromId = args[fromIdIndex + 1];
   const onlyIndex = args.indexOf('--only');
   if (onlyIndex !== -1) options.only = args[onlyIndex + 1];
   return options;
@@ -58,7 +82,7 @@ function loadLocalEnv() {
 }
 
 async function generateVoiceLine(
-  line: (typeof neuraVoiceLines)[number],
+  line: VoiceLineForGeneration,
   output: (typeof VOICE_OUTPUTS)[VoiceOutputKind],
   outputPath: string,
 ) {
@@ -97,14 +121,45 @@ async function generateVoiceLine(
   return bytes.length;
 }
 
+function getVoiceLines(options: Options): VoiceLineForGeneration[] {
+  const sourceLines = options.source === 'dialogue-v2'
+    ? neuraVoiceLinesV2.map((line) => ({
+        id: line.audio.id,
+        text: line.text,
+        styleTag: styleTagFromAudioIntent(line.audioIntent),
+        phase: line.phase,
+      }))
+    : legacyNeuraVoiceLines.map((line) => ({
+        id: line.id,
+        text: line.text,
+        styleTag: line.styleTag,
+      }));
+
+  let lines = options.phase ? sourceLines.filter((line) => line.phase === options.phase) : sourceLines;
+
+  if (options.fromId) {
+    const startIndex = lines.findIndex((line) => line.id === options.fromId);
+    if (startIndex === -1) throw new Error(`Nie znaleziono startowego id: ${options.fromId}`);
+    lines = lines.slice(startIndex);
+  }
+
+  if (options.only) lines = lines.filter((line) => line.id === options.only);
+  return lines;
+}
+
+function styleTagFromAudioIntent(intent: (typeof neuraVoiceLinesV2)[number]['audioIntent']) {
+  if (intent === 'whisper') return '[whispers]';
+  if (intent === 'glitch') return '[glitchy]';
+  if (intent === 'ambient') return '[curious]';
+  return '[calm]';
+}
+
 async function main() {
   const options = parseOptions();
   loadLocalEnv();
   mkdirSync(outputDir, { recursive: true });
 
-  const selectedLines = options.only
-    ? neuraVoiceLines.filter((line) => line.id === options.only)
-    : neuraVoiceLines;
+  const selectedLines = getVoiceLines(options);
 
   if (options.only && selectedLines.length === 0) {
     throw new Error(`Nie znaleziono kwestii Neury o id: ${options.only}`);

@@ -55,6 +55,10 @@ Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wyma
 
 Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu, a tekst kwestii bez dostepnego audio nie jest pokazywany jako osobny dymek.
 
+`src/neura/NeuraVoiceDirector.ts` jest pierwszym data-driven routerem narracyjnego glosu Neury. Eventy gry nie odtwarzaja audio bezposrednio: emituja event fabularny, director aktualizuje kolejke i wybiera nastepna linie. Runtime odpala eventy dla startu sesji, zapisu draftu, wysylki do Pawcia, publikacji oraz spike'a glitcha przy wysokiej presji czatu. Dodatkowy story beat pulpitu probuje dobrac ambient tylko wtedy, gdy kolejka jest pusta i cooldown pozwala. Stan directora zapisuje sie przez `src/neura/neuraVoiceDirectorStorage.ts`, a `render_game_to_text` pokazuje aktywna linie, kolejke, odblokowane paczki i debug odrzuconych kandydatow.
+
+Nowe data-driven dialogi mieszkaja w `src/data/dialogue/neuraVoiceLines.ts`. Ich `audio.id` moze wskazywac osobny plik `/audio/neura/<audio.id>.ogg`, niezaleznie od starego manifestu kompatybilnosci dla `NeuraPet`. Generator `scripts/generate-neura-voices.ts` obsluguje nowe zrodlo przez `--source dialogue-v2`, filtr fazy przez `--phase` i start od konkretnego id przez `--from-id`.
+
 Generowanie glosow:
 
 - utworz lokalny `.env.local` na podstawie `.env.example`,
@@ -206,6 +210,14 @@ Awatar zostal wydzielony do `src/neura/NeuraPet.tsx`, a proceduralny ruch do `sr
 Subtelne eventy srodowiskowe siedza w `src/neura/useEnvironmentalUiEvents.ts`. Dzialaja tylko na pulpicie: moga lekko przesunac aktywne okno, pokazac krotki stary tekst Neury i wyzwolic glitch audio. Nie dzialaja w sekcji rytmicznej, zeby nie psuc inputu.
 
 Panel debugowy Neury otwiera `F10`. Pokazuje power level, tag narracyjny, intensywnosc audio/avatara/UI, aktywne glitche i ostatnie eventy. Pozwala wymusic poziom 0-4 albo wrocic do Auto oraz przelaczyc Low FX. Override debugowy nie jest zapisywany do save'a gry; Low FX zapisuje sie osobnym kluczem `ustnik.neura.lowFxMode`.
+
+## Boot Cybek OS 2026-05-22
+
+Aplikacja startuje teraz od krotkiej sekwencji `Cybek OS v0.7.0`, zanim wejdzie na pulpit albo do `#editor`. Boot jest warstwa klimatu, nie osobnym systemem fabularnym: pokazuje terminalowe kroki `[OK]`, pasek ladowania, logi kernela i logo zbudowane z HTML/CSS bez nowych assetow.
+
+Sekwencja trwa okolo 4.5 sekundy. Po pierwszej sekundzie mozna ja pominac kliknieciem albo dowolnym klawiszem. Developerskie `window.advanceTime(ms)` przyspiesza boot, a `render_game_to_text` podczas bootu zwraca `screen: "boot"`, procent, widoczne kroki i informacje, czy skip jest juz dostepny.
+
+Po merge z `NEURA_fabularne-skrypty` zachowane sa oba systemy Neury: presence/soundscape/UI z gałęzi oraz data-driven `NeuraVoiceDirector`. `NeuraPet` nadal obsluguje stary manifest glosow, ale potrafi tez odtworzyc fabularne `storyVoiceLineId` z plikow `/audio/neura/<id>.ogg` z MP3 jako fallbackiem.
 
 ## Patrol repozytorium 2026-05-12
 
