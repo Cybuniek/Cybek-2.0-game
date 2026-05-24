@@ -21,7 +21,7 @@ import {
   renderNeuraVoiceDirectorDebug,
 } from './neura/NeuraVoiceDirector';
 import { loadNeuraVoiceDirectorState, saveNeuraVoiceDirectorState } from './neura/neuraVoiceDirectorStorage';
-import { getNeuraTutorialStep, type NeuraTutorialStep } from './neura/tutorialGuide';
+import type { NeuraTutorialStep } from './neura/tutorialGuide';
 import type { NeuraPresenceEventId as DialoguePresenceEventId } from './data/dialogue/dialogueTypes';
 import {
   addUnique,
@@ -202,23 +202,8 @@ export default function App() {
     }),
     [gameState, lastNeuraEventId, neuraDebugOverride, neuraEventLog, neuraLowFxMode],
   );
-  const tutorialWindow = activeWindow === 'messenger'
-    || activeWindow === 'create'
-    || activeWindow === 'me'
-    || activeWindow === 'player'
-    ? activeWindow
-    : null;
-  const tutorialScreen = screen === 'title' ? 'boot' : screen;
-  const neuraTutorialStep = useMemo(
-    () => getNeuraTutorialStep({
-      gameState,
-      screen: tutorialScreen,
-      activeWindow: tutorialWindow,
-      messengerTab,
-      runMode: activeRun?.mode ?? null,
-    }),
-    [activeRun?.mode, gameState, messengerTab, tutorialScreen, tutorialWindow],
-  );
+  // Tutorial wyłączony globalnie: panel i wskazówki nie są renderowane.
+  const neuraTutorialStep: NeuraTutorialStep | null = null;
   const soundscape = useSoundscape(neuraPresence);
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
@@ -2366,10 +2351,11 @@ function CybekWebcamWindow({
 function getDefaultWebcamPosition(): Point {
   if (typeof window === 'undefined') return { x: 880, y: 86 };
   const webcamWidth = window.innerWidth <= 1100 ? Math.min(326, window.innerWidth - 36) : 392;
+  const webcamOriginY = 160;
 
   return {
     x: Math.max(18, window.innerWidth - webcamWidth - 26),
-    y: 86,
+    y: Math.max(18, Math.round((window.innerHeight / 2) - webcamOriginY)),
   };
 }
 

@@ -725,8 +725,8 @@ button:disabled {
   top: var(--neura-y);
   right: auto;
   bottom: auto;
-  width: 144px;
-  height: 162px;
+  width: 288px;
+  height: 324px;
   display: block;
   padding: 0;
   z-index: 14;
@@ -738,9 +738,9 @@ button:disabled {
 }
 
 .neura-sprite-pad {
-  width: 144px;
-  height: 162px;
-  min-height: 162px;
+  width: 288px;
+  height: 324px;
+  min-height: 324px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -760,21 +760,29 @@ button:disabled {
   cursor: grabbing;
 }
 
+.neura-sprite-pad:hover,
+.neura-sprite-pad.active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
 .neura-sprite-pad:focus-visible {
-  outline: 2px solid var(--line-cyan);
-  outline-offset: -10px;
-  box-shadow: 0 0 18px rgba(57, 255, 224, 0.45);
+  outline: none;
+  box-shadow: none;
 }
 
 .neura-sprite {
   position: relative;
   display: block;
-  width: 120px;
-  height: 130px;
+  width: 240px;
+  height: 260px;
   background-image: var(--neura-sprite);
   background-repeat: no-repeat;
-  background-size: 960px 1170px;
-  background-position-y: calc(var(--neura-row) * -130px);
+  background-size: 1920px 2340px;
+  background-position-y: calc(var(--neura-row) * -260px);
+  image-rendering: crisp-edges;
   image-rendering: pixelated;
   animation: neura-atlas var(--neura-duration) steps(var(--neura-frames)) infinite;
   animation-delay: calc(var(--neura-render-delay, 0ms) * -1);
@@ -789,10 +797,11 @@ button:disabled {
   inset: 0;
   background-image: var(--neura-sprite);
   background-repeat: no-repeat;
-  background-size: 960px 1170px;
+  background-size: 1920px 2340px;
   background-position:
-    calc(var(--neura-frames) * -20px)
-    calc(var(--neura-row) * -130px);
+    calc(var(--neura-frames) * -40px)
+    calc(var(--neura-row) * -260px);
+  image-rendering: crisp-edges;
   image-rendering: pixelated;
   pointer-events: none;
 }
@@ -1718,7 +1727,7 @@ button:disabled {
     background-position-x: 0;
   }
   to {
-    background-position-x: calc(var(--neura-frames) * -120px);
+    background-position-x: calc(var(--neura-frames) * -240px);
   }
 }
 

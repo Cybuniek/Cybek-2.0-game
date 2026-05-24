@@ -311,7 +311,10 @@ function getNeuraVoiceSources(lineId: string) {
 }
 
 function getDefaultNeuraPosition(): Point {
-  return clampNeuraPosition({ x: window.innerWidth - 184, y: window.innerHeight - 190 });
+  return clampNeuraPosition({
+    x: window.innerWidth * 0.4,
+    y: window.innerHeight * 0.7,
+  });
 }
 
 function getNextNeuraPatrolPosition(instability: number): Point {
