@@ -1,0 +1,16 @@
+{
+  "name": "happy",
+  "frameWidth": 320,
+  "frameHeight": 240,
+  "frames": 8,
+  "fps": 8,
+  "loop": true,
+  "layers": [
+    { "id": "background", "file": "background.png", "animated": false },
+    { "id": "cybek", "file": "cybek.png", "animated": true },
+    { "id": "desk-keyboard", "file": "desk-keyboard.png", "animated": false },
+    { "id": "hands", "file": "hands.png", "animated": true, "variant": "normal" },
+    { "id": "crt-fx", "file": "crt-fx.png", "animated": true },
+    { "id": "frame", "file": "frame.png", "animated": false }
+  ]
+}

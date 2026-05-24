@@ -1,0 +1,9 @@
+{
+  "defaultAnimation": "idle",
+  "eventMap": {
+    "rhythm": "work",
+    "published": "happy",
+    "glitch": "shock",
+    "review": "think"
+  }
+}
