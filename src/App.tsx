@@ -32,17 +32,6 @@ import {
   type RemixComparison,
 } from './gameFlow';
 import {
-<<<<<<< HEAD
-=======
-  addUnique,
-  createRemixComparison,
-  resultFromDraft,
-  upsertDraft,
-  upsertPublished,
-  type RemixComparison,
-} from './gameFlow';
-import {
->>>>>>> NEURA_{feature}
   applyStatDelta,
   createDraftFromResult,
   createPublishedTrack,
@@ -127,7 +116,6 @@ type OverlayId =
 const BOOT_DURATION_MS = 4500;
 const BOOT_SKIP_AFTER_MS = 1000;
 const NEURA_COMMENT_INTERVAL_MS = 27500;
-<<<<<<< HEAD
 const NEURA_STORY_BEAT_INTERVAL_MS = 41000;
 const NEURA_LOW_FX_STORAGE_KEY = 'ustnik.neura.lowFxMode';
 const ENABLE_HIDDEN_WINDOWS = false;
@@ -166,22 +154,6 @@ const BOOT_LOGS = [
   'Time: 2025-05-25 21:37:00',
   'Witaj, USTNIK!',
 ] as const;
-=======
-const NEURA_PATROL_INTERVAL_MS = 5200;
-const NEURA_MANUAL_PAUSE_MS = 6500;
-const NEURA_ANIMATIONS: Record<NeuraPetMood, NeuraAnimation> = {
-  idle: { row: 0, frames: 6, duration: '1.1s', label: 'czuwanie' },
-  running: { row: 7, frames: 6, duration: '0.82s', label: 'przeciąganie' },
-  waving: { row: 3, frames: 4, duration: '0.84s', label: 'kontakt' },
-  jumping: { row: 4, frames: 5, duration: '0.92s', label: 'impuls' },
-  failed: { row: 5, frames: 8, duration: '1.28s', label: 'glitch' },
-  waiting: { row: 6, frames: 6, duration: '1.16s', label: 'nasłuch' },
-  review: { row: 8, frames: 6, duration: '1.22s', label: 'analiza' },
-};
-const NEURA_REACTION_SEQUENCE: NeuraPetMood[] = ['waving', 'review', 'failed'];
-const NEURA_VOICE_LINE_IDS = Object.keys(neuraVoiceAssets) as NeuraVoiceLineId[];
-
->>>>>>> NEURA_{feature}
 type ActiveRun = {
   track: Track;
   difficulty: Difficulty;
@@ -387,7 +359,7 @@ export default function App() {
 
   useEffect(() => {
     setIsTutorialDismissed(false);
-  }, [neuraTutorialStep?.id]);
+  }, [neuraTutorialStep]);
 
   useEffect(() => {
     if (screen === 'title') {
@@ -454,15 +426,7 @@ export default function App() {
           unlockedPacks: neuraVoiceDirectorState.unlockedPackIds,
           debug: neuraVoiceDirectorDebug,
         },
-        neuraTutorial: neuraTutorialStep
-          ? {
-              id: neuraTutorialStep.id,
-              title: neuraTutorialStep.title,
-              order: neuraTutorialStep.order,
-              total: neuraTutorialStep.total,
-              targetWindow: neuraTutorialStep.targetWindow ?? null,
-            }
-          : null,
+        neuraTutorial: null,
       });
     window.advanceTime = () => undefined;
   }, [
@@ -1043,7 +1007,6 @@ export default function App() {
   );
 }
 
-<<<<<<< HEAD
 function BootScreen({ elapsedMs, onSkip }: { elapsedMs: number; onSkip: () => void }) {
   const progress = getBootProgress(elapsedMs);
   const visibleSteps = getVisibleBootSteps(progress);
@@ -1117,8 +1080,6 @@ function getVisibleBootLogs(progress: number) {
   return Math.max(0, Math.min(BOOT_LOGS.length, Math.floor(((progress - 42) / 58) * (BOOT_LOGS.length + 1))));
 }
 
-=======
->>>>>>> NEURA_{feature}
 function DesktopIcon({
   label,
   symbol,
@@ -2011,11 +1972,7 @@ function RhythmScreen({
           >
             {laneNotes.map((note) => {
                 const kind = getRhythmNoteKind(note);
-<<<<<<< HEAD
                 const isLong = kind === 'hold';
-=======
-                const isLong = kind === 'hold' || kind === 'hold';
->>>>>>> NEURA_{feature}
                 return (
                   <span
                     className={[
@@ -2032,19 +1989,11 @@ function RhythmScreen({
                       top: `${isLong ? note.visualTopPercent : note.yPercent}%`,
                       opacity: note.opacity,
                       ...(isLong ? { '--note-height': `${note.durationPercent}%` } : {}),
-<<<<<<< HEAD
                       ...(kind === 'hold' ? { '--hold-progress-height': `${Math.round(note.holdProgress * 100)}%` } : {}),
                     } as CSSProperties}
                   >
                     {kind === 'hold' && (
                       <span className="hold-progress">
-=======
-                      ...(kind === 'hold' ? { '--smash-progress-height': `${Math.round(note.smashProgress * 100)}%` } : {}),
-                    } as CSSProperties}
-                  >
-                    {kind === 'hold' && (
-                      <span className="smash-progress">
->>>>>>> NEURA_{feature}
                         {note.presses ?? 0}
                       </span>
                     )}
@@ -2382,7 +2331,6 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-<<<<<<< HEAD
 function CybekWebcamWindow({
   eventName = 'idle',
   musicBpm,
@@ -2413,268 +2361,6 @@ function getDefaultWebcamPosition(): Point {
   if (typeof window === 'undefined') return { x: 880, y: 86 };
   const webcamWidth = window.innerWidth <= 1100 ? Math.min(326, window.innerWidth - 36) : 392;
   const webcamOriginY = 160;
-=======
-function useAvailableNeuraVoiceIds() {
-  const [availableIds, setAvailableIds] = useState<ReadonlySet<NeuraVoiceLineId>>(() => new Set());
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function hasAudio(path: string) {
-      try {
-        const response = await fetch(path, { method: 'HEAD', signal: controller.signal });
-        return response.ok;
-      } catch {
-        return false;
-      }
-    }
-
-    async function resolveAvailability() {
-      const entries = await Promise.all(
-        NEURA_VOICE_LINE_IDS.map(async (lineId) => {
-          const sources = neuraVoiceAssets[lineId];
-          const hasPrimary = await hasAudio(sources.primary);
-          const hasFallback = hasPrimary ? false : await hasAudio(sources.fallback);
-          return [lineId, hasPrimary || hasFallback] as const;
-        }),
-      );
-
-      if (!controller.signal.aborted) {
-        setAvailableIds(new Set(entries.filter(([, isAvailable]) => isAvailable).map(([lineId]) => lineId)));
-      }
-    }
-
-    void resolveAvailability();
-    return () => controller.abort();
-  }, []);
-
-  return availableIds;
-}
-
-function useNeuraVoice(availableVoiceLineIds: ReadonlySet<NeuraVoiceLineId>) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const isUnlockedRef = useRef(false);
-  const canPlayOpusRef = useRef<boolean | null>(null);
-  const queuedLineIdRef = useRef<NeuraVoiceLineId | null>(null);
-
-  useEffect(() => () => {
-    audioRef.current?.pause();
-  }, []);
-
-  function canPlayOpus() {
-    if (canPlayOpusRef.current !== null) return canPlayOpusRef.current;
-    const audio = document.createElement('audio');
-    canPlayOpusRef.current = audio.canPlayType('audio/ogg; codecs="opus"') !== '';
-    return canPlayOpusRef.current;
-  }
-
-  const createAudio = useCallback((lineId: NeuraVoiceLineId) => {
-    const sources = neuraVoiceAssets[lineId];
-    if (!sources || !availableVoiceLineIds.has(lineId)) return null;
-    return new Audio(canPlayOpus() ? sources.primary : sources.fallback);
-  }, [availableVoiceLineIds]);
-
-  const playQueuedLine = useCallback(() => {
-    const queuedLineId = queuedLineIdRef.current;
-    queuedLineIdRef.current = null;
-    if (!queuedLineId) return;
-
-    const audio = createAudio(queuedLineId);
-    if (!audio) return;
-
-    audioRef.current = audio;
-    audio.addEventListener('ended', playQueuedLine, { once: true });
-    audio.addEventListener('error', playQueuedLine, { once: true });
-    audio.play().catch(() => {
-      const sources = neuraVoiceAssets[queuedLineId];
-      if (!sources || audio.src.endsWith(sources.fallback)) {
-        playQueuedLine();
-        return;
-      }
-      const fallbackAudio = new Audio(sources.fallback);
-      audioRef.current = fallbackAudio;
-      fallbackAudio.addEventListener('ended', playQueuedLine, { once: true });
-      fallbackAudio.addEventListener('error', playQueuedLine, { once: true });
-      fallbackAudio.play().catch(() => undefined);
-    });
-  }, [createAudio]);
-
-  return useCallback((lineId: NeuraVoiceLineId, source: 'comment' | 'reaction') => {
-    if (source === 'reaction') isUnlockedRef.current = true;
-    if (!isUnlockedRef.current || !availableVoiceLineIds.has(lineId)) return;
-
-    const currentAudio = audioRef.current;
-    if (currentAudio && !currentAudio.paused && !currentAudio.ended) {
-      if (source === 'reaction') return;
-      queuedLineIdRef.current = lineId;
-      return;
-    }
-
-    queuedLineIdRef.current = lineId;
-    playQueuedLine();
-  }, [availableVoiceLineIds, playQueuedLine]);
-}
-
-function NeuraPet({ comment }: { comment: NeuraVoiceLine }) {
-  const [mood, setMood] = useState<NeuraPetMood>('idle');
-  const [position, setPosition] = useState<Point>(() => getDefaultNeuraPosition());
-  const dragRef = useRef<{ startX: number; startY: number; origin: Point; moved: boolean } | null>(null);
-  const reactionIndexRef = useRef(0);
-  const settleTimerRef = useRef<number | null>(null);
-  const patrolTimerRef = useRef<number | null>(null);
-  const manualPauseUntilRef = useRef(0);
-  const availableVoiceLineIds = useAvailableNeuraVoiceIds();
-  const playNeuraVoice = useNeuraVoice(availableVoiceLineIds);
-  const animation = NEURA_ANIMATIONS[mood];
-  const hasCommentAudio = availableVoiceLineIds.has(comment.id);
-
-  useEffect(() => {
-    function handleResize() {
-      setPosition((current) => clampNeuraPosition(current));
-    }
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => () => {
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-    if (patrolTimerRef.current !== null) window.clearInterval(patrolTimerRef.current);
-  }, []);
-
-  useEffect(() => {
-    if (!hasCommentAudio) return;
-    playNeuraVoice(comment.id, 'comment');
-  }, [comment.id, hasCommentAudio, playNeuraVoice]);
-
-  useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) return;
-
-    patrolTimerRef.current = window.setInterval(() => {
-      if (dragRef.current || Date.now() < manualPauseUntilRef.current) return;
-
-      setMood('running');
-      setPosition(getNextNeuraPatrolPosition());
-      if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-      settleTimerRef.current = window.setTimeout(() => {
-        setMood('idle');
-        settleTimerRef.current = null;
-      }, 1200);
-    }, NEURA_PATROL_INTERVAL_MS);
-
-    return () => {
-      if (patrolTimerRef.current !== null) window.clearInterval(patrolTimerRef.current);
-      patrolTimerRef.current = null;
-    };
-  }, []);
-
-  function settleMood(nextMood: NeuraPetMood, delayMs = 1500) {
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-    setMood(nextMood);
-    settleTimerRef.current = window.setTimeout(() => {
-      setMood('idle');
-      settleTimerRef.current = null;
-    }, delayMs);
-  }
-
-  function playReaction(nextMood: NeuraPetMood) {
-    const reactionLineId = neuraReactionVoiceLineIds[nextMood as keyof typeof neuraReactionVoiceLineIds];
-    if (!reactionLineId || !availableVoiceLineIds.has(reactionLineId)) return;
-    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
-    settleMood(nextMood);
-    playNeuraVoice(reactionLineId, 'reaction');
-  }
-
-  function cycleReaction() {
-    const nextMood = NEURA_REACTION_SEQUENCE[reactionIndexRef.current % NEURA_REACTION_SEQUENCE.length];
-    reactionIndexRef.current += 1;
-    playReaction(nextMood);
-  }
-
-  function beginDrag(event: PointerEvent<HTMLButtonElement>) {
-    dragRef.current = {
-      startX: event.clientX,
-      startY: event.clientY,
-      origin: position,
-      moved: false,
-    };
-    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
-    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
-    setMood('running');
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function drag(event: PointerEvent<HTMLButtonElement>) {
-    if (!dragRef.current) return;
-
-    const dx = event.clientX - dragRef.current.startX;
-    const dy = event.clientY - dragRef.current.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 6) dragRef.current.moved = true;
-    setPosition(clampNeuraPosition({ x: dragRef.current.origin.x + dx, y: dragRef.current.origin.y + dy }));
-  }
-
-  function endDrag(event: PointerEvent<HTMLButtonElement>) {
-    if (!dragRef.current) return;
-
-    const wasMoved = dragRef.current.moved;
-    dragRef.current = null;
-    manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    if (wasMoved) {
-      settleMood('jumping', 900);
-      return;
-    }
-    cycleReaction();
-  }
-
-  const style = {
-    '--neura-x': `${position.x}px`,
-    '--neura-y': `${position.y}px`,
-    '--neura-row': animation.row,
-    '--neura-frames': animation.frames,
-    '--neura-duration': animation.duration,
-    '--neura-sprite': `url("${NEURA_SPRITESHEET_PATH}")`,
-  } as CSSProperties;
-
-  return (
-    <aside className={`neura neura-${mood}`} style={style} aria-live="polite">
-      <button
-        className="neura-sprite-pad"
-        type="button"
-        onPointerDown={beginDrag}
-        onPointerMove={drag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        aria-label="Neura: kliknij lub przeciągnij"
-        title="Kliknij lub przeciągnij Neurę"
-      >
-        <span className="neura-sprite" aria-hidden="true" />
-      </button>
-    </aside>
-  );
-}
-
-function getDefaultNeuraPosition(): Point {
-  return clampNeuraPosition({ x: window.innerWidth - 184, y: window.innerHeight - 190 });
-}
-
-function getNextNeuraPatrolPosition(): Point {
-  const minX = Math.max(24, Math.floor(window.innerWidth * 0.48));
-  const maxX = Math.max(minX, window.innerWidth - 178);
-  const minY = Math.max(74, Math.floor(window.innerHeight * 0.58));
-  const maxY = Math.max(minY, window.innerHeight - 184);
-
-  return clampNeuraPosition({
-    x: minX + Math.random() * (maxX - minX),
-    y: minY + Math.random() * (maxY - minY),
-  });
-}
-
-function clampNeuraPosition(position: Point): Point {
-  const maxX = Math.max(24, window.innerWidth - 156);
-  const maxY = Math.max(66, window.innerHeight - 174);
->>>>>>> NEURA_{feature}
 
   return {
     x: Math.max(18, window.innerWidth - webcamWidth - 26),

@@ -651,11 +651,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                 .filter((note) => note.lane === lane)
                 .map((note) => {
                   const kind = getRhythmNoteKind(note);
-<<<<<<< HEAD
                   const isLong = kind === 'hold';
-=======
-                  const isLong = kind === 'hold' || kind === 'hold';
->>>>>>> NEURA_{feature}
                   const headPercent = timeToYPercent(note.timeMs, viewportStartMs, editorWindowMs);
                   const heightPercent = isLong ? editorNoteHeightPercent(note, editorWindowMs) : 0;
                   return (
@@ -678,11 +674,7 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                       onContextMenu={(event) => event.preventDefault()}
                       type="button"
                     >
-<<<<<<< HEAD
                       {kind === 'hold' && note.requiredPresses !== undefined && <span>{note.requiredPresses}</span>}
-=======
-                      {kind === 'hold' && <span>{note.requiredPresses ?? 2}</span>}
->>>>>>> NEURA_{feature}
                       {isLong && (
                         <span
                           className="resize-handle"
@@ -720,12 +712,8 @@ export function BeatmapEditor({ onExit }: BeatmapEditorProps) {
                 ...note,
                 kind: event.target.value === 'tap' ? undefined : event.target.value as RhythmNote['kind'],
                 durationMs: event.target.value === 'tap' ? undefined : note.durationMs ?? 520,
-<<<<<<< HEAD
                 requiredPresses: event.target.value === 'tap' ? undefined : note.requiredPresses,
               }))}>
-=======
-                              }))}>
->>>>>>> NEURA_{feature}
                 <option value="tap">tap</option>
                 <option value="hold">hold</option>
               </select>

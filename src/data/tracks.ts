@@ -12,15 +12,9 @@ function audioFiles(
   files: { instrumental: string; vocals: string; merged: string },
 ) {
   return {
-<<<<<<< HEAD
     instrumental: `${audioRoot}/${folder}/${files.instrumental}`,
     vocals: `${audioRoot}/${folder}/${files.vocals}`,
     merged: `${audioRoot}/${folder}/${files.merged}`,
-=======
-    instrumental: `${audioRoot}/${folder}/[Instrumental] ${title}.ogg`,
-    vocals: `${audioRoot}/${folder}/[Lead Vocals] ${title}.ogg`,
-    merged: `${audioRoot}/${folder}/${title}.ogg`,
->>>>>>> NEURA_{feature}
   };
 }
 

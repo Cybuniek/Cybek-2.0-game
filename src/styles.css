@@ -1,6 +1,5 @@
 :root {
   color-scheme: dark;
-<<<<<<< HEAD
   font-family: "Cascadia Mono", "Consolas", "Segoe UI", monospace;
   --bg-deep: #020006;
   --bg-grid: rgba(4, 15, 24, 0.96);
@@ -21,27 +20,6 @@
   --shadow-cyan: 0 0 0 1px rgba(0, 215, 239, 0.28), 0 0 18px rgba(0, 215, 239, 0.28);
   --shadow-pink: 0 0 0 1px rgba(255, 33, 200, 0.25), 0 0 24px rgba(255, 33, 200, 0.24);
   --shadow-focus: 0 0 0 1px rgba(255, 33, 200, 0.6), 0 0 30px rgba(0, 215, 239, 0.18);
-=======
-  font-family: "Segoe UI", Arial, sans-serif;
-  --bg-deep: #050611;
-  --bg-panel: rgba(8, 11, 24, 0.9);
-  --bg-panel-strong: rgba(12, 6, 31, 0.96);
-  --bg-glass: rgba(11, 16, 31, 0.72);
-  --line-soft: #263f4a;
-  --line-cyan: #39ffe0;
-  --line-purple: #8d41ff;
-  --accent-pink: #ff5ee7;
-  --accent-hot: #ff2e88;
-  --accent-warn: #ffdf6e;
-  --accent-danger: #ff5e8f;
-  --text-main: #e8fff9;
-  --text-soft: #a8b7c7;
-  --text-cyan: #94fff0;
-  --radius-panel: 8px;
-  --shadow-cyan: 0 0 18px rgba(57, 255, 224, 0.32);
-  --shadow-pink: 0 0 26px rgba(255, 46, 221, 0.26);
-  --shadow-focus: 0 0 0 1px rgba(57, 255, 224, 0.5), 0 0 34px rgba(255, 46, 221, 0.3);
->>>>>>> NEURA_{feature}
   background: var(--bg-deep);
   color: var(--text-main);
 }
@@ -58,40 +36,26 @@ body {
 }
 
 button {
-<<<<<<< HEAD
   border: 1px solid var(--accent-pink);
   border-radius: var(--radius-panel);
   background:
     linear-gradient(90deg, rgba(255, 33, 200, 0.1), rgba(0, 215, 239, 0.05)),
     rgba(2, 7, 14, 0.94);
-=======
-  border: 1px solid var(--line-cyan);
-  border-radius: 4px;
-  background: linear-gradient(180deg, rgba(57, 255, 224, 0.08), rgba(16, 24, 39, 0.98));
->>>>>>> NEURA_{feature}
   color: var(--text-main);
   cursor: pointer;
   font: inherit;
   min-height: 32px;
-<<<<<<< HEAD
   text-transform: uppercase;
   transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease, transform 120ms ease;
-=======
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
->>>>>>> NEURA_{feature}
 }
 
 button:hover,
 button.active {
-<<<<<<< HEAD
   border-color: var(--line-cyan);
   background:
     linear-gradient(90deg, rgba(0, 215, 239, 0.2), rgba(255, 33, 200, 0.1)),
     rgba(2, 7, 14, 0.98);
   color: var(--text-cyan);
-=======
-  background: linear-gradient(180deg, rgba(57, 255, 224, 0.2), rgba(23, 53, 59, 0.98));
->>>>>>> NEURA_{feature}
   box-shadow: var(--shadow-cyan);
 }
 
@@ -342,7 +306,6 @@ button:disabled {
   height: 100vh;
   padding: 70px 26px 26px;
   background:
-<<<<<<< HEAD
     linear-gradient(rgba(255, 33, 200, 0.02), rgba(0, 215, 239, 0.03)),
     repeating-linear-gradient(0deg, rgba(0, 215, 239, 0.025) 0 1px, transparent 1px 6px),
     repeating-linear-gradient(90deg, rgba(255, 33, 200, 0.035) 0 1px, transparent 1px 78px),
@@ -355,15 +318,6 @@ button:disabled {
     inset 0 0 0 1px rgba(0, 215, 239, 0.42),
     inset 0 0 120px rgba(255, 33, 200, 0.09),
     0 0 38px rgba(0, 0, 0, 0.72);
-=======
-    linear-gradient(rgba(11, 16, 31, 0.18), rgba(11, 16, 31, 0.42)),
-    radial-gradient(circle at 32% 22%, rgba(255, 94, 231, 0.22), transparent 22%),
-    radial-gradient(circle at 70% 74%, rgba(57, 255, 224, 0.16), transparent 30%),
-    linear-gradient(135deg, #d9d7f2 0%, #f3f6fb 46%, #d9fff4 100%);
-  border: 12px solid #0d0620;
-  border-radius: 46px;
-  box-shadow: inset 0 0 0 2px var(--line-cyan), inset 0 0 120px rgba(7, 5, 20, 0.38);
->>>>>>> NEURA_{feature}
   overflow: hidden;
 }
 
@@ -372,12 +326,8 @@ button:disabled {
   position: absolute;
   inset: 72px 346px 98px 320px;
   pointer-events: none;
-<<<<<<< HEAD
   z-index: 0;
   opacity: 0.68;
-=======
-  opacity: 0.14;
->>>>>>> NEURA_{feature}
   background:
     linear-gradient(90deg, transparent, rgba(0, 215, 239, 0.32), transparent 52%),
     repeating-linear-gradient(0deg, transparent 0 12px, rgba(255, 33, 200, 0.12) 12px 13px);
@@ -425,15 +375,9 @@ button:disabled {
   align-items: center;
   gap: 16px;
   padding: 0 14px;
-<<<<<<< HEAD
   border: 1px solid var(--accent-pink);
   background: rgba(3, 2, 10, 0.94);
   box-shadow: var(--shadow-pink);
-=======
-  border-bottom: 1px solid var(--line-cyan);
-  background: rgba(11, 3, 28, 0.92);
-  box-shadow: 0 8px 28px rgba(3, 5, 11, 0.28);
->>>>>>> NEURA_{feature}
   z-index: 12;
 }
 
@@ -482,21 +426,12 @@ button:disabled {
   min-height: 82px;
   padding: 8px;
   border-color: transparent;
-<<<<<<< HEAD
   background: rgba(2, 7, 14, 0.48);
   border-radius: var(--radius-panel);
   text-align: center;
   font-size: 11px;
   color: var(--accent-pink);
   text-shadow: 0 0 8px rgba(255, 33, 200, 0.42);
-=======
-  background: rgba(6, 8, 18, 0.16);
-  border-radius: 6px;
-  text-align: center;
-  font-size: 12px;
-  color: #f7fffd;
-  text-shadow: 0 1px 4px rgba(5, 6, 18, 0.72);
->>>>>>> NEURA_{feature}
 }
 
 .desktop-icon span {
@@ -505,19 +440,11 @@ button:disabled {
   width: 42px;
   height: 42px;
   margin: 0 auto 6px;
-<<<<<<< HEAD
   border: 1px solid var(--accent-pink);
   background: #02070e;
   color: var(--line-cyan);
   font-weight: 800;
   box-shadow: inset 0 0 18px rgba(0, 215, 239, 0.08), var(--shadow-pink);
-=======
-  border: 1px solid var(--line-purple);
-  background: linear-gradient(145deg, #16052c, #24114f);
-  color: var(--accent-pink);
-  font-weight: 800;
-  box-shadow: var(--shadow-pink);
->>>>>>> NEURA_{feature}
 }
 
 .desktop-icon:hover {
@@ -617,7 +544,6 @@ button:disabled {
   width: min(760px, calc(100vw - 460px));
   min-height: 460px;
   z-index: 8;
-<<<<<<< HEAD
   border: 1px solid var(--accent-pink);
   border-radius: var(--radius-panel);
   background:
@@ -626,13 +552,6 @@ button:disabled {
   box-shadow: var(--shadow-focus);
   backdrop-filter: blur(3px);
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
-=======
-  border: 2px solid var(--line-purple);
-  border-radius: var(--radius-panel);
-  background: var(--bg-panel-strong);
-  box-shadow: var(--shadow-focus);
-  backdrop-filter: blur(8px);
->>>>>>> NEURA_{feature}
 }
 
 .window-title {
@@ -641,15 +560,10 @@ button:disabled {
   align-items: center;
   height: 34px;
   padding: 0 10px;
-<<<<<<< HEAD
   border-bottom: 1px solid rgba(255, 33, 200, 0.42);
   background:
     linear-gradient(90deg, rgba(255, 33, 200, 0.18), transparent 64%),
     #05020d;
-=======
-  border-bottom: 1px solid var(--line-soft);
-  background: #120620;
->>>>>>> NEURA_{feature}
   color: var(--accent-pink);
   cursor: move;
   user-select: none;
@@ -663,11 +577,7 @@ button:disabled {
 .address {
   padding: 8px 10px;
   color: var(--line-cyan);
-<<<<<<< HEAD
   border-bottom: 1px dashed rgba(0, 215, 239, 0.32);
-=======
-  border-bottom: 1px solid var(--line-soft);
->>>>>>> NEURA_{feature}
   font-family: Consolas, monospace;
   font-size: 13px;
 }
@@ -689,15 +599,10 @@ button:disabled {
   height: 330px;
   overflow: auto;
   padding: 12px;
-<<<<<<< HEAD
   border: 1px solid rgba(255, 33, 200, 0.35);
   background:
     repeating-linear-gradient(to bottom, rgba(0, 215, 239, 0.035) 0 1px, transparent 1px 24px),
     rgba(2, 6, 13, 0.94);
-=======
-  border: 1px solid var(--line-soft);
-  background: rgba(7, 4, 17, 0.92);
->>>>>>> NEURA_{feature}
   font-family: Consolas, "Courier New", monospace;
 }
 
@@ -727,17 +632,11 @@ button:disabled {
   gap: 14px;
   align-items: center;
   padding: 12px;
-<<<<<<< HEAD
   border: 1px solid rgba(0, 215, 239, 0.32);
   background:
     linear-gradient(90deg, rgba(0, 215, 239, 0.08), rgba(255, 33, 200, 0.035)),
     rgba(2, 7, 14, 0.92);
   border-radius: var(--radius-panel);
-=======
-  border: 1px solid var(--line-soft);
-  background: rgba(12, 6, 31, 0.95);
-  border-radius: 6px;
->>>>>>> NEURA_{feature}
 }
 
 .track-row div {
@@ -757,7 +656,6 @@ button:disabled {
 .neura {
   position: absolute;
   right: 24px;
-<<<<<<< HEAD
   border: 1px solid rgba(0, 215, 239, 0.52);
   background: var(--bg-panel);
   box-shadow: var(--shadow-cyan);
@@ -772,11 +670,6 @@ button:disabled {
 .neura-tutorial.overlay-draggable {
   right: auto;
   bottom: auto;
-=======
-  border: 1px solid var(--line-soft);
-  background: var(--bg-panel);
-  box-shadow: 0 12px 30px rgba(3, 5, 11, 0.24);
->>>>>>> NEURA_{feature}
 }
 
 .stats-panel {
@@ -784,7 +677,6 @@ button:disabled {
   width: 320px;
   padding: 14px;
   z-index: 4;
-<<<<<<< HEAD
   border-left-color: var(--accent-pink);
 }
 
@@ -796,9 +688,6 @@ button:disabled {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
-=======
-  border-left-color: var(--line-cyan);
->>>>>>> NEURA_{feature}
 }
 
 .stat {
@@ -827,11 +716,7 @@ button:disabled {
 }
 
 .todo-widget strong {
-<<<<<<< HEAD
   color: var(--accent-pink);
-=======
-  color: var(--text-main);
->>>>>>> NEURA_{feature}
 }
 
 .neura {
@@ -840,13 +725,8 @@ button:disabled {
   top: var(--neura-y);
   right: auto;
   bottom: auto;
-<<<<<<< HEAD
   width: 288px;
   height: 324px;
-=======
-  width: 144px;
-  height: 162px;
->>>>>>> NEURA_{feature}
   display: block;
   padding: 0;
   z-index: 14;
@@ -858,15 +738,9 @@ button:disabled {
 }
 
 .neura-sprite-pad {
-<<<<<<< HEAD
   width: 288px;
   height: 324px;
   min-height: 324px;
-=======
-  width: 144px;
-  height: 162px;
-  min-height: 162px;
->>>>>>> NEURA_{feature}
   padding: 0;
   display: grid;
   place-items: center;
@@ -878,18 +752,14 @@ button:disabled {
   touch-action: none;
   box-shadow: none;
   pointer-events: auto;
-<<<<<<< HEAD
   transform: translate3d(var(--neura-jitter-x, 0), var(--neura-jitter-y, 0), 0);
   transition: filter 160ms ease;
-=======
->>>>>>> NEURA_{feature}
 }
 
 .neura-sprite-pad:active {
   cursor: grabbing;
 }
 
-<<<<<<< HEAD
 .neura-sprite-pad:hover,
 .neura-sprite-pad.active {
   border-color: transparent;
@@ -901,12 +771,6 @@ button:disabled {
 .neura-sprite-pad:focus-visible {
   outline: none;
   box-shadow: none;
-=======
-.neura-sprite-pad:focus-visible {
-  outline: 2px solid var(--line-cyan);
-  outline-offset: -10px;
-  box-shadow: 0 0 18px rgba(57, 255, 224, 0.45);
->>>>>>> NEURA_{feature}
 }
 
 .neura-sprite {
@@ -921,7 +785,6 @@ button:disabled {
   image-rendering: crisp-edges;
   image-rendering: pixelated;
   animation: neura-atlas var(--neura-duration) steps(var(--neura-frames)) infinite;
-<<<<<<< HEAD
   animation-delay: calc(var(--neura-render-delay, 0ms) * -1);
   transform: translateX(var(--neura-eye-drift-x, 0));
   filter: drop-shadow(0 0 10px rgba(255, 46, 221, 0.36)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.42));
@@ -959,9 +822,6 @@ button:disabled {
 .neura-power-3 .neura-sprite-pad,
 .neura-power-4 .neura-sprite-pad {
   filter: drop-shadow(0 0 16px rgba(57, 255, 224, 0.26));
-=======
-  filter: drop-shadow(0 0 10px rgba(255, 46, 221, 0.36)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.42));
->>>>>>> NEURA_{feature}
 }
 
 .neura-jumping .neura-sprite {
@@ -974,7 +834,6 @@ button:disabled {
 
 .neura-review .neura-sprite {
   filter: drop-shadow(0 0 12px rgba(57, 255, 224, 0.5)) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.42));
-<<<<<<< HEAD
 }
 
 .neura-echo {
@@ -1056,8 +915,6 @@ button:disabled {
   min-height: 28px;
   padding: 0 9px;
   font-size: 12px;
-=======
->>>>>>> NEURA_{feature}
 }
 
 .stage-screen,
@@ -1066,17 +923,11 @@ button:disabled {
   min-height: 100vh;
   padding: 28px;
   background:
-<<<<<<< HEAD
     repeating-linear-gradient(0deg, rgba(0, 215, 239, 0.025) 0 1px, transparent 1px 6px),
     repeating-linear-gradient(90deg, rgba(255, 33, 200, 0.03) 0 1px, transparent 1px 88px),
     radial-gradient(circle at 50% 10%, rgba(255, 33, 200, 0.14), transparent 28%),
     radial-gradient(circle at 83% 66%, rgba(0, 215, 239, 0.09), transparent 28%),
     linear-gradient(135deg, #020006, #05020d 50%, #021016);
-=======
-    radial-gradient(circle at 50% 10%, rgba(255, 46, 221, 0.16), transparent 28%),
-    radial-gradient(circle at 83% 66%, rgba(57, 255, 224, 0.09), transparent 28%),
-    linear-gradient(135deg, #090316, #120721 50%, #031516);
->>>>>>> NEURA_{feature}
 }
 
 .stage-header {
@@ -1086,13 +937,10 @@ button:disabled {
   gap: 10px 16px;
   margin-bottom: 14px;
   min-height: 34px;
-<<<<<<< HEAD
   padding: 10px;
   border: 1px solid rgba(255, 33, 200, 0.44);
   background: rgba(3, 2, 10, 0.86);
   box-shadow: var(--shadow-pink);
-=======
->>>>>>> NEURA_{feature}
 }
 
 .stage-header strong {
@@ -1213,7 +1061,6 @@ button:disabled {
   height: clamp(82px, 12vh, 126px);
   margin: 0 auto 12px;
   padding: 12px;
-<<<<<<< HEAD
   border: 1px solid var(--accent-pink);
   border-radius: var(--radius-panel);
   background:
@@ -1221,14 +1068,6 @@ button:disabled {
     linear-gradient(180deg, rgba(255, 33, 200, 0.14), rgba(0, 215, 239, 0.07)),
     #02070e;
   box-shadow: inset 0 0 24px rgba(0, 215, 239, 0.08), var(--shadow-pink);
-=======
-  border: 1px solid var(--line-purple);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgba(141, 65, 255, 0.18), rgba(57, 255, 224, 0.08)),
-    #08040f;
-  box-shadow: inset 0 0 24px rgba(57, 255, 224, 0.06);
->>>>>>> NEURA_{feature}
 }
 
 .vocal-waveform {
@@ -1261,17 +1100,11 @@ button:disabled {
 
 .rhythm-hud div,
 .rhythm-counters span {
-<<<<<<< HEAD
   border: 1px solid rgba(0, 215, 239, 0.35);
   border-radius: var(--radius-panel);
   background:
     linear-gradient(90deg, rgba(0, 215, 239, 0.08), transparent),
     rgba(2, 7, 14, 0.82);
-=======
-  border: 1px solid var(--line-soft);
-  border-radius: 6px;
-  background: rgba(7, 11, 19, 0.72);
->>>>>>> NEURA_{feature}
   padding: 10px;
   box-shadow: inset 0 0 14px rgba(57, 255, 224, 0.04);
 }
@@ -1292,15 +1125,9 @@ button:disabled {
   width: 220px;
   min-height: 34px;
   margin: 0 auto 12px;
-<<<<<<< HEAD
   border: 1px solid var(--accent-pink);
   border-radius: var(--radius-panel);
   background: rgba(2, 7, 14, 0.88);
-=======
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  background: rgba(7, 11, 19, 0.78);
->>>>>>> NEURA_{feature}
   color: var(--text-soft);
   display: grid;
   place-items: center;
@@ -1350,11 +1177,7 @@ button:disabled {
   position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
-<<<<<<< HEAD
   gap: 14px;
-=======
-  gap: 18px;
->>>>>>> NEURA_{feature}
   height: clamp(360px, 54vh, 560px);
   max-width: 1040px;
   margin: 0 auto 12px;
@@ -1362,19 +1185,11 @@ button:disabled {
 
 .lane {
   position: relative;
-<<<<<<< HEAD
   border: 1px solid rgba(0, 215, 239, 0.54);
   border-radius: var(--radius-panel);
   background:
     linear-gradient(to bottom, rgba(0, 215, 239, 0.11), rgba(255, 33, 200, 0.06)),
     repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 34px);
-=======
-  border: 1px solid rgba(57, 255, 224, 0.6);
-  border-radius: 7px;
-  background:
-    linear-gradient(to bottom, rgba(57, 255, 224, 0.12), rgba(255, 46, 136, 0.06)),
-    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 34px);
->>>>>>> NEURA_{feature}
   cursor: pointer;
   overflow: hidden;
   box-shadow: inset 0 0 22px rgba(57, 255, 224, 0.05);
@@ -1385,7 +1200,6 @@ button:disabled {
   box-shadow:
     inset 0 0 28px rgba(255, 223, 110, 0.18),
     0 0 18px rgba(255, 223, 110, 0.2);
-<<<<<<< HEAD
 }
 
 .note.hit-note {
@@ -1402,8 +1216,6 @@ button:disabled {
 
 .note.hit-note.hit-note-good {
   box-shadow: 0 0 30px rgba(255, 255, 255, 0.98), 0 0 56px rgba(255, 255, 255, 0.72), 0 0 84px rgba(255, 255, 255, 0.48);
-=======
->>>>>>> NEURA_{feature}
 }
 
 .note {
@@ -1639,27 +1451,18 @@ button:disabled {
 .results-panel {
   width: min(640px, calc(100vw - 40px));
   padding: 24px;
-<<<<<<< HEAD
   border: 1px solid var(--accent-pink);
   border-radius: var(--radius-panel);
   background:
     repeating-linear-gradient(to bottom, rgba(0, 215, 239, 0.035) 0 1px, transparent 1px 7px),
     linear-gradient(180deg, rgba(6, 8, 18, 0.98), rgba(5, 2, 13, 0.98)),
     #05020d;
-=======
-  border: 1px solid var(--line-cyan);
-  border-radius: var(--radius-panel);
-  background:
-    linear-gradient(180deg, rgba(12, 18, 32, 0.98), rgba(8, 8, 20, 0.98)),
-    #0b111d;
->>>>>>> NEURA_{feature}
   box-shadow: var(--shadow-focus);
 }
 
 .webcam-window {
   position: fixed;
   z-index: 14;
-<<<<<<< HEAD
   width: 392px;
 }
 
@@ -1781,39 +1584,6 @@ button:disabled {
 }
 
 .cybek-webcam-debug {
-=======
-  border: 2px solid var(--line-purple);
-  border-radius: var(--radius-panel);
-  overflow: hidden;
-  box-shadow: var(--shadow-pink);
-}
-
-.webcam-title {
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  background: #120620;
-  color: var(--accent-pink);
-  font-size: 12px;
-}
-
-.webcam-title span {
-  color: var(--line-cyan);
-}
-
-.webcam-feed {
-  position: relative;
-  height: 136px;
-  background:
-    radial-gradient(circle at 80% 20%, rgba(255, 46, 221, 0.28), transparent 28%),
-    linear-gradient(135deg, #130824, #050813);
-}
-
-.webcam-feed::before {
-  content: "USTNIK SHOW";
->>>>>>> NEURA_{feature}
   position: absolute;
   left: 8px;
   right: 8px;
@@ -2258,13 +2028,10 @@ button:disabled {
   .window {
     width: min(620px, calc(100vw - 430px));
   }
-<<<<<<< HEAD
 
   .webcam-window {
     width: 392px;
   }
-=======
->>>>>>> NEURA_{feature}
 }
 
 @media (max-width: 1100px) {
@@ -2297,7 +2064,6 @@ button:disabled {
     display: none;
   }
 
-<<<<<<< HEAD
   .core-loop-strip {
     left: 300px;
     right: 18px;
@@ -2347,154 +2113,6 @@ button:disabled {
   .beatmap-editor .editor-panel:last-child {
     grid-column: 1 / -1;
     max-height: 190px;
-=======
-  .webcam {
-    left: auto;
-    right: 18px;
-    transform: scale(0.82);
-    transform-origin: top right;
->>>>>>> NEURA_{feature}
-  }
-
-  .neura {
-    transform: scale(0.86);
-    transform-origin: center;
-  }
-
-  .stage-screen {
-    padding: 18px;
-  }
-
-  .rhythm-hud,
-  .rhythm-counters {
-    grid-template-columns: repeat(2, minmax(130px, 1fr));
-  }
-
-  .lanes,
-  .beatmap-editor-lanes {
-    gap: 10px;
-  }
-
-  .beatmap-editor {
-    grid-template-columns: 250px minmax(420px, 1fr);
-    grid-template-rows: 1fr auto;
-  }
-
-  .beatmap-editor .editor-panel:last-child {
-    grid-column: 1 / -1;
-    max-height: 190px;
-  }
-}
-
-@media (max-width: 900px) {
-  body {
-    overflow: auto;
-  }
-
-  .desktop,
-  .stage-screen,
-  .results-screen,
-  .beatmap-editor {
-    min-height: 100vh;
-    height: auto;
-    overflow: auto;
-  }
-
-  .topbar {
-    position: absolute;
-  }
-
-  .webcam,
-  .neura {
-    display: none;
-  }
-
-  .desktop {
-    border-radius: 28px;
-    padding-top: 62px;
-  }
-
-  .window {
-    position: relative;
-    left: auto !important;
-    top: auto !important;
-    width: 100%;
-    min-height: 420px;
-    margin-top: 18px;
-  }
-
-  .stage-header strong {
-    max-width: 100%;
-  }
-
-  .rhythm-hud,
-  .rhythm-counters,
-  .score-details,
-  .remix-comparison div {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .lanes,
-  .beatmap-editor-lanes {
-    grid-template-columns: repeat(4, minmax(72px, 1fr));
-    height: 430px;
-    gap: 8px;
-  }
-
-  .lane kbd,
-  .lane-key {
-    min-width: 42px;
-    padding: 7px;
-    font-size: 18px;
-  }
-
-  .beatmap-editor {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-  }
-
-  .beatmap-editor .editor-panel:last-child {
-    grid-column: auto;
-    max-height: none;
-  }
-}
-
-@media (max-height: 760px) {
-  .stage-screen {
-    padding-block: 14px;
-  }
-
-  .vocal-map {
-    display: none;
-  }
-
-  .lanes,
-  .beatmap-editor-lanes {
-    height: clamp(320px, 50vh, 460px);
-  }
-
-  .rhythm-hud div,
-  .rhythm-counters span {
-    padding: 7px 9px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-
-  .ghost {
-    animation: none;
-  }
-
-  .neura {
-    transition: none;
   }
 }
 
