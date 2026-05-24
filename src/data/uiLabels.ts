@@ -10,6 +10,12 @@ export const windowLabels = {
   create: 'Ustno.ai Utwórz',
   me: 'Ustno.ai Me',
   player: 'Annihilation player.exe',
+  event: 'Event / Dialogi fabularne',
+  ustniki: 'Ustniki / Challenge',
+  titleHub: 'title.sys / Ekran tytułowy',
+  hiddenLab: 'Lab / Ukryte',
+  hiddenArchive: 'Archiwum / Ukryte',
+  hiddenBroadcast: 'Broadcast / Ukryte',
 };
 
 export const addresses = {
@@ -21,6 +27,9 @@ export const iconLabels = {
   messenger: 'Messenger',
   create: 'Ustno.ai Utwórz',
   me: 'Ustno.ai Me',
+  event: 'Event',
+  ustniki: 'Ustniki',
+  titleHub: 'title.sys',
   todo: 'todo.tmp',
   publishedFilePrefix: 'plik',
 };
@@ -29,6 +38,9 @@ export const iconSymbols = {
   messenger: 'MSG',
   create: 'AI+',
   me: 'ME',
+  event: 'EVT',
+  ustniki: 'UST',
+  titleHub: 'TTL',
   todo: 'TXT',
   publishedFile: 'MP3',
 };
@@ -94,6 +106,26 @@ export const placeholderLabels = {
   currentDraft: 'obecny draft',
   newTake: 'nowa próba',
   accuracyDelta: 'zmiana',
+  titleScreenSubtitle: 'Ustnik 2.0 The Show - The Game',
+  titleScreenStatus: 'prototyp / warstwa tytułowa',
+  titleScreenStart: 'Przejdź do bootowania',
+  titleHubHint: 'To okno uruchamia ponownie sekwencję startową bez resetowania zapisu.',
+  eventWindowStatus: 'Status: WIP',
+  eventWindowEntries: [
+    'Neura: sygnał z czatu zaczyna przebijać ambient.',
+    'Cybek: draft gotowy, ale timing dalej na granicy.',
+    'Paweł: zostaw szkic, nie wygładzaj za wcześnie.',
+    'System: wykryto wzrost presji społecznej.',
+    'Narrator: przygotować most do finalnej sceny.',
+  ],
+  ustnikiWindowStatus: 'Tryb challenge: placeholder',
+  ustnikiChallenges: [
+    'Mirror Run / brak pomyłek przez 30 sekund',
+    'Low Pressure / utrzymaj presję czatu poniżej 25',
+    'No Spam / zero pustych kliknięć',
+    'Combo Rail / combo x20 bez przerwy',
+  ],
+  hiddenWindowHint: 'Ukryte okno developerskie. Wersja robocza, bez aktywnej logiki.',
 };
 
 export const comparisonLabels = {

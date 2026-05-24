@@ -94,8 +94,9 @@ import type {
   Track,
 } from './types';
 
-type WindowId = 'messenger' | 'create' | 'me' | 'player' | null;
-type Screen = 'boot' | 'desktop' | 'rhythm' | 'results' | 'editor';
+type WindowId = 'messenger' | 'create' | 'me' | 'player' | 'event' | 'ustniki' | 'titleHub' | null;
+type HiddenWindowId = 'lab' | 'archive' | 'broadcast';
+type Screen = 'title' | 'boot' | 'desktop' | 'rhythm' | 'results' | 'editor';
 type Point = { x: number; y: number };
 type HitFeedback = {
   id: number;
@@ -117,6 +118,7 @@ const BOOT_SKIP_AFTER_MS = 1000;
 const NEURA_COMMENT_INTERVAL_MS = 27500;
 const NEURA_STORY_BEAT_INTERVAL_MS = 41000;
 const NEURA_LOW_FX_STORAGE_KEY = 'ustnik.neura.lowFxMode';
+const ENABLE_HIDDEN_WINDOWS = false;
 const RHYTHM_TAP_SFX_SOURCES = [
   assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing00.mp3'),
   assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing01.mp3'),
@@ -163,9 +165,11 @@ type RhythmPhase = 'loading' | 'countdown' | 'playing';
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
+  const shouldStartInEditor = window.location.hash === '#editor';
   const [activeWindow, setActiveWindow] = useState<WindowId>('messenger');
-  const initialScreenRef = useRef<Screen>(window.location.hash === '#editor' ? 'editor' : 'desktop');
-  const [screen, setScreen] = useState<Screen>('boot');
+  const initialScreenRef = useRef<Screen>(shouldStartInEditor ? 'editor' : 'desktop');
+  const [screen, setScreen] = useState<Screen>(shouldStartInEditor ? 'editor' : 'title');
+  const [activeHiddenWindow, setActiveHiddenWindow] = useState<HiddenWindowId | null>(null);
   const [bootElapsedMs, setBootElapsedMs] = useState(0);
   const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
   const [result, setResult] = useState<PerformanceResult | null>(null);
@@ -198,15 +202,22 @@ export default function App() {
     }),
     [gameState, lastNeuraEventId, neuraDebugOverride, neuraEventLog, neuraLowFxMode],
   );
+  const tutorialWindow = activeWindow === 'messenger'
+    || activeWindow === 'create'
+    || activeWindow === 'me'
+    || activeWindow === 'player'
+    ? activeWindow
+    : null;
+  const tutorialScreen = screen === 'title' ? 'boot' : screen;
   const neuraTutorialStep = useMemo(
     () => getNeuraTutorialStep({
       gameState,
-      screen,
-      activeWindow,
+      screen: tutorialScreen,
+      activeWindow: tutorialWindow,
       messengerTab,
       runMode: activeRun?.mode ?? null,
     }),
-    [activeRun?.mode, activeWindow, gameState, messengerTab, screen],
+    [activeRun?.mode, gameState, messengerTab, tutorialScreen, tutorialWindow],
   );
   const soundscape = useSoundscape(neuraPresence);
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
@@ -214,6 +225,9 @@ export default function App() {
     create: { x: 210, y: 116 },
     me: { x: 250, y: 140 },
     player: { x: 300, y: 180 },
+    event: { x: 340, y: 120 },
+    ustniki: { x: 380, y: 152 },
+    titleHub: { x: 420, y: 184 },
   });
   const [overlayPositions, setOverlayPositions] = useState<Record<OverlayId, Point>>({
     webcam: getDefaultWebcamPosition(),
@@ -339,10 +353,40 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!ENABLE_HIDDEN_WINDOWS) {
+      delete window.openHiddenWindow;
+      return;
+    }
+
+    window.openHiddenWindow = (windowId: HiddenWindowId) => {
+      setActiveHiddenWindow(windowId);
+    };
+
+    return () => {
+      delete window.openHiddenWindow;
+    };
+  }, []);
+
+  const startBootFromTitle = useCallback(() => {
+    setBootElapsedMs(0);
+    setScreen('boot');
+  }, []);
+
+  useEffect(() => {
     setIsTutorialDismissed(false);
   }, [neuraTutorialStep?.id]);
 
   useEffect(() => {
+    if (screen === 'title') {
+      window.render_game_to_text = () =>
+        JSON.stringify({
+          screen: 'title',
+          nextScreen: 'boot',
+        });
+      window.advanceTime = () => undefined;
+      return;
+    }
+
     if (screen === 'boot') {
       const bootProgress = getBootProgress(bootElapsedMs);
       window.render_game_to_text = () =>
@@ -664,9 +708,10 @@ export default function App() {
     setLastDialogueEventId(null);
     setNeuraVoiceDirectorDebug('');
     setActiveWindow('messenger');
+    setActiveHiddenWindow(null);
     setBootElapsedMs(0);
     initialScreenRef.current = 'desktop';
-    setScreen('boot');
+    setScreen('title');
     setActiveRun(null);
     setResult(null);
     setSelectedPublishedId(null);
@@ -693,6 +738,10 @@ export default function App() {
         onExit={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
       />
     );
+  }
+
+  if (screen === 'title') {
+    return <TitleScreen onStart={startBootFromTitle} />;
   }
 
   if (screen === 'boot') {
@@ -756,6 +805,9 @@ export default function App() {
         <DesktopIcon label={iconLabels.messenger} symbol={iconSymbols.messenger} onClick={() => setActiveWindow('messenger')} />
         <DesktopIcon label={iconLabels.create} symbol={iconSymbols.create} onClick={() => setActiveWindow('create')} />
         <DesktopIcon label={iconLabels.me} symbol={iconSymbols.me} onClick={() => setActiveWindow('me')} />
+        <DesktopIcon label={iconLabels.event} symbol={iconSymbols.event} onClick={() => setActiveWindow('event')} />
+        <DesktopIcon label={iconLabels.ustniki} symbol={iconSymbols.ustniki} onClick={() => setActiveWindow('ustniki')} />
+        <DesktopIcon label={iconLabels.titleHub} symbol={iconSymbols.titleHub} onClick={() => setActiveWindow('titleHub')} />
         <DesktopIcon label={iconLabels.todo} symbol={iconSymbols.todo} onClick={() => setIsTodoVisible((current) => !current)} muted />
         {gameState.publishedTracks.map((published) => (
           <DesktopIcon
@@ -921,6 +973,59 @@ export default function App() {
           />
         </Window>
       )}
+
+      {activeWindow === 'event' && (
+        <Window
+          title={windowLabels.event}
+          position={windowPositions.event}
+          onMove={(position) => setWindowPositions((state) => ({ ...state, event: position }))}
+          onClose={() => setActiveWindow(null)}
+        >
+          <EventWindow />
+        </Window>
+      )}
+
+      {activeWindow === 'ustniki' && (
+        <Window
+          title={windowLabels.ustniki}
+          position={windowPositions.ustniki}
+          onMove={(position) => setWindowPositions((state) => ({ ...state, ustniki: position }))}
+          onClose={() => setActiveWindow(null)}
+        >
+          <UstnikiWindow />
+        </Window>
+      )}
+
+      {activeWindow === 'titleHub' && (
+        <Window
+          title={windowLabels.titleHub}
+          position={windowPositions.titleHub}
+          onMove={(position) => setWindowPositions((state) => ({ ...state, titleHub: position }))}
+          onClose={() => setActiveWindow(null)}
+        >
+          <TitleHubWindow onReboot={() => {
+            setActiveWindow(null);
+            setScreen('title');
+          }}
+          />
+        </Window>
+      )}
+
+      {ENABLE_HIDDEN_WINDOWS && activeHiddenWindow === 'lab' && (
+        <Window title={windowLabels.hiddenLab} position={windowPositions.event} onMove={() => undefined} onClose={() => setActiveHiddenWindow(null)}>
+          <HiddenWindowShell title={windowLabels.hiddenLab} />
+        </Window>
+      )}
+      {ENABLE_HIDDEN_WINDOWS && activeHiddenWindow === 'archive' && (
+        <Window title={windowLabels.hiddenArchive} position={windowPositions.ustniki} onMove={() => undefined} onClose={() => setActiveHiddenWindow(null)}>
+          <HiddenWindowShell title={windowLabels.hiddenArchive} />
+        </Window>
+      )}
+      {ENABLE_HIDDEN_WINDOWS && activeHiddenWindow === 'broadcast' && (
+        <Window title={windowLabels.hiddenBroadcast} position={windowPositions.titleHub} onMove={() => undefined} onClose={() => setActiveHiddenWindow(null)}>
+          <HiddenWindowShell title={windowLabels.hiddenBroadcast} />
+        </Window>
+      )}
     </main>
   );
 }
@@ -1014,6 +1119,26 @@ function DesktopIcon({
       <span>{symbol}</span>
       {label}
     </button>
+  );
+}
+
+function TitleScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <main className="boot-screen">
+      <div className="boot-scanlines" />
+      <section className="boot-terminal" aria-label="Cybek OS title">
+        <h1>Cybek OS / title.sys</h1>
+        <p className="boot-subtitle">{placeholderLabels.titleScreenSubtitle}</p>
+        <div className="boot-log">
+          <p><span>&gt; [SYS]</span> {placeholderLabels.titleScreenStatus}</p>
+          <p><span>&gt; [SYS]</span> build: placeholder-window-pass</p>
+        </div>
+        <footer className="boot-footer">
+          <strong>Warstwa tytułowa aktywna.</strong>
+          <button className="result-primary" onClick={onStart}>{placeholderLabels.titleScreenStart}</button>
+        </footer>
+      </section>
+    </main>
   );
 }
 
@@ -2161,6 +2286,47 @@ function StatsPanel({ stats }: { stats: GameState['stats'] }) {
   );
 }
 
+function EventWindow() {
+  return (
+    <div className="window-list">
+      <strong>{placeholderLabels.eventWindowStatus}</strong>
+      {placeholderLabels.eventWindowEntries.map((entry) => (
+        <p key={entry}>{entry}</p>
+      ))}
+    </div>
+  );
+}
+
+function UstnikiWindow() {
+  return (
+    <div className="window-list">
+      <strong>{placeholderLabels.ustnikiWindowStatus}</strong>
+      {placeholderLabels.ustnikiChallenges.map((challenge) => (
+        <p key={challenge}>{challenge} / wkrótce</p>
+      ))}
+    </div>
+  );
+}
+
+function TitleHubWindow({ onReboot }: { onReboot: () => void }) {
+  return (
+    <div className="window-list">
+      <strong>{windowLabels.titleHub}</strong>
+      <p>{placeholderLabels.titleHubHint}</p>
+      <button className="result-primary" onClick={onReboot}>{placeholderLabels.titleScreenStart}</button>
+    </div>
+  );
+}
+
+function HiddenWindowShell({ title }: { title: string }) {
+  return (
+    <div className="window-list">
+      <strong>{title}</strong>
+      <p>{placeholderLabels.hiddenWindowHint}</p>
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="stat">
@@ -2333,6 +2499,7 @@ declare global {
   interface Window {
     render_game_to_text?: () => string;
     advanceTime?: (ms: number) => void;
+    openHiddenWindow?: (windowId: HiddenWindowId) => void;
     webkitAudioContext?: typeof AudioContext;
   }
 }
