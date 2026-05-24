@@ -1,16 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent } from 'react';
 import type { NeuraTutorialStep } from './tutorialGuide.ts';
+
+type Point = { x: number; y: number };
 
 type NeuraTutorialGuideProps = {
   step: NeuraTutorialStep | null;
   onOpenTarget?: (step: NeuraTutorialStep) => void;
+  dragEnabled: boolean;
+  position: Point;
+  onMove: (position: Point) => void;
+  onClose: () => void;
 };
 
-export function NeuraTutorialGuide({ step, onOpenTarget }: NeuraTutorialGuideProps) {
+export function NeuraTutorialGuide({
+  step,
+  onOpenTarget,
+  dragEnabled,
+  position,
+  onMove,
+  onClose,
+}: NeuraTutorialGuideProps) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voicesVersion, setVoicesVersion] = useState(0);
   const lastSpokenStepIdRef = useRef<string | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; origin: Point } | null>(null);
   const canSpeak = canUseSpeechSynthesis();
   const voices = useMemo(
     () => (canSpeak ? window.speechSynthesis.getVoices() : []),
@@ -65,11 +80,49 @@ export function NeuraTutorialGuide({ step, onOpenTarget }: NeuraTutorialGuidePro
 
   const voiceLabel = voiceEnabled ? 'Wyłącz głos' : 'Włącz głos';
 
+  function beginDrag(event: PointerEvent<HTMLElement>) {
+    if (!dragEnabled) return;
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select')) return;
+    dragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: position,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function drag(event: PointerEvent<HTMLElement>) {
+    if (!dragRef.current || !dragEnabled) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const minX = 8;
+    const minY = 8;
+    const maxX = Math.max(minX, window.innerWidth - rect.width - 8);
+    const maxY = Math.max(minY, window.innerHeight - rect.height - 8);
+    onMove({
+      x: Math.max(minX, Math.min(maxX, dragRef.current.origin.x + event.clientX - dragRef.current.startX)),
+      y: Math.max(minY, Math.min(maxY, dragRef.current.origin.y + event.clientY - dragRef.current.startY)),
+    });
+  }
+
+  function endDrag() {
+    dragRef.current = null;
+  }
+
   return (
-    <aside className="neura-tutorial" aria-label="Samouczek Neury" aria-live="polite">
+    <aside
+      className={`neura-tutorial overlay-draggable ${dragEnabled ? 'drag-enabled' : ''}`}
+      aria-label="Samouczek Neury"
+      aria-live="polite"
+      style={{ left: position.x, top: position.y }}
+      onPointerDown={beginDrag}
+      onPointerMove={drag}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
       <div className="neura-tutorial-head">
         <strong>Neura prowadzi</strong>
         <span>Krok {step.order}/{step.total}</span>
+        <button type="button" onClick={onClose} aria-label="Zamknij tutorial">x</button>
       </div>
       <h2>{step.title}</h2>
       <p>{step.text}</p>

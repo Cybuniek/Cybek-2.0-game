@@ -188,8 +188,67 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 - Beatmapy generowane są losowe, ale stabilne dla danego utworu, BPM-u, długości audio, poziomu i seeda.
 - Remix kumuluje progres tieru jakości zamiast zaczynać każdą próbę od zera.
 - Player opublikowanego utworu odtwarza scalony plik audio. Głos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
-- Neura korzysta z atlasu `public/pets/neura/spritesheet.webp` i dziala jako niezalezny, przeciagalny awatar nad pulpitem. WebCam Cybka pozostaje prosta figura CSS.
+- Neura korzysta z atlasu `public/pets/neura/spritesheet.webp` i dziala jako niezalezny, przeciagalny awatar nad pulpitem. WebCam Cybka jest manifestowym rendererem warstwowym opisanym nizej.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
+
+## Cybek WebCam 2026-05-24
+
+WebCam Cybka nie uzywa juz jednego plaskiego spritesheetu w runtime. System laduje katalog animacji z `public/pets/cybek-webcam/<nazwa>/` i sklada obraz z warstw opisanych w `manifest.json`.
+
+Root `public/pets/cybek-webcam/animations.json` wskazuje:
+
+- `defaultAnimation` - domyslna animacja,
+- `idleVariants` - warianty bezczynnosci zmieniane cyklicznie,
+- `eventMap` - mapowanie zdarzen aplikacji na animacje, np. `rhythm -> work`.
+
+Minimalny katalog animacji ma taka strukture:
+
+```txt
+public/pets/cybek-webcam/idle/
+  background.png
+  cybek.png
+  desk-keyboard.png
+  hands.png
+  crt-fx.png
+  frame.png
+  manifest.json
+```
+
+Kolejnosc warstw w rendererze:
+
+1. `background`
+2. `cybek`
+3. `desk-keyboard`
+4. `hands`
+5. `crt-fx`
+6. `frame`
+
+Warstwa statyczna jest zwyklym PNG o wymiarze `frameWidth x frameHeight`. Warstwa animowana jest paskiem klatek: szerokosc pliku musi wynosic `frameWidth * frames`, a wysokosc `frameHeight`. Renderer przesuwa pasek klatek przez `transform`, korzystajac z jednej wspolnej klatki dla wszystkich animowanych warstw danego manifestu.
+
+Od migracji kwadratowego webcam z 2026-05-24 runtime assetow uzywamy kontraktu `320x320`. Animowane paski maja `2560x320` przy 8 klatkach, a stare wersje `320x240` sa zachowane w `_legacy` wewnatrz katalogow animacji. Nowe warstwy zostaly wyprowadzone z `public/pets/cybek-webcam/TEMPLATE/`, bez uzywania poprzednich runtime placeholderow jako zrodla.
+
+Przyklad manifestu:
+
+```json
+{
+  "name": "idle",
+  "frameWidth": 320,
+  "frameHeight": 320,
+  "frames": 8,
+  "fps": 8,
+  "loop": true,
+  "layers": [
+    { "id": "background", "file": "background.png", "animated": false },
+    { "id": "cybek", "file": "cybek.png", "animated": true },
+    { "id": "desk-keyboard", "file": "desk-keyboard.png", "animated": false },
+    { "id": "hands", "file": "hands.png", "animated": true, "variant": "normal" },
+    { "id": "crt-fx", "file": "crt-fx.png", "animated": true },
+    { "id": "frame", "file": "frame.png", "animated": false }
+  ]
+}
+```
+
+Fallbacki sa celowo lagodne: brak `animations.json`, brak manifestu lub niepoprawne wymiary wypisuja ostrzezenie i probuja wrocic do `idle`. Brak pojedynczej warstwy nie wysypuje aplikacji; warstwa jest pomijana, a w oknie webcam pojawia sie maly debug label.
 
 ## UI polish 2026-05-17
 

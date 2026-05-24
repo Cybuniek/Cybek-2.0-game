@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { neuraVoiceLines as legacyNeuraVoiceLines } from '../src/data/neuraVoiceLines.ts';
 import { neuraVoiceLinesV2 } from '../src/data/dialogue/neuraVoiceLines.ts';
 
-const ELEVENLABS_VOICE_ID = 'Zv1ztCl7Qbbb5F07Yrud';
-const ELEVENLABS_MODEL_ID = 'eleven_v3';
+const DEFAULT_ELEVENLABS_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL';
+const DEFAULT_ELEVENLABS_MODEL_ID = 'eleven_v3';
 const LANGUAGE_CODE = 'pl';
 const VOICE_OUTPUTS = {
   opus: {
@@ -88,9 +88,12 @@ async function generateVoiceLine(
 ) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error('Brak ELEVENLABS_API_KEY w środowisku albo .env.local.');
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || DEFAULT_ELEVENLABS_VOICE_ID;
+  const modelId = process.env.ELEVENLABS_MODEL_ID || DEFAULT_ELEVENLABS_MODEL_ID;
+  console.log(`voice request: ${line.id} / model=${modelId} / voice=${voiceId} / tag=${line.styleTag}`);
 
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}?output_format=${output.outputFormat}`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=${output.outputFormat}`,
     {
       method: 'POST',
       headers: {
@@ -99,7 +102,7 @@ async function generateVoiceLine(
       },
       body: JSON.stringify({
         text: `${line.styleTag} ${line.text}`,
-        model_id: ELEVENLABS_MODEL_ID,
+        model_id: modelId,
         language_code: LANGUAGE_CODE,
         voice_settings: {
           stability: 0.35,

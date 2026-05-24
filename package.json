@@ -19,6 +19,9 @@
     "voice:neura:dialogue:dry-run": "node --experimental-strip-types scripts/generate-neura-voices.ts --source dialogue-v2 --phase prologue --from-id prologue-003-cache --dry-run",
     "voice:neura:dialogue": "node --experimental-strip-types scripts/generate-neura-voices.ts --source dialogue-v2 --phase prologue --from-id prologue-003-cache",
     "voice:neura:dialogue:with-fallback": "node --experimental-strip-types scripts/generate-neura-voices.ts --source dialogue-v2 --phase prologue --from-id prologue-003-cache --with-fallback",
+    "voice:neura:auto:dry-run": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/voice-neura-auto.ps1 -DryRun",
+    "voice:neura:auto": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/voice-neura-auto.ps1",
+    "voice:neura:auto:force": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/voice-neura-auto.ps1 -Force",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

@@ -6,6 +6,7 @@ import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/cha
 import { tracks } from './data/tracks';
 import { assetPath } from './assetPaths';
 import { useSoundscape } from './audio/useSoundscape';
+import { CybekWebcam, type CybekWebcamEvent } from './cybekWebcam';
 import { BeatmapEditor } from './editor/BeatmapEditor';
 import { NeuraPet } from './neura/NeuraPet';
 import { NeuraTutorialGuide } from './neura/NeuraTutorialGuide';
@@ -20,7 +21,7 @@ import {
   renderNeuraVoiceDirectorDebug,
 } from './neura/NeuraVoiceDirector';
 import { loadNeuraVoiceDirectorState, saveNeuraVoiceDirectorState } from './neura/neuraVoiceDirectorStorage';
-import { getNeuraTutorialStep, type NeuraTutorialStep } from './neura/tutorialGuide';
+import type { NeuraTutorialStep } from './neura/tutorialGuide';
 import type { NeuraPresenceEventId as DialoguePresenceEventId } from './data/dialogue/dialogueTypes';
 import {
   addUnique,
@@ -93,8 +94,9 @@ import type {
   Track,
 } from './types';
 
-type WindowId = 'messenger' | 'create' | 'me' | 'player' | null;
-type Screen = 'boot' | 'desktop' | 'rhythm' | 'results' | 'editor';
+type WindowId = 'messenger' | 'create' | 'me' | 'player' | 'event' | 'ustniki' | 'titleHub' | null;
+type HiddenWindowId = 'lab' | 'archive' | 'broadcast';
+type Screen = 'title' | 'boot' | 'desktop' | 'rhythm' | 'results' | 'editor';
 type Point = { x: number; y: number };
 type HitFeedback = {
   id: number;
@@ -102,12 +104,21 @@ type HitFeedback = {
   label: string;
   judgement: 'perfect' | 'great' | 'good' | 'miss';
 };
+type OverlayId =
+  | 'webcam'
+  | 'tutorial'
+  | 'stats'
+  | 'todo'
+  | 'identity'
+  | 'neuraDebug'
+  | 'neuraEcho';
 
 const BOOT_DURATION_MS = 4500;
 const BOOT_SKIP_AFTER_MS = 1000;
 const NEURA_COMMENT_INTERVAL_MS = 27500;
 const NEURA_STORY_BEAT_INTERVAL_MS = 41000;
 const NEURA_LOW_FX_STORAGE_KEY = 'ustnik.neura.lowFxMode';
+const ENABLE_HIDDEN_WINDOWS = false;
 const RHYTHM_TAP_SFX_SOURCES = [
   assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing00.mp3'),
   assetPath('audio/sfx/rhythm/SE-tap_note-keyboard_typing01.mp3'),
@@ -154,9 +165,11 @@ type RhythmPhase = 'loading' | 'countdown' | 'playing';
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
+  const shouldStartInEditor = window.location.hash === '#editor';
   const [activeWindow, setActiveWindow] = useState<WindowId>('messenger');
-  const initialScreenRef = useRef<Screen>(window.location.hash === '#editor' ? 'editor' : 'desktop');
-  const [screen, setScreen] = useState<Screen>('boot');
+  const initialScreenRef = useRef<Screen>(shouldStartInEditor ? 'editor' : 'desktop');
+  const [screen, setScreen] = useState<Screen>(shouldStartInEditor ? 'editor' : 'title');
+  const [activeHiddenWindow, setActiveHiddenWindow] = useState<HiddenWindowId | null>(null);
   const [bootElapsedMs, setBootElapsedMs] = useState(0);
   const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
   const [result, setResult] = useState<PerformanceResult | null>(null);
@@ -171,6 +184,9 @@ export default function App() {
     [{ id: 'boot', at: new Date().toISOString() }]
   ));
   const [isNeuraDebugOpen, setIsNeuraDebugOpen] = useState(false);
+  const [isDebugOverlayDragEnabled, setIsDebugOverlayDragEnabled] = useState(false);
+  const [isTodoVisible, setIsTodoVisible] = useState(true);
+  const [isTutorialDismissed, setIsTutorialDismissed] = useState(false);
   const [environmentEcho, setEnvironmentEcho] = useState<{ id: number; text: string } | null>(null);
   const [storyVoiceLineId, setStoryVoiceLineId] = useState<string | null>(null);
   const [lastDialogueEventId, setLastDialogueEventId] = useState<DialoguePresenceEventId | null>(null);
@@ -186,22 +202,26 @@ export default function App() {
     }),
     [gameState, lastNeuraEventId, neuraDebugOverride, neuraEventLog, neuraLowFxMode],
   );
-  const neuraTutorialStep = useMemo(
-    () => getNeuraTutorialStep({
-      gameState,
-      screen,
-      activeWindow,
-      messengerTab,
-      runMode: activeRun?.mode ?? null,
-    }),
-    [activeRun?.mode, activeWindow, gameState, messengerTab, screen],
-  );
+  // Tutorial wyłączony globalnie: panel i wskazówki nie są renderowane.
+  const neuraTutorialStep: NeuraTutorialStep | null = null;
   const soundscape = useSoundscape(neuraPresence);
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
     create: { x: 210, y: 116 },
     me: { x: 250, y: 140 },
     player: { x: 300, y: 180 },
+    event: { x: 340, y: 120 },
+    ustniki: { x: 380, y: 152 },
+    titleHub: { x: 420, y: 184 },
+  });
+  const [overlayPositions, setOverlayPositions] = useState<Record<OverlayId, Point>>({
+    webcam: getDefaultWebcamPosition(),
+    tutorial: { x: 1020, y: 246 },
+    stats: { x: 1000, y: 280 },
+    todo: { x: 1000, y: 458 },
+    identity: { x: 1000, y: 116 },
+    neuraDebug: { x: 24, y: 96 },
+    neuraEcho: { x: 820, y: 42 },
   });
 
   const recordNeuraPresenceEvent = useCallback((eventId: NeuraPresenceEventId) => {
@@ -310,6 +330,7 @@ export default function App() {
       if (event.key !== 'F10') return;
       event.preventDefault();
       setIsNeuraDebugOpen((current) => !current);
+      setIsDebugOverlayDragEnabled((current) => !current);
     }
 
     window.addEventListener('keydown', handleDebugKey);
@@ -317,6 +338,40 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!ENABLE_HIDDEN_WINDOWS) {
+      delete window.openHiddenWindow;
+      return;
+    }
+
+    window.openHiddenWindow = (windowId: HiddenWindowId) => {
+      setActiveHiddenWindow(windowId);
+    };
+
+    return () => {
+      delete window.openHiddenWindow;
+    };
+  }, []);
+
+  const startBootFromTitle = useCallback(() => {
+    setBootElapsedMs(0);
+    setScreen('boot');
+  }, []);
+
+  useEffect(() => {
+    setIsTutorialDismissed(false);
+  }, [neuraTutorialStep?.id]);
+
+  useEffect(() => {
+    if (screen === 'title') {
+      window.render_game_to_text = () =>
+        JSON.stringify({
+          screen: 'title',
+          nextScreen: 'boot',
+        });
+      window.advanceTime = () => undefined;
+      return;
+    }
+
     if (screen === 'boot') {
       const bootProgress = getBootProgress(bootElapsedMs);
       window.render_game_to_text = () =>
@@ -638,9 +693,10 @@ export default function App() {
     setLastDialogueEventId(null);
     setNeuraVoiceDirectorDebug('');
     setActiveWindow('messenger');
+    setActiveHiddenWindow(null);
     setBootElapsedMs(0);
     initialScreenRef.current = 'desktop';
-    setScreen('boot');
+    setScreen('title');
     setActiveRun(null);
     setResult(null);
     setSelectedPublishedId(null);
@@ -657,11 +713,20 @@ export default function App() {
         neuraComment={neuraComments[neuraIndex]}
         neuraPresence={neuraPresence}
         tutorialStep={neuraTutorialStep}
+        overlayDragEnabled={isDebugOverlayDragEnabled}
+        overlayPositions={overlayPositions}
+        onOverlayMove={(overlayId, position) => setOverlayPositions((state) => ({ ...state, [overlayId]: position }))}
+        tutorialDismissed={isTutorialDismissed}
+        onDismissTutorial={() => setIsTutorialDismissed(true)}
         onNeuraPresenceEvent={recordNeuraPresenceEvent}
         onFinish={finishRun}
         onExit={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
       />
     );
+  }
+
+  if (screen === 'title') {
+    return <TitleScreen onStart={startBootFromTitle} />;
   }
 
   if (screen === 'boot') {
@@ -686,6 +751,11 @@ export default function App() {
         neuraComment={neuraComments[neuraIndex]}
         neuraPresence={neuraPresence}
         tutorialStep={neuraTutorialStep}
+        overlayDragEnabled={isDebugOverlayDragEnabled}
+        overlayPositions={overlayPositions}
+        onOverlayMove={(overlayId, position) => setOverlayPositions((state) => ({ ...state, [overlayId]: position }))}
+        tutorialDismissed={isTutorialDismissed}
+        onDismissTutorial={() => setIsTutorialDismissed(true)}
         onNeuraPresenceEvent={recordNeuraPresenceEvent}
         onSave={() => saveInitialDraft('inDrawer')}
         onSendToPawel={() => saveInitialDraft('sentToPawel')}
@@ -720,7 +790,10 @@ export default function App() {
         <DesktopIcon label={iconLabels.messenger} symbol={iconSymbols.messenger} onClick={() => setActiveWindow('messenger')} />
         <DesktopIcon label={iconLabels.create} symbol={iconSymbols.create} onClick={() => setActiveWindow('create')} />
         <DesktopIcon label={iconLabels.me} symbol={iconSymbols.me} onClick={() => setActiveWindow('me')} />
-        <DesktopIcon label={iconLabels.todo} symbol={iconSymbols.todo} onClick={() => setActiveWindow(null)} muted />
+        <DesktopIcon label={iconLabels.event} symbol={iconSymbols.event} onClick={() => setActiveWindow('event')} />
+        <DesktopIcon label={iconLabels.ustniki} symbol={iconSymbols.ustniki} onClick={() => setActiveWindow('ustniki')} />
+        <DesktopIcon label={iconLabels.titleHub} symbol={iconSymbols.titleHub} onClick={() => setActiveWindow('titleHub')} />
+        <DesktopIcon label={iconLabels.todo} symbol={iconSymbols.todo} onClick={() => setIsTodoVisible((current) => !current)} muted />
         {gameState.publishedTracks.map((published) => (
           <DesktopIcon
             key={published.id}
@@ -731,7 +804,26 @@ export default function App() {
         ))}
       </section>
 
-      <StatsPanel stats={gameState.stats} />
+      <DraggableOverlay
+        className="system-identity"
+        position={overlayPositions.identity}
+        onMove={(position) => setOverlayPositions((state) => ({ ...state, identity: position }))}
+        dragEnabled={isDebugOverlayDragEnabled}
+        ariaLabel="Identyfikacja systemu"
+      >
+        <strong>Identyfikacja systemu</strong>
+        <span>retro-future / osobowość Cybek OS</span>
+        <span>sesja: Ustnik online</span>
+      </DraggableOverlay>
+
+      <DraggableOverlay
+        className="stats-panel"
+        position={overlayPositions.stats}
+        onMove={(position) => setOverlayPositions((state) => ({ ...state, stats: position }))}
+        dragEnabled={isDebugOverlayDragEnabled}
+      >
+        <StatsPanel stats={gameState.stats} />
+      </DraggableOverlay>
       <PersistentOverlays
         comment={neuraComments[neuraIndex]}
         presenceState={neuraPresence}
@@ -739,23 +831,65 @@ export default function App() {
         storyVoiceLineId={storyVoiceLineId}
         tutorialStep={neuraTutorialStep}
         onTutorialTarget={focusNeuraTutorialTarget}
+        webcamEvent="idle"
+        dragEnabled={isDebugOverlayDragEnabled}
+        webcamPosition={overlayPositions.webcam}
+        onWebcamMove={(position) => setOverlayPositions((state) => ({ ...state, webcam: position }))}
+        tutorialPosition={overlayPositions.tutorial}
+        onTutorialMove={(position) => setOverlayPositions((state) => ({ ...state, tutorial: position }))}
+        tutorialDismissed={isTutorialDismissed}
+        onTutorialDismiss={() => setIsTutorialDismissed(true)}
       />
-      {environmentEcho && <aside className="neura-echo">{environmentEcho.text}</aside>}
+      {environmentEcho && (
+        <DraggableOverlay
+          className="neura-echo"
+          position={overlayPositions.neuraEcho}
+          onMove={(position) => setOverlayPositions((state) => ({ ...state, neuraEcho: position }))}
+          dragEnabled={isDebugOverlayDragEnabled}
+        >
+          {environmentEcho.text}
+        </DraggableOverlay>
+      )}
       {isNeuraDebugOpen && (
-        <NeuraDebugPanel
-          presenceState={neuraPresence}
-          activeGlitchCount={soundscape.activeGlitchCount}
-          onSetOverride={setNeuraOverride}
-          onToggleLowFx={() => setNeuraLowFxMode(!neuraPresence.lowFxMode)}
-        />
+        <DraggableOverlay
+          className="neura-debug"
+          position={overlayPositions.neuraDebug}
+          onMove={(position) => setOverlayPositions((state) => ({ ...state, neuraDebug: position }))}
+          dragEnabled={isDebugOverlayDragEnabled}
+        >
+          <NeuraDebugPanel
+            presenceState={neuraPresence}
+            activeGlitchCount={soundscape.activeGlitchCount}
+            onSetOverride={setNeuraOverride}
+            onToggleLowFx={() => setNeuraLowFxMode(!neuraPresence.lowFxMode)}
+          />
+        </DraggableOverlay>
       )}
 
-      <aside className="todo-widget">
-        <strong>{placeholderLabels.todoTitle}</strong>
-        {placeholderLabels.todoItems.map((item) => (
-          <span key={item}>{item}</span>
-        ))}
-      </aside>
+      {isTodoVisible && (
+        <DraggableOverlay
+          className="todo-widget"
+          position={overlayPositions.todo}
+          onMove={(position) => setOverlayPositions((state) => ({ ...state, todo: position }))}
+          dragEnabled={isDebugOverlayDragEnabled}
+        >
+          <strong>{placeholderLabels.todoTitle}</strong>
+          {placeholderLabels.todoItems.map((item) => (
+            <span key={item}>{item}</span>
+          ))}
+        </DraggableOverlay>
+      )}
+
+      <section className="core-loop-strip" aria-label="Core loop">
+        <strong>Core loop:</strong>
+        <span>twórz utwór</span>
+        <i aria-hidden="true" />
+        <span>test rytmiczny</span>
+        <i aria-hidden="true" />
+        <span>decyzja</span>
+        <i aria-hidden="true" />
+        <span>szuflada / publikacja / nieudany song</span>
+      </section>
 
       {activeWindow === 'messenger' && (
         <Window
@@ -822,6 +956,59 @@ export default function App() {
             published={selectedPublished}
             track={selectedPublishedTrack}
           />
+        </Window>
+      )}
+
+      {activeWindow === 'event' && (
+        <Window
+          title={windowLabels.event}
+          position={windowPositions.event}
+          onMove={(position) => setWindowPositions((state) => ({ ...state, event: position }))}
+          onClose={() => setActiveWindow(null)}
+        >
+          <EventWindow />
+        </Window>
+      )}
+
+      {activeWindow === 'ustniki' && (
+        <Window
+          title={windowLabels.ustniki}
+          position={windowPositions.ustniki}
+          onMove={(position) => setWindowPositions((state) => ({ ...state, ustniki: position }))}
+          onClose={() => setActiveWindow(null)}
+        >
+          <UstnikiWindow />
+        </Window>
+      )}
+
+      {activeWindow === 'titleHub' && (
+        <Window
+          title={windowLabels.titleHub}
+          position={windowPositions.titleHub}
+          onMove={(position) => setWindowPositions((state) => ({ ...state, titleHub: position }))}
+          onClose={() => setActiveWindow(null)}
+        >
+          <TitleHubWindow onReboot={() => {
+            setActiveWindow(null);
+            setScreen('title');
+          }}
+          />
+        </Window>
+      )}
+
+      {ENABLE_HIDDEN_WINDOWS && activeHiddenWindow === 'lab' && (
+        <Window title={windowLabels.hiddenLab} position={windowPositions.event} onMove={() => undefined} onClose={() => setActiveHiddenWindow(null)}>
+          <HiddenWindowShell title={windowLabels.hiddenLab} />
+        </Window>
+      )}
+      {ENABLE_HIDDEN_WINDOWS && activeHiddenWindow === 'archive' && (
+        <Window title={windowLabels.hiddenArchive} position={windowPositions.ustniki} onMove={() => undefined} onClose={() => setActiveHiddenWindow(null)}>
+          <HiddenWindowShell title={windowLabels.hiddenArchive} />
+        </Window>
+      )}
+      {ENABLE_HIDDEN_WINDOWS && activeHiddenWindow === 'broadcast' && (
+        <Window title={windowLabels.hiddenBroadcast} position={windowPositions.titleHub} onMove={() => undefined} onClose={() => setActiveHiddenWindow(null)}>
+          <HiddenWindowShell title={windowLabels.hiddenBroadcast} />
         </Window>
       )}
     </main>
@@ -920,9 +1107,90 @@ function DesktopIcon({
   );
 }
 
+function TitleScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <main className="boot-screen">
+      <div className="boot-scanlines" />
+      <section className="boot-terminal" aria-label="Cybek OS title">
+        <h1>Cybek OS / title.sys</h1>
+        <p className="boot-subtitle">{placeholderLabels.titleScreenSubtitle}</p>
+        <div className="boot-log">
+          <p><span>&gt; [SYS]</span> {placeholderLabels.titleScreenStatus}</p>
+          <p><span>&gt; [SYS]</span> build: placeholder-window-pass</p>
+        </div>
+        <footer className="boot-footer">
+          <strong>Warstwa tytułowa aktywna.</strong>
+          <button className="result-primary" onClick={onStart}>{placeholderLabels.titleScreenStart}</button>
+        </footer>
+      </section>
+    </main>
+  );
+}
+
+function DraggableOverlay({
+  className,
+  children,
+  position,
+  onMove,
+  dragEnabled,
+  ariaLabel,
+}: {
+  className: string;
+  children: ReactNode;
+  position: Point;
+  onMove: (position: Point) => void;
+  dragEnabled: boolean;
+  ariaLabel?: string;
+}) {
+  const dragRef = useRef<{ startX: number; startY: number; origin: Point } | null>(null);
+
+  function beginDrag(event: PointerEvent<HTMLElement>) {
+    if (!dragEnabled) return;
+    if ((event.target as HTMLElement).closest('button, a, input, textarea, select')) return;
+    dragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: position,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function drag(event: PointerEvent<HTMLElement>) {
+    if (!dragRef.current || !dragEnabled) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const minX = 8;
+    const minY = 8;
+    const maxX = Math.max(minX, window.innerWidth - rect.width - 8);
+    const maxY = Math.max(minY, window.innerHeight - rect.height - 8);
+    onMove({
+      x: Math.max(minX, Math.min(maxX, dragRef.current.origin.x + event.clientX - dragRef.current.startX)),
+      y: Math.max(minY, Math.min(maxY, dragRef.current.origin.y + event.clientY - dragRef.current.startY)),
+    });
+  }
+
+  function endDrag() {
+    dragRef.current = null;
+  }
+
+  return (
+    <aside
+      className={`${className} overlay-draggable ${dragEnabled ? 'drag-enabled' : ''}`}
+      aria-label={ariaLabel}
+      style={{ left: position.x, top: position.y }}
+      onPointerDown={beginDrag}
+      onPointerMove={drag}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      {children}
+    </aside>
+  );
+}
+
 function Window({
   title,
   address,
+  className,
   children,
   position,
   onMove,
@@ -930,10 +1198,11 @@ function Window({
 }: {
   title: string;
   address?: string;
+  className?: string;
   children: ReactNode;
   position: Point;
   onMove: (position: Point) => void;
-  onClose: () => void;
+  onClose?: () => void;
 }) {
   const dragRef = useRef<{ startX: number; startY: number; origin: Point } | null>(null);
 
@@ -949,9 +1218,16 @@ function Window({
 
   function drag(event: PointerEvent<HTMLDivElement>) {
     if (!dragRef.current) return;
+    const windowElement = event.currentTarget.closest('.window');
+    const windowRect = windowElement?.getBoundingClientRect();
+    const windowWidth = windowRect?.width ?? 360;
+    const windowHeight = windowRect?.height ?? 180;
+    const minX = window.innerWidth > 540 ? 120 : 18;
+    const maxX = Math.max(minX, window.innerWidth - windowWidth - 18);
+    const maxY = Math.max(48, window.innerHeight - windowHeight - 18);
     const next = {
-      x: Math.max(120, Math.min(window.innerWidth - 360, dragRef.current.origin.x + event.clientX - dragRef.current.startX)),
-      y: Math.max(48, Math.min(window.innerHeight - 180, dragRef.current.origin.y + event.clientY - dragRef.current.startY)),
+      x: Math.max(minX, Math.min(maxX, dragRef.current.origin.x + event.clientX - dragRef.current.startX)),
+      y: Math.max(48, Math.min(maxY, dragRef.current.origin.y + event.clientY - dragRef.current.startY)),
     };
     onMove(next);
   }
@@ -961,10 +1237,10 @@ function Window({
   }
 
   return (
-    <section className="window" style={{ left: position.x, top: position.y }}>
+    <section className={className ? `window ${className}` : 'window'} style={{ left: position.x, top: position.y }}>
       <div className="window-title" onPointerDown={beginDrag} onPointerMove={drag} onPointerUp={endDrag}>
         <strong>{title}</strong>
-        <button onClick={onClose}>{buttonLabels.close}</button>
+        {onClose && <button onClick={onClose}>{buttonLabels.close}</button>}
       </div>
       {address && <div className="address">{address}</div>}
       <div className="window-body">{children}</div>
@@ -1230,6 +1506,11 @@ function RhythmScreen({
   neuraComment,
   neuraPresence,
   tutorialStep,
+  overlayDragEnabled,
+  overlayPositions,
+  onOverlayMove,
+  tutorialDismissed,
+  onDismissTutorial,
   onNeuraPresenceEvent,
   onFinish,
   onExit,
@@ -1239,6 +1520,11 @@ function RhythmScreen({
   neuraComment: NeuraVoiceLine;
   neuraPresence: ReturnType<typeof createNeuraPresenceState>;
   tutorialStep: NeuraTutorialStep | null;
+  overlayDragEnabled: boolean;
+  overlayPositions: Record<OverlayId, Point>;
+  onOverlayMove: (overlayId: OverlayId, position: Point) => void;
+  tutorialDismissed: boolean;
+  onDismissTutorial: () => void;
   onNeuraPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   onFinish: (summary: RhythmSummary) => void;
   onExit: () => void;
@@ -1669,9 +1955,22 @@ function RhythmScreen({
         aria-label={placeholderLabels.rhythmLanesLabel}
         style={{ '--hit-line': `${RHYTHM_HIT_LINE_PERCENT}%` } as CSSProperties}
       >
-        {RHYTHM_LANES.map((lane) => (
+        {RHYTHM_LANES.map((lane) => {
+          const laneHitFeedback = hitFeedbacks.find((feedback) => feedback.lane === lane);
+          const laneNotes = visibleNotes.filter((note) => note.lane === lane);
+          const closestNoteId = laneNotes
+            .reduce<{ id: string; distance: number } | null>((closest, note) => {
+              const distance = Math.abs(note.yPercent - RHYTHM_HIT_LINE_PERCENT);
+              if (!closest || distance < closest.distance) return { id: note.id, distance };
+              return closest;
+            }, null)
+            ?.id;
+          return (
           <div
-            className={`lane ${session.lastLane === lane ? 'active-lane' : ''}`}
+            className={[
+              'lane',
+              session.lastLane === lane ? 'active-lane' : '',
+            ].filter(Boolean).join(' ')}
             key={lane}
             onPointerDown={(event) => pressPointerLane(event, lane)}
             onPointerUp={(event) => releasePointerLane(event, lane)}
@@ -1679,9 +1978,7 @@ function RhythmScreen({
             role="button"
             tabIndex={0}
           >
-            {visibleNotes
-              .filter((note) => note.lane === lane)
-              .map((note) => {
+            {laneNotes.map((note) => {
                 const kind = getRhythmNoteKind(note);
                 const isLong = kind === 'hold';
                 return (
@@ -1689,6 +1986,9 @@ function RhythmScreen({
                     className={[
                       'note',
                       isLong ? kind : '',
+                      laneHitFeedback && laneHitFeedback.judgement !== 'miss' && note.id === closestNoteId
+                        ? `hit-note hit-note-${laneHitFeedback.judgement}`
+                        : '',
                       note.startedAtMs !== undefined && !note.judged ? 'active-note' : '',
                       note.judgement === 'miss' ? 'missed-note' : '',
                     ].filter(Boolean).join(' ')}
@@ -1711,14 +2011,17 @@ function RhythmScreen({
             {hitFeedbacks
               .filter((feedback) => feedback.lane === lane)
               .map((feedback) => (
-                <span className={`hit-feedback ${feedback.judgement}`} key={feedback.id}>
-                  {feedback.label}
+                <span className="hit-fx-stack" key={feedback.id}>
+                  <span className={`hit-feedback ${feedback.judgement}`}>
+                    {feedback.label}
+                  </span>
                 </span>
               ))}
             <span className="hit-line" />
             <kbd>{lane}</kbd>
           </div>
-        ))}
+          );
+        })}
       </section>
 
       <section className="rhythm-counters" aria-label="Liczniki trafień">
@@ -1738,6 +2041,15 @@ function RhythmScreen({
         presenceState={neuraPresence}
         onPresenceEvent={onNeuraPresenceEvent}
         tutorialStep={tutorialStep}
+        webcamEvent="rhythm"
+        musicBpm={activeRun.track.bpm}
+        dragEnabled={overlayDragEnabled}
+        webcamPosition={overlayPositions.webcam}
+        onWebcamMove={(position) => onOverlayMove('webcam', position)}
+        tutorialPosition={overlayPositions.tutorial}
+        onTutorialMove={(position) => onOverlayMove('tutorial', position)}
+        tutorialDismissed={tutorialDismissed}
+        onTutorialDismiss={onDismissTutorial}
       />
     </main>
   );
@@ -1813,6 +2125,11 @@ function ResultsScreen({
   neuraComment,
   neuraPresence,
   tutorialStep,
+  overlayDragEnabled,
+  overlayPositions,
+  onOverlayMove,
+  tutorialDismissed,
+  onDismissTutorial,
   onNeuraPresenceEvent,
   onSave,
   onSendToPawel,
@@ -1828,6 +2145,11 @@ function ResultsScreen({
   neuraComment: NeuraVoiceLine;
   neuraPresence: ReturnType<typeof createNeuraPresenceState>;
   tutorialStep: NeuraTutorialStep | null;
+  overlayDragEnabled: boolean;
+  overlayPositions: Record<OverlayId, Point>;
+  onOverlayMove: (overlayId: OverlayId, position: Point) => void;
+  tutorialDismissed: boolean;
+  onDismissTutorial: () => void;
   onNeuraPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   onSave: () => void;
   onSendToPawel: () => void;
@@ -1880,6 +2202,14 @@ function ResultsScreen({
         presenceState={neuraPresence}
         onPresenceEvent={onNeuraPresenceEvent}
         tutorialStep={tutorialStep}
+        webcamEvent={runMode === 'create' && result.grade !== 'F' ? 'published' : 'review'}
+        dragEnabled={overlayDragEnabled}
+        webcamPosition={overlayPositions.webcam}
+        onWebcamMove={(position) => onOverlayMove('webcam', position)}
+        tutorialPosition={overlayPositions.tutorial}
+        onTutorialMove={(position) => onOverlayMove('tutorial', position)}
+        tutorialDismissed={tutorialDismissed}
+        onTutorialDismiss={onDismissTutorial}
       />
     </main>
   );
@@ -1950,11 +2280,52 @@ function createFallbackPeaks(bpm: number, bins = 64) {
 
 function StatsPanel({ stats }: { stats: GameState['stats'] }) {
   return (
-    <aside className="stats-panel">
+    <>
       <Stat label={statLabels.performance} value={stats.performance} />
       <Stat label={statLabels.cybart} value={stats.cybart} />
       <Stat label={statLabels.chatPressure} value={stats.chatPressure} />
-    </aside>
+    </>
+  );
+}
+
+function EventWindow() {
+  return (
+    <div className="window-list">
+      <strong>{placeholderLabels.eventWindowStatus}</strong>
+      {placeholderLabels.eventWindowEntries.map((entry) => (
+        <p key={entry}>{entry}</p>
+      ))}
+    </div>
+  );
+}
+
+function UstnikiWindow() {
+  return (
+    <div className="window-list">
+      <strong>{placeholderLabels.ustnikiWindowStatus}</strong>
+      {placeholderLabels.ustnikiChallenges.map((challenge) => (
+        <p key={challenge}>{challenge} / wkrótce</p>
+      ))}
+    </div>
+  );
+}
+
+function TitleHubWindow({ onReboot }: { onReboot: () => void }) {
+  return (
+    <div className="window-list">
+      <strong>{windowLabels.titleHub}</strong>
+      <p>{placeholderLabels.titleHubHint}</p>
+      <button className="result-primary" onClick={onReboot}>{placeholderLabels.titleScreenStart}</button>
+    </div>
+  );
+}
+
+function HiddenWindowShell({ title }: { title: string }) {
+  return (
+    <div className="window-list">
+      <strong>{title}</strong>
+      <p>{placeholderLabels.hiddenWindowHint}</p>
+    </div>
   );
 }
 
@@ -1968,27 +2339,41 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function CybekWebcam() {
+function CybekWebcamWindow({
+  eventName = 'idle',
+  musicBpm,
+  position,
+  onMove,
+  dragEnabled,
+}: {
+  eventName?: CybekWebcamEvent;
+  musicBpm?: number;
+  position: Point;
+  onMove: (position: Point) => void;
+  dragEnabled: boolean;
+}) {
   return (
-    <aside className="webcam">
-      <div className="webcam-title">
-        <strong>{appLabels.webcam}</strong>
-        <span>{appLabels.live}</span>
-      </div>
-      <div className="webcam-feed">
-        <div className="cybek-head">
-          <span className="cybek-hair" />
-          <span className="cybek-face" />
-          <span className="cybek-mouth" />
-        </div>
-        <div className="mixer">
-          <i />
-          <i />
-          <i />
-        </div>
-      </div>
-    </aside>
+    <DraggableOverlay
+      className="webcam-window"
+      position={position}
+      onMove={onMove}
+      dragEnabled={dragEnabled}
+      ariaLabel={appLabels.webcam}
+    >
+      <CybekWebcam eventName={eventName} musicBpm={musicBpm} />
+    </DraggableOverlay>
   );
+}
+
+function getDefaultWebcamPosition(): Point {
+  if (typeof window === 'undefined') return { x: 880, y: 86 };
+  const webcamWidth = window.innerWidth <= 1100 ? Math.min(326, window.innerWidth - 36) : 392;
+  const webcamOriginY = 160;
+
+  return {
+    x: Math.max(18, window.innerWidth - webcamWidth - 26),
+    y: Math.max(18, Math.round((window.innerHeight / 2) - webcamOriginY)),
+  };
 }
 
 function NeuraDebugPanel({
@@ -2005,7 +2390,7 @@ function NeuraDebugPanel({
   const levels: OperationalPowerLevel[] = [0, 1, 2, 3, 4];
 
   return (
-    <aside className="neura-debug" aria-label="Neura debug">
+    <>
       <div>
         <strong>Neura debug</strong>
         <button onClick={() => onSetOverride(null)}>Auto</button>
@@ -2037,7 +2422,7 @@ function NeuraDebugPanel({
         ))}
       </div>
       <em>F10 ukrywa panel</em>
-    </aside>
+    </>
   );
 }
 
@@ -2052,6 +2437,15 @@ function PersistentOverlays({
   storyVoiceLineId,
   tutorialStep,
   onTutorialTarget,
+  webcamEvent = 'idle',
+  musicBpm,
+  dragEnabled,
+  webcamPosition,
+  onWebcamMove,
+  tutorialPosition,
+  onTutorialMove,
+  tutorialDismissed,
+  onTutorialDismiss,
 }: {
   comment: NeuraVoiceLine;
   presenceState: ReturnType<typeof createNeuraPresenceState>;
@@ -2059,11 +2453,33 @@ function PersistentOverlays({
   storyVoiceLineId?: string | null;
   tutorialStep?: NeuraTutorialStep | null;
   onTutorialTarget?: (step: NeuraTutorialStep) => void;
+  webcamEvent?: CybekWebcamEvent;
+  musicBpm?: number;
+  dragEnabled: boolean;
+  webcamPosition: Point;
+  onWebcamMove: (position: Point) => void;
+  tutorialPosition: Point;
+  onTutorialMove: (position: Point) => void;
+  tutorialDismissed: boolean;
+  onTutorialDismiss: () => void;
 }) {
   return (
     <>
-      <CybekWebcam />
-      <NeuraTutorialGuide step={tutorialStep ?? null} onOpenTarget={onTutorialTarget} />
+      <CybekWebcamWindow
+        eventName={webcamEvent}
+        musicBpm={musicBpm}
+        position={webcamPosition}
+        onMove={onWebcamMove}
+        dragEnabled={dragEnabled}
+      />
+      <NeuraTutorialGuide
+        step={tutorialDismissed ? null : (tutorialStep ?? null)}
+        onOpenTarget={onTutorialTarget}
+        dragEnabled={dragEnabled}
+        position={tutorialPosition}
+        onMove={onTutorialMove}
+        onClose={onTutorialDismiss}
+      />
       <NeuraPet
         comment={comment}
         presenceState={presenceState}
@@ -2086,6 +2502,7 @@ declare global {
   interface Window {
     render_game_to_text?: () => string;
     advanceTime?: (ms: number) => void;
+    openHiddenWindow?: (windowId: HiddenWindowId) => void;
     webkitAudioContext?: typeof AudioContext;
   }
 }
