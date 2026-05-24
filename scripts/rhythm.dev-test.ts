@@ -6,6 +6,7 @@ import {
   getVisibleRhythmNotes,
   getRhythmNoteKind,
   getRhythmSummary,
+  HIT_NOTE_FADE_MS,
   holdRhythmLane,
   hitRhythmLane,
   releaseRhythmLane,
@@ -118,6 +119,13 @@ const holdMap: RhythmBeatmap = {
   ],
 };
 
+const fadeTapMap: RhythmBeatmap = {
+  trackId: 'fade-tap',
+  bpm: 120,
+  durationMs: 2200,
+  notes: [{ id: 'fade-tap-1', lane: 'S', timeMs: 1000 }],
+};
+
 
 const emptyEditMap: RhythmBeatmap = {
   trackId: 'editor-record',
@@ -203,6 +211,19 @@ session = hitRhythmLane(session, 'S');
 session = stepRhythmSession(session, 200);
 session = releaseRhythmLane(session, 'S');
 assertEqual(session.misses, 1, 'very early hold release is a miss');
+
+session = createRhythmSession(fadeTapMap, 'Łatwy');
+session = stepRhythmSession(session, 1000);
+session = hitRhythmLane(session, 'S');
+const fadeStart = getVisibleRhythmNotes(session).find((note) => note.id === 'fade-tap-1');
+assert(Boolean(fadeStart), 'hit tap is still visible right after judgement');
+session = stepRhythmSession(session, Math.floor(HIT_NOTE_FADE_MS / 2));
+const fadeMid = getVisibleRhythmNotes(session).find((note) => note.id === 'fade-tap-1');
+assert(Boolean(fadeMid), 'hit tap remains visible during fade window');
+assert((fadeMid?.opacity ?? 0) < (fadeStart?.opacity ?? 1), 'hit tap opacity decreases during fade-out');
+session = stepRhythmSession(session, HIT_NOTE_FADE_MS);
+const fadeEnd = getVisibleRhythmNotes(session).find((note) => note.id === 'fade-tap-1');
+assertEqual(Boolean(fadeEnd), false, 'hit tap disappears after fade window');
 
 
 const chainedHoldMap: RhythmBeatmap = {

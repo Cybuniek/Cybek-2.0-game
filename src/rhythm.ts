@@ -24,6 +24,7 @@ export const RHYTHM_HIT_LINE_PERCENT = 82;
 export const MIN_LONG_NOTE_DURATION_MS = 240;
 export const HOLD_MAX_PRESS_GAP_MS = 220;
 export const RHYTHM_NOTE_FALL_SPEED_SCALE = 2.5;
+export const HIT_NOTE_FADE_MS = 160;
 
 type HitJudgement = 'perfect' | 'great' | 'good';
 
@@ -69,6 +70,7 @@ export type RhythmJudgement = 'perfect' | 'great' | 'good' | 'too_fast' | 'too_l
 export type RuntimeRhythmNote = RhythmNote & {
   judged: boolean;
   judgement?: Exclude<RhythmJudgement, 'empty'>;
+  resolvedAtMs?: number;
   startedAtMs?: number;
   releasedAtMs?: number;
   startJudgement?: HitJudgement;
@@ -345,7 +347,14 @@ export function getRhythmSummary(session: RhythmSession): RhythmSummary {
 
 export function getVisibleRhythmNotes(session: RhythmSession): VisibleRhythmNote[] {
   return session.notes
-    .filter((note) => !note.judged || (note.judgement === 'miss' && session.elapsedMs - note.timeMs <= MISS_FADE_MS))
+    .filter((note) => {
+      if (!note.judged) return true;
+      if (note.judgement === 'miss') return session.elapsedMs - note.timeMs <= MISS_FADE_MS;
+      if ((note.judgement === 'perfect' || note.judgement === 'great' || note.judgement === 'good') && note.resolvedAtMs !== undefined) {
+        return session.elapsedMs - note.resolvedAtMs <= HIT_NOTE_FADE_MS;
+      }
+      return false;
+    })
     .map((note) => {
       const timeToHitMs = note.timeMs - session.elapsedMs;
       const endTimeToHitMs = getRhythmNoteEndMs(note) - session.elapsedMs;
@@ -358,6 +367,9 @@ export function getVisibleRhythmNotes(session: RhythmSession): VisibleRhythmNote
       const yPercent = progress * RHYTHM_HIT_LINE_PERCENT + missProgress * 20;
       const visualTopPercent = isLongNote(note) ? yPercent - durationPercent : yPercent;
 
+      const hitFadeProgress = note.judgement !== 'miss' && note.resolvedAtMs !== undefined
+        ? clamp((session.elapsedMs - note.resolvedAtMs) / HIT_NOTE_FADE_MS, 0, 1)
+        : 0;
       return {
         ...note,
         timeToHitMs: Math.round(timeToHitMs),
@@ -366,7 +378,7 @@ export function getVisibleRhythmNotes(session: RhythmSession): VisibleRhythmNote
         visualTopPercent: roundTo(visualTopPercent, 2),
         durationPercent: roundTo(durationPercent, 2),
         holdProgress: getRhythmNoteKind(note) === 'hold' ? getHoldPulseHealth(note, session.elapsedMs) : 0,
-        opacity: note.judgement === 'miss' ? roundTo(1 - missProgress, 2) : 1,
+        opacity: note.judgement === 'miss' ? roundTo(1 - missProgress, 2) : roundTo(1 - hitFadeProgress, 2),
       };
     })
     .filter((note) => {
@@ -611,6 +623,7 @@ function settleNote(
           ...item,
           judged: true,
           judgement,
+          resolvedAtMs: judgement === 'miss' ? item.resolvedAtMs : session.elapsedMs,
         }
       : item,
   );
