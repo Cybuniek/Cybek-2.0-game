@@ -1955,9 +1955,22 @@ function RhythmScreen({
         aria-label={placeholderLabels.rhythmLanesLabel}
         style={{ '--hit-line': `${RHYTHM_HIT_LINE_PERCENT}%` } as CSSProperties}
       >
-        {RHYTHM_LANES.map((lane) => (
+        {RHYTHM_LANES.map((lane) => {
+          const laneHitFeedback = hitFeedbacks.find((feedback) => feedback.lane === lane);
+          const laneNotes = visibleNotes.filter((note) => note.lane === lane);
+          const closestNoteId = laneNotes
+            .reduce<{ id: string; distance: number } | null>((closest, note) => {
+              const distance = Math.abs(note.yPercent - RHYTHM_HIT_LINE_PERCENT);
+              if (!closest || distance < closest.distance) return { id: note.id, distance };
+              return closest;
+            }, null)
+            ?.id;
+          return (
           <div
-            className={`lane ${session.lastLane === lane ? 'active-lane' : ''}`}
+            className={[
+              'lane',
+              session.lastLane === lane ? 'active-lane' : '',
+            ].filter(Boolean).join(' ')}
             key={lane}
             onPointerDown={(event) => pressPointerLane(event, lane)}
             onPointerUp={(event) => releasePointerLane(event, lane)}
@@ -1965,9 +1978,7 @@ function RhythmScreen({
             role="button"
             tabIndex={0}
           >
-            {visibleNotes
-              .filter((note) => note.lane === lane)
-              .map((note) => {
+            {laneNotes.map((note) => {
                 const kind = getRhythmNoteKind(note);
                 const isLong = kind === 'hold';
                 return (
@@ -1975,6 +1986,9 @@ function RhythmScreen({
                     className={[
                       'note',
                       isLong ? kind : '',
+                      laneHitFeedback && laneHitFeedback.judgement !== 'miss' && note.id === closestNoteId
+                        ? `hit-note hit-note-${laneHitFeedback.judgement}`
+                        : '',
                       note.startedAtMs !== undefined && !note.judged ? 'active-note' : '',
                       note.judgement === 'miss' ? 'missed-note' : '',
                     ].filter(Boolean).join(' ')}
@@ -1997,14 +2011,17 @@ function RhythmScreen({
             {hitFeedbacks
               .filter((feedback) => feedback.lane === lane)
               .map((feedback) => (
-                <span className={`hit-feedback ${feedback.judgement}`} key={feedback.id}>
-                  {feedback.label}
+                <span className="hit-fx-stack" key={feedback.id}>
+                  <span className={`hit-feedback ${feedback.judgement}`}>
+                    {feedback.label}
+                  </span>
                 </span>
               ))}
             <span className="hit-line" />
             <kbd>{lane}</kbd>
           </div>
-        ))}
+          );
+        })}
       </section>
 
       <section className="rhythm-counters" aria-label="Liczniki trafień">

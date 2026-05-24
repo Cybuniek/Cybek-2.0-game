@@ -55,17 +55,19 @@ const testTrack: Track = {
 
 const firstMap = buildRhythmBeatmap(testTrack, 'Normalny');
 const secondMap = buildRhythmBeatmap(testTrack, 'Normalny');
+const easyTravelMs = createRhythmSession({ trackId: 'travel-probe', bpm: 120, durationMs: 1, notes: [] }, 'Łatwy').travelMs;
+const visualProbeTimeMs = Math.max(300, Math.round(easyTravelMs * 0.6));
 
 assertEqual(firstMap.durationMs, estimateRhythmDurationMs(testTrack), 'beatmap duration follows track/audio metadata fallback');
 assert(firstMap.notes.length > 40, 'normal difficulty generates enough notes');
 assertEqual(JSON.stringify(firstMap.notes.slice(0, 20)), JSON.stringify(secondMap.notes.slice(0, 20)), 'beatmap is deterministic');
 assert(firstMap.notes.every((note) => RHYTHM_LANES.includes(note.lane)), 'all generated notes use playable lanes');
 assertEqual(RHYTHM_LANES.join('/'), 'S/D/K/L', 'playable lanes use S/D/K/L');
-assertEqual(editorViewWindowMs(1750, 1), 1750, 'editor zoom 1 uses gameplay travel window');
-assertEqual(editorViewWindowMs(1750, 1.75), 1000, 'editor zoom in narrows the visible time window instead of stretching CSS');
+assertEqual(editorViewWindowMs(easyTravelMs, 1), easyTravelMs, 'editor zoom 1 uses gameplay travel window');
+assertEqual(editorViewWindowMs(easyTravelMs, 1.75), Math.round(easyTravelMs / 1.75), 'editor zoom in narrows the visible time window instead of stretching CSS');
 assertClose(
-  timeToYPercent(1000, 0, editorViewWindowMs(1750, 1)),
-  getVisibleRhythmNotes(createRhythmSession({ trackId: 'visual', bpm: 122, durationMs: 3000, notes: [{ id: 'v-1', lane: 'S', timeMs: 1000 }] }, 'Łatwy'))[0].yPercent,
+  timeToYPercent(visualProbeTimeMs, 0, editorViewWindowMs(easyTravelMs, 1)),
+  getVisibleRhythmNotes(createRhythmSession({ trackId: 'visual', bpm: 122, durationMs: 3000, notes: [{ id: 'v-1', lane: 'S', timeMs: visualProbeTimeMs }] }, 'Łatwy'))[0].yPercent,
   0.02,
   'editor maps note distance like gameplay at zoom 1',
 );
@@ -92,8 +94,8 @@ session = hitRhythmLane(session, 'D');
 assertEqual(session.goodHits, 1, 'hit within 130 ms is good');
 assertEqual(session.combo, 2, 'good hit keeps combo');
 
-session = stepRhythmSession(session, 1061);
-assertEqual(session.misses, 1, 'note missed after 170 ms');
+session = stepRhythmSession(session, 1096);
+assertEqual(session.misses, 1, 'note missed after extended late grace window');
 assertEqual(session.combo, 0, 'miss resets combo');
 
 session = hitRhythmLane(session, 'L');
@@ -115,6 +117,7 @@ const holdMap: RhythmBeatmap = {
     { id: 'hold-1', lane: 'S', timeMs: 1000, kind: 'hold', durationMs: 900 },
   ],
 };
+
 
 const emptyEditMap: RhythmBeatmap = {
   trackId: 'editor-record',
@@ -200,6 +203,7 @@ session = hitRhythmLane(session, 'S');
 session = stepRhythmSession(session, 200);
 session = releaseRhythmLane(session, 'S');
 assertEqual(session.misses, 1, 'very early hold release is a miss');
+
 
 const chainedHoldMap: RhythmBeatmap = {
   trackId: 'manual',

@@ -16,12 +16,14 @@ export const PERFECT_WINDOW_MS = 45;
 export const GREAT_WINDOW_MS = 85;
 export const GOOD_WINDOW_MS = 130;
 export const MISS_WINDOW_MS = 170;
+export const LATE_HIT_GRACE_MS = 35;
 export const MISS_FADE_MS = 620;
 export const EMPTY_PRESS_GRACE_COUNT = 2;
 export const EMPTY_PRESS_SPAM_WINDOW_MS = 1000;
 export const RHYTHM_HIT_LINE_PERCENT = 82;
 export const MIN_LONG_NOTE_DURATION_MS = 240;
 export const HOLD_MAX_PRESS_GAP_MS = 220;
+export const RHYTHM_NOTE_FALL_SPEED_SCALE = 2.5;
 
 type HitJudgement = 'perfect' | 'great' | 'good';
 
@@ -169,11 +171,13 @@ export function buildRhythmBeatmap(
 }
 
 export function createRhythmSession(beatmap: RhythmBeatmap, difficulty: Difficulty): RhythmSession {
+  const baseTravelMs = difficultyConfig[difficulty].travelMs;
+  const scaledTravelMs = Math.max(320, Math.round(baseTravelMs / RHYTHM_NOTE_FALL_SPEED_SCALE));
   return {
     beatmap,
     difficulty,
     elapsedMs: 0,
-    travelMs: difficultyConfig[difficulty].travelMs,
+    travelMs: scaledTravelMs,
     notes: beatmap.notes.map((note) => ({ ...normalizeNoteShape(note), judged: false })),
     perfectHits: 0,
     greatHits: 0,
@@ -569,7 +573,7 @@ function markMissedNotes(session: RhythmSession): RhythmSession {
 
   for (let index = 0; index < nextSession.notes.length; index += 1) {
     const note = nextSession.notes[index];
-    if (note.judged || note.startedAtMs !== undefined || nextSession.elapsedMs - note.timeMs <= MISS_WINDOW_MS) continue;
+    if (note.judged || note.startedAtMs !== undefined || nextSession.elapsedMs - note.timeMs <= MISS_WINDOW_MS + LATE_HIT_GRACE_MS) continue;
     nextSession = settleNote(nextSession, index, 'miss', note.lane);
   }
 
@@ -602,7 +606,13 @@ function settleNote(
   if (!note || note.judged) return session;
 
   const notes = session.notes.map((item, index) =>
-    index === noteIndex ? { ...item, judged: true, judgement } : item,
+    index === noteIndex
+      ? {
+          ...item,
+          judged: true,
+          judgement,
+        }
+      : item,
   );
 
   if (judgement === 'miss') {
@@ -639,8 +649,11 @@ function findBestStartCandidate(session: RhythmSession, lane: RhythmLane) {
   session.notes.forEach((note, index) => {
     if (note.judged || note.startedAtMs !== undefined || note.lane !== lane) return;
 
-    const offset = Math.abs(session.elapsedMs - note.timeMs);
-    if (offset <= MISS_WINDOW_MS && offset < candidateOffset) {
+    const signedOffset = session.elapsedMs - note.timeMs;
+    const lowerBound = -MISS_WINDOW_MS;
+    const upperBound = MISS_WINDOW_MS + LATE_HIT_GRACE_MS;
+    const offset = Math.abs(signedOffset);
+    if (signedOffset >= lowerBound && signedOffset <= upperBound && offset < candidateOffset) {
       candidateIndex = index;
       candidateOffset = offset;
     }
@@ -663,8 +676,11 @@ function findBestHoldStartCandidate(session: RhythmSession, lane: RhythmLane) {
       return;
     }
 
-    const offset = Math.abs(session.elapsedMs - note.timeMs);
-    if (offset <= MISS_WINDOW_MS && offset < candidateOffset) {
+    const signedOffset = session.elapsedMs - note.timeMs;
+    const lowerBound = -MISS_WINDOW_MS;
+    const upperBound = MISS_WINDOW_MS + LATE_HIT_GRACE_MS;
+    const offset = Math.abs(signedOffset);
+    if (signedOffset >= lowerBound && signedOffset <= upperBound && offset < candidateOffset) {
       candidateIndex = index;
       candidateOffset = offset;
     }
@@ -702,6 +718,7 @@ function judgementFromOffset(signedOffsetMs: number): Exclude<RhythmJudgement, '
   if (offsetMs <= PERFECT_WINDOW_MS) return 'perfect';
   if (offsetMs <= GREAT_WINDOW_MS) return 'great';
   if (offsetMs <= GOOD_WINDOW_MS) return 'good';
+  if (signedOffsetMs > GOOD_WINDOW_MS && signedOffsetMs <= GOOD_WINDOW_MS + LATE_HIT_GRACE_MS) return 'good';
   return signedOffsetMs < 0 ? 'too_fast' : 'too_late';
 }
 

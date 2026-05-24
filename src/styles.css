@@ -1202,15 +1202,32 @@ button:disabled {
     0 0 18px rgba(255, 223, 110, 0.2);
 }
 
+.note.hit-note {
+  animation: note-hit-glow 220ms ease-out;
+}
+
+.note.hit-note.hit-note-perfect {
+  box-shadow: 0 0 38px rgba(57, 255, 224, 1), 0 0 72px rgba(57, 255, 224, 0.88), 0 0 110px rgba(57, 255, 224, 0.66);
+}
+
+.note.hit-note.hit-note-great {
+  box-shadow: 0 0 34px rgba(255, 223, 110, 1), 0 0 64px rgba(255, 223, 110, 0.82), 0 0 96px rgba(255, 223, 110, 0.58);
+}
+
+.note.hit-note.hit-note-good {
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.98), 0 0 56px rgba(255, 255, 255, 0.72), 0 0 84px rgba(255, 255, 255, 0.48);
+}
+
 .note {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   top: 10%;
-  width: min(76%, 132px);
+  width: auto;
   height: 28px;
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
   border: 1px solid var(--accent-pink);
-  border-radius: var(--radius-panel);
+  border-radius: 10px;
   background: var(--line-cyan);
   z-index: 2;
   box-shadow: 0 0 16px rgba(57, 255, 224, 0.48);
@@ -1223,9 +1240,9 @@ button:disabled {
 }
 
 .note.hold {
-  width: min(72%, 124px);
+  width: auto;
   height: var(--note-height, 14%);
-  transform: translate(-50%, 0);
+  transform: translateY(0);
   border-radius: 12px;
   background: linear-gradient(180deg, #39ffe0, #ff5ee7);
   box-shadow: 0 0 16px rgba(57, 255, 224, 0.34);
@@ -1234,11 +1251,12 @@ button:disabled {
 .note.hold::before {
   content: '';
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: 100%;
+  width: auto;
   height: 28px;
-  transform: translate(-50%, 50%);
+  transform: translateY(50%);
   border: 1px solid #ffdf6e;
   border-radius: 4px;
   background: #39ffe0;
@@ -1247,7 +1265,7 @@ button:disabled {
 }
 
 .note.hold.active-note {
-  width: min(78%, 140px);
+  width: auto;
   border-color: #ffe66d;
   overflow: hidden;
   background:
@@ -1364,6 +1382,15 @@ button:disabled {
   100% {
     opacity: 0;
     transform: translate(-50%, -175%) scale(0.96);
+  }
+}
+
+@keyframes note-hit-glow {
+  0% {
+    filter: brightness(1.95) saturate(1.75);
+  }
+  100% {
+    filter: brightness(1) saturate(1);
   }
 }
 
@@ -2242,4 +2269,10 @@ button:disabled {
   .neura-sprite::after {
     display: none;
   }
+}
+.hit-fx-stack {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
 }
