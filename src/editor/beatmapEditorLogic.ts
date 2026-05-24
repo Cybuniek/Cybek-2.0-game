@@ -28,7 +28,11 @@ export type ActiveRecordedPress = {
   noteId: string;
   lane: RhythmLane;
   timeMs: number;
+<<<<<<< HEAD
   kind?: 'tap' | 'hold';
+=======
+  kind?: 'tap' ;
+>>>>>>> NEURA_{feature}
 };
 
 export type ActiveRecordedPresses = Partial<Record<RhythmLane, ActiveRecordedPress>>;
@@ -37,7 +41,11 @@ export type RecordedKeyDown = {
   lane: RhythmLane;
   timeMs: number;
   seed?: number;
+<<<<<<< HEAD
   kind?: 'tap' | 'hold';
+=======
+  kind?: 'tap' ;
+>>>>>>> NEURA_{feature}
 };
 
 export type RecordedKeyResult = {
@@ -92,7 +100,11 @@ export function editorNoteHeightPercent(note: RhythmNote, viewWindowMs = EDITOR_
 export function noteVisualTopPercent(note: RhythmNote, elapsedMs: number, viewWindowMs = EDITOR_VIEW_WINDOW_MS) {
   const headPercent = timeToYPercent(note.timeMs, elapsedMs, viewWindowMs);
   const kind = getRhythmNoteKind(note);
+<<<<<<< HEAD
   return kind === 'hold'
+=======
+  return kind === 'hold' || kind === 'hold'
+>>>>>>> NEURA_{feature}
     ? headPercent - editorNoteHeightPercent(note, viewWindowMs)
     : headPercent;
 }
@@ -115,8 +127,13 @@ export function createEditorNote(lane: RhythmLane, timeMs: number, kind: RhythmN
     lane,
     timeMs,
     kind,
+<<<<<<< HEAD
     durationMs: 520,
   };
+=======
+    durationMs: kind === 'hold' ? 520 : 620,
+      };
+>>>>>>> NEURA_{feature}
 }
 
 export function upsertNote(beatmap: RhythmBeatmap, note: RhythmNote): RhythmBeatmap {
@@ -155,8 +172,7 @@ export function applyRecordedPress(
       ...note,
       kind: 'hold',
       durationMs,
-      requiredPresses: presses,
-    }));
+          }));
     return {
       beatmap: nextBeatmap,
       selectedNoteId: holdDraft.noteId,
@@ -196,8 +212,12 @@ export function applyRecordedKeyDown(
       ...note,
       kind: 'hold',
       durationMs,
+<<<<<<< HEAD
       requiredPresses: presses,
     }));
+=======
+          }));
+>>>>>>> NEURA_{feature}
     nextActivePresses[press.lane] = { noteId: holdDraft.noteId, lane: press.lane, timeMs: press.timeMs, kind: 'hold' };
     const nextHoldDraft = { ...holdDraft, lastPressMs: press.timeMs, presses };
     return { beatmap: nextBeatmap, activePresses: nextActivePresses, selectedNoteId: holdDraft.noteId, holdDraft: nextHoldDraft };
@@ -228,8 +248,7 @@ export function promoteActiveRecordedHolds(
       ...note,
       kind: 'hold',
       durationMs: Math.max(MIN_LONG_NOTE_DURATION_MS, Math.round(heldMs)),
-      requiredPresses: undefined,
-    }));
+          }));
   });
 
   return nextBeatmap;
@@ -253,8 +272,12 @@ export function applyRecordedKeyUp(
       ...note,
       kind: 'hold',
       durationMs: Math.max(MIN_LONG_NOTE_DURATION_MS, Math.round(heldMs)),
+<<<<<<< HEAD
       requiredPresses: undefined,
     }));
+=======
+          }));
+>>>>>>> NEURA_{feature}
     return { beatmap: nextBeatmap, activePresses: nextActivePresses, selectedNoteId: press.noteId, holdDraft: null };
   }
 
@@ -288,6 +311,7 @@ export function validateEditorBeatmap(beatmap: RhythmBeatmap): EditorValidation 
     const kind = getRhythmNoteKind(note);
     if (!RHYTHM_LANES.includes(note.lane)) errors.push(`${note.id}: niepoprawny tor ${note.lane}.`);
     if (note.timeMs < 0 || note.timeMs > beatmap.durationMs) errors.push(`${note.id}: nuta poza czasem poziomu.`);
+<<<<<<< HEAD
     if (kind === 'hold' && getRhythmNoteEndMs(note) > beatmap.durationMs) {
       errors.push(`${note.id}: ${kind} kończy się poza czasem poziomu.`);
     }
@@ -296,6 +320,16 @@ export function validateEditorBeatmap(beatmap: RhythmBeatmap): EditorValidation 
     }
     if (kind === 'hold' && note.requiredPresses !== undefined && note.requiredPresses < 2) {
       errors.push(`${note.id}: hold potrzebuje celu co najmniej 2 uderzeń.`);
+=======
+    if ((kind === 'hold' || kind === 'hold') && getRhythmNoteEndMs(note) > beatmap.durationMs) {
+      errors.push(`${note.id}: ${kind} kończy się poza czasem poziomu.`);
+    }
+    if ((kind === 'hold' || kind === 'hold') && getRhythmNoteDurationMs(note) < MIN_LONG_NOTE_DURATION_MS) {
+      errors.push(`${note.id}: ${kind} jest za krótki.`);
+    }
+    if (kind === 'hold' && (note.requiredPresses ?? 0) < 2) {
+      errors.push(`${note.id}: smash potrzebuje celu co najmniej 2 uderzeń.`);
+>>>>>>> NEURA_{feature}
     }
   }
 

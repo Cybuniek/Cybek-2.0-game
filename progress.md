@@ -59,6 +59,7 @@ Neura 2.0 2026-05-19:
 - Teksty kwestii bez istniejącej ścieżki audio nie są pokazywane w UI, a odtwarzanie głosu pomija linie bez realnego pliku.
 - Pełny zestaw głosów Neury ma być generowany przez ElevenLabs do OGG/Opus oraz MP3 fallbacków; w tej sesji generator zatrzymał się na braku lokalnego `ELEVENLABS_API_KEY`.
 
+<<<<<<< HEAD
 SFX rytmu 2026-05-21:
 - Dodano sample MP3 dla tapów i holdów w `public/audio/sfx/rhythm`.
 - Tap trafiony oraz puste uderzenie losują jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`.
@@ -102,6 +103,8 @@ Samouczek Neury 2026-05-22:
 - Udźwiękowienie działa przez lokalne Web Speech API po kliknięciu `Włącz głos`; panel nie wysyła tekstów do zewnętrznego API i zostaje tekstowy, jeśli przeglądarka nie ma lokalnego TTS.
 - Dodano `src/neura/tutorialGuide.ts`, `src/neura/NeuraTutorialGuide.tsx` i test `npm run test:neura-tutorial`; `render_game_to_text` raportuje aktualny krok samouczka.
 
+=======
+>>>>>>> NEURA_{feature}
 Patrol repozytorium 2026-05-12:
 - Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
 - Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.

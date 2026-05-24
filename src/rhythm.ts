@@ -22,9 +22,12 @@ export const EMPTY_PRESS_GRACE_COUNT = 2;
 export const EMPTY_PRESS_SPAM_WINDOW_MS = 1000;
 export const RHYTHM_HIT_LINE_PERCENT = 82;
 export const MIN_LONG_NOTE_DURATION_MS = 240;
+<<<<<<< HEAD
 export const HOLD_MAX_PRESS_GAP_MS = 220;
 export const RHYTHM_NOTE_FALL_SPEED_SCALE = 2.5;
 export const HIT_NOTE_FADE_MS = 160;
+=======
+>>>>>>> NEURA_{feature}
 
 type HitJudgement = 'perfect' | 'great' | 'good';
 
@@ -74,8 +77,11 @@ export type RuntimeRhythmNote = RhythmNote & {
   startedAtMs?: number;
   releasedAtMs?: number;
   startJudgement?: HitJudgement;
+<<<<<<< HEAD
   presses?: number;
   lastHoldPressMs?: number;
+=======
+>>>>>>> NEURA_{feature}
 };
 
 export type VisibleRhythmNote = RuntimeRhythmNote & {
@@ -84,7 +90,10 @@ export type VisibleRhythmNote = RuntimeRhythmNote & {
   yPercent: number;
   visualTopPercent: number;
   durationPercent: number;
+<<<<<<< HEAD
   holdProgress: number;
+=======
+>>>>>>> NEURA_{feature}
   opacity: number;
 };
 
@@ -215,11 +224,14 @@ export function syncRhythmSessionToElapsed(session: RhythmSession, elapsedMs: nu
 export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmSession {
   if (session.isFinished) return session;
 
+<<<<<<< HEAD
   const holdIndex = findActiveHoldCandidate(session, lane);
   if (holdIndex !== -1) {
     return recordHoldPress(session, holdIndex, lane);
   }
 
+=======
+>>>>>>> NEURA_{feature}
   const candidateIndex = findBestStartCandidate(session, lane);
   if (candidateIndex === -1) {
     return recordEmptyPress(session, lane);
@@ -248,8 +260,11 @@ export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmS
           ...item,
           startedAtMs: session.elapsedMs,
           startJudgement: judgement,
+<<<<<<< HEAD
           presses: getRhythmNoteKind(item) === 'hold' ? 1 : item.presses,
           lastHoldPressMs: getRhythmNoteKind(item) === 'hold' ? session.elapsedMs : item.lastHoldPressMs,
+=======
+>>>>>>> NEURA_{feature}
         }
       : item,
   );
@@ -377,8 +392,13 @@ export function getVisibleRhythmNotes(session: RhythmSession): VisibleRhythmNote
         yPercent,
         visualTopPercent: roundTo(visualTopPercent, 2),
         durationPercent: roundTo(durationPercent, 2),
+<<<<<<< HEAD
         holdProgress: getRhythmNoteKind(note) === 'hold' ? getHoldPulseHealth(note, session.elapsedMs) : 0,
         opacity: note.judgement === 'miss' ? roundTo(1 - missProgress, 2) : roundTo(1 - hitFadeProgress, 2),
+=======
+        smashProgress: 0,
+        opacity: note.judgement === 'miss' ? roundTo(1 - missProgress, 2) : 1,
+>>>>>>> NEURA_{feature}
       };
     })
     .filter((note) => {
@@ -400,9 +420,15 @@ export function getRhythmNoteEndMs(note: Pick<RhythmNote, 'kind' | 'timeMs' | 'd
   return Math.round(note.timeMs + getRhythmNoteDurationMs(note));
 }
 
+<<<<<<< HEAD
 export function getHoldRequiredPresses(note: Pick<RhythmNote, 'kind' | 'durationMs' | 'requiredPresses'>): number {
   if (getRhythmNoteKind(note) !== 'hold') return 0;
   return Math.max(2, Math.round(note.requiredPresses ?? Math.ceil(getRhythmNoteDurationMs(note) / 240)));
+=======
+export function rhythmTickToMs(tick: number, bpm: number, ticksPerBeat = 4, startOffsetMs = 0): number {
+  const beatMs = 60000 / bpm;
+  return Math.round(startOffsetMs + (tick * beatMs) / Math.max(1, ticksPerBeat));
+>>>>>>> NEURA_{feature}
 }
 
 export function rhythmTickToMs(tick: number, bpm: number, ticksPerBeat = 4, startOffsetMs = 0): number {
@@ -496,9 +522,12 @@ function normalizeManualNote(
     if (timeMs + normalized.durationMs > beatmapDurationMs + MISS_FADE_MS) return null;
   }
 
+<<<<<<< HEAD
   if (kind === 'hold' && note.requiredPresses !== undefined) {
     normalized.requiredPresses = Math.max(2, Math.round(note.requiredPresses));
   }
+=======
+>>>>>>> NEURA_{feature}
 
   return normalized;
 }
@@ -515,9 +544,12 @@ function normalizeNoteShape(note: RhythmNote): RhythmNote {
     durationMs: getRhythmNoteDurationMs(note),
   };
 
+<<<<<<< HEAD
   if (kind === 'hold' && note.requiredPresses !== undefined) {
     normalized.requiredPresses = getHoldRequiredPresses(note);
   }
+=======
+>>>>>>> NEURA_{feature}
 
   return normalized;
 }
@@ -595,7 +627,10 @@ function markMissedNotes(session: RhythmSession): RhythmSession {
       note.judged
       || note.startedAtMs === undefined
       || getRhythmNoteKind(note) !== 'hold'
+<<<<<<< HEAD
       || (note.requiredPresses ?? 0) < 2
+=======
+>>>>>>> NEURA_{feature}
       || nextSession.elapsedMs >= getRhythmNoteEndMs(note)
       || !holdHadGap(note, nextSession.elapsedMs)
     ) {
@@ -707,6 +742,7 @@ function findActiveHoldCandidate(session: RhythmSession, lane: RhythmLane) {
     !note.judged
     && note.startedAtMs !== undefined
     && note.lane === lane
+<<<<<<< HEAD
     && getRhythmNoteKind(note) === 'hold'
     && session.elapsedMs <= getRhythmNoteEndMs(note),
   );
@@ -726,6 +762,12 @@ function recordHoldPress(session: RhythmSession, noteIndex: number, lane: Rhythm
   };
 }
 
+=======
+    && getRhythmNoteKind(note) === 'hold',
+  );
+}
+
+>>>>>>> NEURA_{feature}
 function judgementFromOffset(signedOffsetMs: number): Exclude<RhythmJudgement, 'empty' | 'miss'> {
   const offsetMs = Math.abs(signedOffsetMs);
   if (offsetMs <= PERFECT_WINDOW_MS) return 'perfect';
@@ -772,6 +814,20 @@ function createGeneratedNote(
     };
   }
 
+<<<<<<< HEAD
+=======
+  if (kind === 'hold') {
+    const durationMs = Math.round(beatMs * (random() < 0.5 ? 1.25 : 1.75));
+    return {
+      id: `${trackId}-${difficulty}-${beatIndex}-${lane}-smash-${Math.round(timeMs)}`,
+      lane,
+      timeMs: Math.round(timeMs),
+      kind,
+      durationMs,
+    };
+  }
+
+>>>>>>> NEURA_{feature}
   return createTapNote(trackId, difficulty, beatIndex, lane, timeMs);
 }
 
@@ -815,6 +871,7 @@ function degradeJudgement(judgement: HitJudgement): HitJudgement {
   return 'good';
 }
 
+<<<<<<< HEAD
 function holdHadGap(note: RuntimeRhythmNote, elapsedMs: number): boolean {
   const lastPressMs = note.lastHoldPressMs ?? note.startedAtMs ?? note.timeMs;
   return elapsedMs - lastPressMs > HOLD_MAX_PRESS_GAP_MS;
@@ -822,6 +879,10 @@ function holdHadGap(note: RuntimeRhythmNote, elapsedMs: number): boolean {
 
 function getHoldPulseHealth(note: RuntimeRhythmNote, elapsedMs: number): number {
   if (note.startedAtMs === undefined || note.judged || (note.requiredPresses ?? 0) < 2) return 0;
+=======
+function getSmashPulseHealth(note: RuntimeRhythmNote, elapsedMs: number): number {
+  if (note.startedAtMs === undefined || note.judged) return 0;
+>>>>>>> NEURA_{feature}
 
   const lastPressMs = note.lastHoldPressMs ?? note.startedAtMs;
   return clamp(1 - (elapsedMs - lastPressMs) / HOLD_MAX_PRESS_GAP_MS, 0, 1);

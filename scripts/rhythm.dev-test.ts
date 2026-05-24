@@ -158,8 +158,13 @@ assert(recordState.beatmap.notes.every((note) => getRhythmNoteKind(note) === 'ta
 recordState = applyRecordedKeyDown(emptyEditMap, null, null, { lane: 'L', timeMs: 2200, seed: 5, kind: 'hold' });
 recordState = applyRecordedKeyUp(recordState.beatmap, recordState.activePresses, recordState.holdDraft, 'L', 2250);
 recordState = applyRecordedKeyDown(recordState.beatmap, recordState.activePresses, recordState.holdDraft, { lane: 'L', timeMs: 2340, seed: 6, kind: 'hold' });
+<<<<<<< HEAD
 assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'explicit hold recording upgrades the visible note deterministically');
 assertEqual(recordState.beatmap.notes[0].requiredPresses, 2, 'explicit hold press count is updated immediately');
+=======
+assertEqual(getRhythmNoteKind(recordState.beatmap.notes[0]), 'hold', 'explicit smash recording upgrades the visible note deterministically');
+assertEqual(recordState.beatmap.notes[0].requiredPresses, 2, 'explicit smash press count is updated immediately');
+>>>>>>> NEURA_{feature}
 
 session = createRhythmSession(holdMap, 'Łatwy');
 session = stepRhythmSession(session, 500);
@@ -231,7 +236,11 @@ const chainedHoldMap: RhythmBeatmap = {
   bpm: 120,
   durationMs: 3000,
   notes: [
+<<<<<<< HEAD
     { id: 'hold-chain-1', lane: 'D', timeMs: 1000, kind: 'hold', durationMs: 800, requiredPresses: 4 },
+=======
+    { id: 'smash-1', lane: 'D', timeMs: 1000, kind: 'hold', durationMs: 800 },
+>>>>>>> NEURA_{feature}
   ],
 };
 
@@ -271,8 +280,12 @@ const lowPressHoldMap: RhythmBeatmap = {
   bpm: 120,
   durationMs: 3000,
   notes: [
+<<<<<<< HEAD
     { id: 'hold-low-press', lane: 'K', timeMs: 1000, kind: 'hold', durationMs: 500, requiredPresses: 4 },
   ],
+=======
+    { id: 'smash-low-press', lane: 'K', timeMs: 1000, kind: 'hold', durationMs: 500,   ],
+>>>>>>> NEURA_{feature}
 };
 
 session = createRhythmSession(lowPressHoldMap, 'Normalny');

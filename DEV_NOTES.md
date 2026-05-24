@@ -54,6 +54,7 @@ Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wyma
 - ustawienia `trigger` na `comment` albo `reaction`.
 
 Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu, a tekst kwestii bez dostepnego audio nie jest pokazywany jako osobny dymek.
+<<<<<<< HEAD
 
 `src/neura/NeuraVoiceDirector.ts` jest pierwszym data-driven routerem narracyjnego glosu Neury. Eventy gry nie odtwarzaja audio bezposrednio: emituja event fabularny, director aktualizuje kolejke i wybiera nastepna linie. Runtime odpala eventy dla startu sesji, zapisu draftu, wysylki do Pawcia, publikacji oraz spike'a glitcha przy wysokiej presji czatu. Dodatkowy story beat pulpitu probuje dobrac ambient tylko wtedy, gdy kolejka jest pusta i cooldown pozwala. Stan directora zapisuje sie przez `src/neura/neuraVoiceDirectorStorage.ts`, a `render_game_to_text` pokazuje aktywna linie, kolejke, odblokowane paczki i debug odrzuconych kandydatow.
 
@@ -66,6 +67,8 @@ Nowe data-driven dialogi mieszkaja w `src/data/dialogue/neuraVoiceLines.ts`. Ich
 `src/neura/NeuraTutorialGuide.tsx` renderuje panel prowadzony przez Neurę obok awatara. Przyciski `Pokaż generator`, `Pokaż szufladę` i `Pokaż czat` tylko ustawiają aktywne okno, bez zmiany save'a. Udźwiękowienie samouczka używa lokalnego Web Speech API przeglądarki po kliknięciu `Włącz głos`; aplikacja nie wysyła tekstów samouczka do zewnętrznego API. Jeśli przeglądarka nie ma lokalnej syntezy mowy, panel zostaje tekstowy.
 
 Test kroków samouczka siedzi w `scripts/neura-tutorial-guide.dev-test.ts` i jest podpięty jako `npm run test:neura-tutorial` oraz do zbiorczego `npm run test`.
+=======
+>>>>>>> NEURA_{feature}
 
 Generowanie glosow:
 
@@ -188,6 +191,7 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 - Beatmapy generowane są losowe, ale stabilne dla danego utworu, BPM-u, długości audio, poziomu i seeda.
 - Remix kumuluje progres tieru jakości zamiast zaczynać każdą próbę od zera.
 - Player opublikowanego utworu odtwarza scalony plik audio. Głos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
+<<<<<<< HEAD
 - Neura korzysta z atlasu `public/pets/neura/spritesheet.webp` i dziala jako niezalezny, przeciagalny awatar nad pulpitem. WebCam Cybka jest manifestowym rendererem warstwowym opisanym nizej.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
 
@@ -250,6 +254,11 @@ Przyklad manifestu:
 
 Fallbacki sa celowo lagodne: brak `animations.json`, brak manifestu lub niepoprawne wymiary wypisuja ostrzezenie i probuja wrocic do `idle`. Brak pojedynczej warstwy nie wysypuje aplikacji; warstwa jest pomijana, a w oknie webcam pojawia sie maly debug label.
 
+=======
+- Neura korzysta z atlasu `public/pets/neura/spritesheet.webp` i dziala jako niezalezny, przeciagalny awatar nad pulpitem. WebCam Cybka pozostaje prosta figura CSS.
+- Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
+
+>>>>>>> NEURA_{feature}
 ## UI polish 2026-05-17
 
 Zakres byl wizualny i bez zmiany logiki gry. `src/styles.css` ma teraz wspolne zmienne dla neonowych kolorow, paneli, ramek i glow. Tlo pulpitu zostalo przygaszone, ikony maja czytelniejsze podpisy, aktywne okno mocniejszy focus, a prawa kolumna z WebCam/statystykami/Neura mniej zlewa sie z pulpitem.
@@ -264,6 +273,7 @@ Neura zostala odczepiona od panelu UI. Komponent renderuje tylko klikalny i prze
 
 Spritesheet Neury zostal podmieniony na poprawiony wariant w `public/pets/neura/spritesheet.webp`. Pelny komplet glosow nalezy odswiezac lokalnym skryptem przez ElevenLabs do OGG/Opus oraz MP3 fallbackow; skrypt wymaga `ELEVENLABS_API_KEY` w srodowisku albo `.env.local`.
 
+<<<<<<< HEAD
 ## Neura Presence 2026-05-21
 
 Warstwa `tezGdop-PeT` ma teraz osobny, maly system obecnosci Neury. Czysty manager siedzi w `src/neura/NeuraPresenceManager.ts`, a data-driven progi i presety w `src/data/neuraPresence.ts`. Glowne wyjscie to `NeuraPresenceState`: `OperationalPowerLevel` 0-4, intensywnosc glitchy, glebia ambientu, niestabilnosc avatara, autonomia UI, ostatni event, override debugowy i tryb low FX.
@@ -286,6 +296,8 @@ Sekwencja trwa okolo 4.5 sekundy. Po pierwszej sekundzie mozna ja pominac klikni
 
 Po merge z `NEURA_fabularne-skrypty` zachowane sa oba systemy Neury: presence/soundscape/UI z gałęzi oraz data-driven `NeuraVoiceDirector`. `NeuraPet` nadal obsluguje stary manifest glosow, ale potrafi tez odtworzyc fabularne `storyVoiceLineId` z plikow `/audio/neura/<id>.ogg` z MP3 jako fallbackiem.
 
+=======
+>>>>>>> NEURA_{feature}
 ## Patrol repozytorium 2026-05-12
 
 Zakres patrolu byl maly i bez rozszerzania gry. Sprawdzone zostaly: generator `anh://www.ustno.ai/create`, szuflada `anh://www.ustno.ai/me`, remix +1, jednorazowa publikacja, pliki publikacji na pulpicie, `Annihilation player.exe`, slowniki etykiet oraz zgodnosc typow z aktualna logika.

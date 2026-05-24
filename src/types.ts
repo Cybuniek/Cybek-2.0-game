@@ -3,6 +3,7 @@ export type Difficulty = 'Łatwy' | 'Normalny' | 'Cybart';
 export type RhythmLane = 'S' | 'D' | 'K' | 'L';
 export type QualityTier = 'F' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export type RhythmNoteKind = 'tap' | 'hold';
+<<<<<<< HEAD
 export type OperationalPowerLevel = 0 | 1 | 2 | 3 | 4;
 export type NeuraPresenceEventId =
   | 'boot'
@@ -37,6 +38,8 @@ export type NeuraPresenceState = {
   narrativeTag: string;
   eventLog: NeuraPresenceEventLogEntry[];
 };
+=======
+>>>>>>> NEURA_{feature}
 
 export type RhythmNote = {
   id: string;
@@ -46,7 +49,6 @@ export type RhythmNote = {
   holdTicks?: number;
   kind?: RhythmNoteKind;
   durationMs?: number;
-  requiredPresses?: number;
 };
 
 export type RhythmBeatmap = {

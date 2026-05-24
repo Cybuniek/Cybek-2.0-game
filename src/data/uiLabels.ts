@@ -27,9 +27,12 @@ export const iconLabels = {
   messenger: 'Messenger',
   create: 'Ustno.ai Utwórz',
   me: 'Ustno.ai Me',
+<<<<<<< HEAD
   event: 'Event',
   ustniki: 'Ustniki',
   titleHub: 'title.sys',
+=======
+>>>>>>> NEURA_{feature}
   todo: 'todo.tmp',
   publishedFilePrefix: 'plik',
 };
