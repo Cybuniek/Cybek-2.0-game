@@ -152,3 +152,20 @@ export type GameState = {
   pawelMessages: ChatMessage[];
   groupMessages: ChatMessage[];
 };
+
+// Nowa funkcjonalność: Neura Resonance System
+export type ResonanceLevel = 0 | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100;
+
+export type ResonanceState = {
+  current: number;
+  peak: number;
+  bondWithNeura: number; // 0-100, rośnie z echo + resonance
+  lastResonanceEvent: string;
+};
+
+export type NeuraResonanceEffect = {
+  multiplier: number;
+  visualBloom: boolean;
+  voiceIntensity: number;
+  specialDialogueChance: number;
+};
