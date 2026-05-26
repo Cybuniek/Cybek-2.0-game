@@ -304,7 +304,7 @@ const validManualCatalog = {
 
 const resolvedManual = resolveRhythmBeatmap(testTrack, 'Normalny', 4000, validManualCatalog);
 assertEqual(resolvedManual.notes.length, 1, 'valid manual beatmap is preferred over generated fallback');
-assertEqual(resolvedManual.bpm, testTrack.bpm, 'manual beatmap is normalized to current track bpm');
+assertEqual(resolvedManual.bpm, 999, 'manual beatmap keeps its edited BPM');
 assertEqual(resolvedManual.durationMs, 4000, 'legacy manual duration does not shorten audio-backed runtime');
 assertEqual(resolvedManual.sourceEndMs, 4000, 'legacy manual map is migrated to the full audio range');
 assertEqual(getRhythmNoteKind(resolvedManual.notes[0]), 'hold', 'manual beatmap keeps long note kind');

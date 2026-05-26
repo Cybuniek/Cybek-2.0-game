@@ -1531,7 +1531,7 @@ function RhythmScreen({
     [activeRun.difficulty, activeRun.track, audioDurationMs],
   );
   const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty));
-  const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(activeRun.track.bpm));
+  const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(beatmap.bpm));
   const [hitFeedbacks, setHitFeedbacks] = useState<HitFeedback[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef(session);
@@ -1566,12 +1566,12 @@ function RhythmScreen({
     sessionRef.current = nextSession;
     finishedRef.current = false;
     setSession(nextSession);
-    setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+    setVocalPeaks(createFallbackPeaks(beatmap.bpm));
     setHitFeedbacks([]);
     heldLanesRef.current.clear();
     rhythmSfx.stopAllHolds();
     gameClockFallbackMsRef.current = 0;
-  }, [activeRun.difficulty, activeRun.track.bpm, beatmap, rhythmSfx]);
+  }, [activeRun.difficulty, beatmap, rhythmSfx]);
 
   useEffect(() => {
     setAudioDurationMs(estimateRhythmDurationMs(activeRun.track));
@@ -1595,14 +1595,14 @@ function RhythmScreen({
 
   useEffect(() => {
     if (!vocalAudioSource) {
-      setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+      setVocalPeaks(createFallbackPeaks(beatmap.bpm));
       return;
     }
 
     let cancelled = false;
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) {
-      setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+      setVocalPeaks(createFallbackPeaks(beatmap.bpm));
       return;
     }
     const audioContext = new AudioContextCtor();
@@ -1617,7 +1617,7 @@ function RhythmScreen({
         if (!cancelled) setVocalPeaks(buildVocalPeaks(decoded));
       })
       .catch(() => {
-        if (!cancelled) setVocalPeaks(createFallbackPeaks(activeRun.track.bpm));
+        if (!cancelled) setVocalPeaks(createFallbackPeaks(beatmap.bpm));
       })
       .finally(() => {
         void audioContext.close();
@@ -1626,7 +1626,7 @@ function RhythmScreen({
     return () => {
       cancelled = true;
     };
-  }, [activeRun.track.bpm, vocalAudioSource]);
+  }, [beatmap.bpm, vocalAudioSource]);
 
   const completeRun = useCallback((sessionToFinish: RhythmSession) => {
     if (finishedRef.current) return;
@@ -1892,7 +1892,7 @@ function RhythmScreen({
         <button onClick={onExit}>{buttonLabels.backToDesktop}</button>
         <strong className="masked-title">{displayTitle}</strong>
         <span>{placeholderLabels.level}: {activeRun.difficulty}</span>
-        <span>{activeRun.track.bpm} BPM</span>
+        <span>{beatmap.bpm} BPM</span>
         <span>{placeholderLabels.density}: {densityConfig.densityMultiplier}</span>
         <button onClick={() => setDebugMode((current) => (current === 'window' ? null : 'window'))}>Rhythm debug</button>
       </div>
@@ -2034,7 +2034,7 @@ function RhythmScreen({
         onPresenceEvent={onNeuraPresenceEvent}
         tutorialStep={tutorialStep}
         webcamEvent="rhythm"
-        musicBpm={activeRun.track.bpm}
+        musicBpm={beatmap.bpm}
         dragEnabled={overlayDragEnabled}
         webcamPosition={overlayPositions.webcam}
         onWebcamMove={(position) => onOverlayMove('webcam', position)}

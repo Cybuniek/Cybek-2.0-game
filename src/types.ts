@@ -49,11 +49,19 @@ export type RhythmNote = {
   requiredPresses?: number;
 };
 
+export type RhythmMarker = {
+  id: string;
+  timeMs: number;
+  label: string;
+  note?: string;
+};
+
 export type RhythmBeatmap = {
   trackId: string;
   bpm: number;
   beatUnit?: number;
   ticksPerBeat?: number;
+  inputOffsetMs?: number;
   startOffsetMs?: number;
   checkpointEveryTicks?: number;
   sourceStartMs?: number;
@@ -62,6 +70,7 @@ export type RhythmBeatmap = {
   durationMs: number;
   source?: 'manual' | 'generated';
   notes: RhythmNote[];
+  markers?: RhythmMarker[];
 };
 
 export type RhythmSummary = {

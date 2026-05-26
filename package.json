@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "npm run test:rhythm && npm run test:state && npm run test:neura-presence && npm run test:neura && npm run test:neura-tutorial",
+    "test": "npm run test:rhythm && npm run test:editor && npm run test:state && npm run test:neura-presence && npm run test:neura && npm run test:neura-tutorial",
     "test:rhythm": "node --experimental-strip-types scripts/rhythm.dev-test.ts",
+    "test:editor": "node --experimental-strip-types scripts/editor.dev-test.ts",
     "test:state": "node --experimental-strip-types scripts/state.dev-test.ts",
     "test:neura-presence": "node --experimental-strip-types scripts/neura-presence.dev-test.ts",
     "test:neura": "node --experimental-strip-types scripts/neura-voice-director.dev-test.ts",
