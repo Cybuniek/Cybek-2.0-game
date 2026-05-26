@@ -89,3 +89,29 @@ assertEqual(log.length, 8, 'event log keeps the latest 8 events');
 assertEqual(log[0].id, 'draftSaved', 'event log drops the oldest event first');
 
 assert(calculatePresenceScore(busyState, 'published') > calculatePresenceScore(defaultState), 'presence score follows game progress, not wall clock time');
+
+const echoPresence = createNeuraPresenceState({
+  ...defaultState,
+  echo: {
+    echoCount: 5,
+    messages: [],
+    lastPhrase: 'Opublikuj na czacie głównym',
+    lastEffect: 'glitch',
+    activeCutsceneId: 'events.echo.after-publish',
+  },
+  resonance: {
+    level: 'high',
+    score: 104,
+    lastAccuracy: 91,
+    bondWithNeura: 'attuned',
+    effects: {
+      bloom: 0.55,
+      glitchIntensity: 0.68,
+      uiHighlight: 0.52,
+      timerScale: 0.7,
+      comboBonus: 0.12,
+    },
+  },
+}, { lastEventId: 'published' });
+assert(echoPresence.uiAutonomy > bootPresence.uiAutonomy, 'echo and resonance raise environmental UI autonomy');
+assert(echoPresence.glitchIntensity > bootPresence.glitchIntensity, 'echo and resonance raise Neura glitch intensity');

@@ -36,6 +36,21 @@ Beatmap Editor UX 2026-05-25:
 - BPM można edytować per mapa, a eksport i runtime zachowują ręczne BPM zamiast nadpisywać je BPM-em utworu.
 - Edytor odtwarza osobne ścieżki instrumental/vocal i ma suwaki głośności dla miksu, instrumentalu, wokalu oraz metronomu.
 
+Refaktor SFX rytmu 2026-05-26:
+- Audyt przed zmianą: `git status --short` był czysty, `npm test` i `npm run build` przechodziły, a `src/App.tsx` miał 2286 linii.
+- Wydzielono runtime SFX sekcji rytmicznej do `src/audio/useRhythmSfx.ts`; `App.tsx` tylko pobiera kontroler `useRhythmSfx()` i wywołuje `playTap/startHold/fadeOverlay/stopHold/stopAllHolds`.
+- Rozszerzono `npm run test:rhythm` o regresje zegara `syncRhythmSessionToElapsed`, automatyczne kończenie sesji z missami oraz próg pustych uderzeń resetujących combo.
+- Weryfikacja: `npm run test:rhythm`, `npm test` i `npm run build` przechodzą; smoke test przez headless Chrome/CDP przeszedł flow title -> boot -> desktop -> create -> rhythm z tapem i holdem bez błędów konsoli.
+
+Neura Echo + Resonance + EVENTS 2026-05-26:
+- Dodano `EchoState`, `EchoMessage`, `NeuraEchoEffect`, `ResonanceState`, `ResonanceLevel`, `NeuraResonanceEffect`, `BondWithNeura`, `EndingState` i `EndingRoute` do wspólnego modelu gry.
+- Publikacja wywołuje `triggerEchoAfterPublish()`, zwiększa `echoCount`, zapisuje frazę decyzji gracza, aktualizuje rezonans i przelicza logiczną trasę endingową.
+- `EVENTS` przestał być normalną ikoną pulpitu; `EventCutsceneStage` odpala się ze stanu `echo.activeCutsceneId` jako makieta pulpitu pod cutscenki.
+- `src/resonance.ts` i `src/ending.ts` trzymają czystą logikę, a sekcja rytmiczna przyjmuje opcjonalny `comboBonus` z efektów rezonansu.
+- Rozszerzono dialogi Neury o warunki echo/rezonansu/wiezi/endingu oraz dodano linie powtarzające decyzje gracza jako echo.
+- Dodano testy `scripts/echo.dev-test.ts`, `scripts/resonance.dev-test.ts`, `scripts/ending.dev-test.ts`; rozszerzono testy state, rhythm, presence i voice director.
+- Weryfikacja: `npm test` i `npm run build` przechodzą; smoke test headless Chrome/CDP potwierdził publikację, `echoCount=1`, widoczny stage EVENTS, brak ikony Event na pulpicie i brak błędów konsoli.
+
 Beatmap Editor 2026-05-14:
 - Audyt: webowy edytor jest najlepszym docelowym workflow, bo siedzi obok runtime'u gry, ale brakowało mu jawnego importu pełnego `manualBeatmaps.json`, widocznego odzyskiwania backupów z `localStorage` i prostego eksportu katalogu pod docelową nazwą pliku.
 - Zmieniono mały zakres: edytor trzyma roboczy katalog beatmap w stanie Reacta, import/restore aktualizują bieżącą mapę, eksport pobiera `manualBeatmaps.json` i zapisuje backup w `localStorage`.

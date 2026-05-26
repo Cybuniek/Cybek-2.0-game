@@ -2,6 +2,7 @@ import manualBeatmaps from './data/manualBeatmaps.json' with { type: 'json' };
 import type {
   Difficulty,
   QualityTier,
+  ResonanceVisualEffects,
   RhythmBeatmap,
   RhythmLane,
   RhythmNote,
@@ -317,13 +318,16 @@ export function finishRhythmSession(session: RhythmSession): RhythmSession {
   };
 }
 
-export function getRhythmSummary(session: RhythmSession): RhythmSummary {
+export function getRhythmSummary(
+  session: RhythmSession,
+  resonance?: Pick<ResonanceVisualEffects, 'comboBonus'> & { level?: string },
+): RhythmSummary {
   const totalNotes = session.notes.length;
   const rawAccuracy = totalNotes === 0
     ? 0
     : ((session.perfectHits + session.greatHits * 0.85 + session.goodHits * 0.65) / totalNotes) * 100;
   const comboRatio = totalNotes === 0 ? 0 : session.maxCombo / totalNotes;
-  const comboMultiplier = roundTo(1 + Math.min(0.5, comboRatio * 0.5), 2);
+  const comboMultiplier = roundTo(1 + Math.min(0.5, comboRatio * 0.5) + Math.max(0, resonance?.comboBonus ?? 0), 2);
   const difficultyMultiplier = difficultyConfig[session.difficulty].qualityMultiplier;
   const qualityProgress = Math.round(rawAccuracy * difficultyMultiplier * comboMultiplier);
   const accuracy = totalNotes === 0

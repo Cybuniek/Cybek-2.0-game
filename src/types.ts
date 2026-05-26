@@ -4,6 +4,10 @@ export type RhythmLane = 'S' | 'D' | 'K' | 'L';
 export type QualityTier = 'F' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export type RhythmNoteKind = 'tap' | 'hold';
 export type OperationalPowerLevel = 0 | 1 | 2 | 3 | 4;
+export type NeuraEchoEffect = 'whisper' | 'glitch' | 'cutscene';
+export type ResonanceLevel = 'silent' | 'low' | 'medium' | 'high' | 'overload';
+export type BondWithNeura = 'distant' | 'curious' | 'attuned' | 'merged';
+export type EndingRoute = 'quietArchive' | 'neuraBond' | 'publicSpiral' | 'offlineBreak';
 export type NeuraPresenceEventId =
   | 'boot'
   | 'draftSaved'
@@ -36,6 +40,61 @@ export type NeuraPresenceState = {
   lowFxMode: boolean;
   narrativeTag: string;
   eventLog: NeuraPresenceEventLogEntry[];
+};
+
+export type EchoMessage = {
+  id: string;
+  source: 'decision' | 'publish' | 'ambient';
+  phrase: string;
+  trackId?: string;
+  decisionLabel?: string;
+  effect: NeuraEchoEffect;
+  count: number;
+  createdAt: string;
+};
+
+export type EchoState = {
+  echoCount: number;
+  messages: EchoMessage[];
+  lastPhrase: string | null;
+  lastEffect: NeuraEchoEffect | null;
+  activeCutsceneId: string | null;
+};
+
+export type ResonanceVisualEffects = {
+  bloom: number;
+  glitchIntensity: number;
+  uiHighlight: number;
+  timerScale: number;
+  comboBonus: number;
+};
+
+export type NeuraResonanceEffect = {
+  level: ResonanceLevel;
+  label: string;
+  effects: ResonanceVisualEffects;
+};
+
+export type ResonanceState = {
+  level: ResonanceLevel;
+  score: number;
+  lastAccuracy: number;
+  bondWithNeura: BondWithNeura;
+  effects: ResonanceVisualEffects;
+};
+
+export type EndingState = {
+  route: EndingRoute;
+  label: string;
+  influence: {
+    performance: number;
+    chatPressure: number;
+    cybart: number;
+    echo: number;
+    resonance: number;
+    bond: number;
+  };
+  updatedAt: string | null;
 };
 
 export type RhythmNote = {
@@ -153,6 +212,9 @@ export type Stats = {
 export type GameState = {
   saveVersion: 1;
   stats: Stats;
+  echo: EchoState;
+  resonance: ResonanceState;
+  ending: EndingState;
   createdTrackIds: string[];
   titleRevealByTrackId: Record<string, number>;
   drafts: DraftTrack[];

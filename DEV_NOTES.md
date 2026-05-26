@@ -6,6 +6,8 @@
 - `src/styles.css` - prosty styl OS/CRT/neon/glitch.
 - `src/types.ts` - wspolne typy stanu, draftow, publikacji, wynikow i beatmap rytmicznych.
 - `src/rhythm.ts` - deterministyczny generator beatmap wedlug dlugosci audio, stan proby rytmicznej, trafienia, missy, combo i tier jakosci.
+- `src/resonance.ts` - czysta logika rezonansu Neury liczona z accuracy i echoCount, z efektami UI/audio oraz opcjonalnym bonusem combo.
+- `src/ending.ts` - czysta logika aktualnej trasy endingowej na podstawie statystyk, echo, rezonansu i wiezi z Neura.
 - `src/storage.ts` - localStorage, migracja save'a, statystyki, jakosc publikacji i pomocnicze funkcje flow.
 - `src/data/tracks.ts` - lista utworow i ich poziomy trudnosci.
 - `src/data/uiLabels.ts` - etykiety UI: nazwy okien, aplikacji, ikon, przyciskow, statystyk, statusow i placeholderow.
@@ -14,6 +16,7 @@
 - `src/data/neuraVoiceAssets.ts` - manifest sciezek MP3 dla kwestii Neury.
 - `src/data/chatReactions.ts` - dynamiczne reakcje czatu po wyslaniu draftu i publikacji.
 - `src/audio/useSoundscape.ts` - globalne tlo audio pulpitu: ambient OS, losowe glitche, mute i domyslne poziomy glosnosci.
+- `src/audio/useRhythmSfx.ts` - runtime efektow SFX sekcji rytmicznej: tapy, petle holdow, fade overlay i cleanup aktywnych holdow.
 
 ## Nowy model flow
 
@@ -59,6 +62,18 @@ Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/
 
 Nowe data-driven dialogi mieszkaja w `src/data/dialogue/neuraVoiceLines.ts`. Ich `audio.id` moze wskazywac osobny plik `/audio/neura/<audio.id>.ogg`, niezaleznie od starego manifestu kompatybilnosci dla `NeuraPet`. Generator `scripts/generate-neura-voices.ts` obsluguje nowe zrodlo przez `--source dialogue-v2`, filtr fazy przez `--phase` i start od konkretnego id przez `--from-id`.
 
+Dialogi moga byc teraz warunkowane przez `minEchoCount`, `minResonanceLevel`, `bondWithNeura` i `endingRoute`. Echo po publikacji doklada do kolejki linie, w ktorych Neura powtarza fragment decyzji gracza, a rezonans pozwala odblokowac kwestie zalezne od aktualnej wiezi.
+
+## Echo, Resonance i EVENTS 2026-05-26
+
+Echo zapisuje sie w `GameState.echo`. Zawiera `echoCount`, ostatnia fraze decyzji, krotka liste `EchoMessage` i opcjonalne `activeCutsceneId`. Publikacja utworu przechodzi przez `triggerEchoAfterPublish()` w `src/gameFlow.ts`, ktore zwieksza echo i zapisuje fraze publikacji jako impuls fabularny.
+
+Rezonans siedzi w `src/resonance.ts`. `calculateResonance(accuracy, echoCount)` wylicza poziom `silent/low/medium/high/overload`, `updateResonanceState()` zapisuje wynik oraz `bondWithNeura`, a `applyResonanceEffects()` lagodnie wzmacnia statystyke Cybarta. Efekty wizualne rezonansu sa przechowywane w stanie jako `ResonanceVisualEffects`: bloom, glitch intensity, ui highlight, timer scale i opcjonalny `comboBonus` dla sekcji rytmicznej.
+
+Ending jest logiczny, bez cinematic assetow. `src/ending.ts` wylicza trase `quietArchive/neuraBond/publicSpiral/offlineBreak` na podstawie `performance`, `chatPressure`, `cybart`, `echoCount`, `resonance` i `bondWithNeura`. `GameState.ending` trzyma aktualna trase, etykiete oraz prosty rozklad wplywow do debugowania.
+
+`EVENTS` nie jest juz normalna ikona pulpitu. Zamiast tego `EventCutsceneStage` w `src/App.tsx` renderuje kontrolowana makiete pulpitu pod cutscenki, gdy `echo.activeCutsceneId` jest aktywne. Stage pokazuje echo tekstowe, podswietlone decyzje, status Neury i aktualna trase endingowa. To narzedzie narracyjne, nie osobna aplikacja gracza.
+
 ## Samouczek Neury
 
 `src/neura/tutorialGuide.ts` wylicza aktualny krok samouczka z aktualnego stanu gry, ekranu, aktywnego okna i trybu próby. Flow jest celowo mały: otworzenie generatora, stworzenie pierwszej wersji, zapis draftu, remix w szufladzie, nadpisanie draftu, publikacja na czacie głównym i sprawdzenie śladu publikacji.
@@ -102,9 +117,11 @@ Obsługiwane typy nut:
 - `hold` - trafienie początku i trzymanie klawisza do końca `durationMs`,
 - `smash` - trafienie początku i mash tego samego klawisza do osiągnięcia `requiredPresses`.
 
-Efekty trafien sekcji rytmicznej sa statycznymi MP3 w `public/audio/sfx/rhythm`. Tap i puste uderzenie losuja jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`. Hold uruchamia dwie petle: `SE-hold_loop-keyboard_typing.mp3` i `SE-hold_loop-overlay_effect.mp3`. Gdy koniec holda minie linie trafienia, overlay schodzi fadeoutem, a warstwa keyboard typing zostaje aktywna do faktycznego puszczenia klawisza.
+Efekty trafien sekcji rytmicznej sa statycznymi MP3 w `public/audio/sfx/rhythm`, a ich runtime siedzi w `src/audio/useRhythmSfx.ts`. `App.tsx` nie zarzadza juz szczegolami audio, tylko wywoluje kontroler hooka. Tap i puste uderzenie losuja jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`. Hold uruchamia dwie petle: `SE-hold_loop-keyboard_typing.mp3` i `SE-hold_loop-overlay_effect.mp3`. Gdy koniec holda minie linie trafienia, overlay schodzi fadeoutem, a warstwa keyboard typing zostaje aktywna do faktycznego puszczenia klawisza.
 
 Accuracy liczy się jako `(perfect + great * 0.85 + good * 0.65) / totalNotes * 100`. Grade jest tierem jakości `F/E/D/C/B/A/S`, wyliczanym z jakości próby, poziomu trudności i mnożnika combo. Próba trwa tyle, ile bazowy plik audio; jeśli metadane audio nie są jeszcze dostępne, runtime używa estymacji z BPM i liczby beatów tylko jako fallbacku.
+
+Przy aktywnym rezonansie `getRhythmSummary(session, resonanceEffects)` moze dostac opcjonalny `comboBonus`. Runtime przekazuje aktualne efekty z `GameState.resonance`, a czysta logika pozostaje testowalna bez Reacta.
 
 Beatmapy mogą być ręczne albo generowane. Runtime najpierw próbuje wczytać mapę z `src/data/manualBeatmaps.json`, a jeśli jej brakuje albo nie przechodzi walidacji, używa deterministycznego generatora z seedów w `src/data/tracks.ts`. Format ręczny `schemaVersion: 2` obsługuje `sourceStartMs` i `sourceEndMs` per poziom trudności. Nuty są liczone od początku wycinka, więc `timeMs: 0` oznacza `sourceStartMs` w pliku audio. Stare mapy bez jawnego zakresu nie mogą przypadkiem skrócić utworu samym `durationMs`; runtime migruje je do pełnego czasu audio. BPM pochodzi z pełnej wersji bazowego utworu, a poziomy trudności nie zmieniają BPM-u, tylko gęstość nut: `Łatwy=0.5`, `Normalny=0.7`, `Cybart=1.0`.
 
@@ -173,6 +190,9 @@ Stan jest zapisywany w localStorage pod kluczem `ustnik-2-state`. Save ma `saveV
 Zapisywane sa:
 
 - statystyki,
+- `echo` - licznik i ostatnie echo decyzji gracza oraz aktywna cutscenka EVENTS,
+- `resonance` - poziom rezonansu, wynik, ostatnia accuracy, wiez z Neura i efekty runtime,
+- `ending` - aktualna trasa endingowa oraz wplywy decyzyjne,
 - `createdTrackIds` - utwory juz stworzone w generatorze,
 - `drafts` - drafty w szufladzie,
 - aktualny poziom draftu,

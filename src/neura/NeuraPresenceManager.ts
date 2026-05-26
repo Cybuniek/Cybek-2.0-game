@@ -38,13 +38,18 @@ export function createNeuraPresenceState(
   const lowFxMode = options.lowFxMode ?? false;
   const avatarMultiplier = lowFxMode ? 0.18 : 1;
   const uiMultiplier = lowFxMode ? 0.35 : 1;
+  const echoCount = gameState.echo?.echoCount ?? 0;
+  const resonanceEffects = gameState.resonance?.effects;
+  const echoUiAutonomy = Math.min(0.18, echoCount * 0.025);
+  const resonanceUiAutonomy = Math.min(0.22, (resonanceEffects?.uiHighlight ?? 0) * 0.32);
+  const resonanceGlitch = Math.min(0.18, (resonanceEffects?.glitchIntensity ?? 0) * 0.22);
 
   return {
     powerLevel,
-    glitchIntensity: clamp01(preset.audio.glitchIntensity),
+    glitchIntensity: clamp01(preset.audio.glitchIntensity + resonanceGlitch),
     ambientDepth: clamp01(preset.audio.ambientDepth),
     avatarInstability: clamp01(preset.avatar.instability * avatarMultiplier),
-    uiAutonomy: clamp01(preset.ui.autonomy * uiMultiplier),
+    uiAutonomy: clamp01((preset.ui.autonomy + echoUiAutonomy + resonanceUiAutonomy) * uiMultiplier),
     lastEventId,
     debugOverride,
     lowFxMode,
@@ -76,6 +81,8 @@ export function calculatePresenceScore(gameState: GameState, lastEventId: NeuraP
   const pressureScore = Math.round(gameState.stats.chatPressure * 0.24);
   const cybartScore = Math.round(gameState.stats.cybart * 0.18);
   const performanceScore = Math.round(gameState.stats.performance * 0.08);
+  const echoScore = Math.min(28, (gameState.echo?.echoCount ?? 0) * 5);
+  const resonanceScore = Math.round((gameState.resonance?.score ?? 0) * 0.16);
   const titleRevealScore = Math.min(10, Math.round(Object.values(gameState.titleRevealByTrackId).reduce(
     (sum, reveal) => sum + reveal,
     0,
@@ -87,6 +94,8 @@ export function calculatePresenceScore(gameState: GameState, lastEventId: NeuraP
       + pressureScore
       + cybartScore
       + performanceScore
+      + echoScore
+      + resonanceScore
       + titleRevealScore
       + EVENT_SCORE_BONUS[lastEventId],
     0,

@@ -1,6 +1,7 @@
 import {
   buildRhythmBeatmap,
   createRhythmSession,
+  EMPTY_PRESS_GRACE_COUNT,
   finishRhythmSession,
   estimateRhythmDurationMs,
   getVisibleRhythmNotes,
@@ -13,6 +14,7 @@ import {
   resolveRhythmBeatmap,
   RHYTHM_LANES,
   stepRhythmSession,
+  syncRhythmSessionToElapsed,
 } from '../src/rhythm.ts';
 import manualBeatmaps from '../src/data/manualBeatmaps.json' with { type: 'json' };
 import { tracks } from '../src/data/tracks.ts';
@@ -84,6 +86,58 @@ const handMadeMap: RhythmBeatmap = {
   ],
 };
 
+const emptySyncMap: RhythmBeatmap = {
+  trackId: 'sync-empty',
+  bpm: 120,
+  durationMs: 3000,
+  notes: [],
+};
+
+let syncedSession = createRhythmSession(emptySyncMap, 'Łatwy');
+syncedSession = syncRhythmSessionToElapsed(syncedSession, 1600);
+syncedSession = syncRhythmSessionToElapsed(syncedSession, 900);
+assertEqual(syncedSession.elapsedMs, 1600, 'syncRhythmSessionToElapsed never rewinds the session clock');
+
+const autoFinishMap: RhythmBeatmap = {
+  trackId: 'auto-finish',
+  bpm: 120,
+  durationMs: 1200,
+  notes: [
+    { id: 'auto-finish-1', lane: 'S', timeMs: 500 },
+    { id: 'auto-finish-2', lane: 'D', timeMs: 1100 },
+  ],
+};
+
+let autoFinishSession = createRhythmSession(autoFinishMap, 'Łatwy');
+autoFinishSession = syncRhythmSessionToElapsed(autoFinishSession, 9999);
+assertEqual(autoFinishSession.elapsedMs, autoFinishMap.durationMs, 'syncRhythmSessionToElapsed clamps elapsed time to map duration');
+assertEqual(autoFinishSession.isFinished, true, 'syncRhythmSessionToElapsed finishes the session after map duration');
+assertEqual(autoFinishSession.misses, 2, 'syncRhythmSessionToElapsed scores unresolved notes as misses on finish');
+
+const emptyPressGraceMap: RhythmBeatmap = {
+  trackId: 'empty-press-grace',
+  bpm: 120,
+  durationMs: 3000,
+  notes: [
+    { id: 'empty-grace-1', lane: 'S', timeMs: 1000 },
+    { id: 'empty-grace-2', lane: 'D', timeMs: 1200 },
+  ],
+};
+
+let emptyPressGraceSession = createRhythmSession(emptyPressGraceMap, 'Łatwy');
+emptyPressGraceSession = syncRhythmSessionToElapsed(emptyPressGraceSession, 1000);
+emptyPressGraceSession = hitRhythmLane(emptyPressGraceSession, 'S');
+emptyPressGraceSession = syncRhythmSessionToElapsed(emptyPressGraceSession, 1200);
+emptyPressGraceSession = hitRhythmLane(emptyPressGraceSession, 'D');
+assertEqual(emptyPressGraceSession.combo, 2, 'setup combo is built before empty press grace test');
+for (let press = 1; press <= EMPTY_PRESS_GRACE_COUNT; press += 1) {
+  emptyPressGraceSession = hitRhythmLane(emptyPressGraceSession, 'L');
+  assertEqual(emptyPressGraceSession.combo, 2, `empty press ${press} stays inside combo grace`);
+}
+emptyPressGraceSession = hitRhythmLane(emptyPressGraceSession, 'L');
+assertEqual(emptyPressGraceSession.combo, 0, 'empty presses reset combo after grace count is exceeded');
+assertEqual(emptyPressGraceSession.emptyPresses, EMPTY_PRESS_GRACE_COUNT + 1, 'empty press streak records every empty input');
+
 let session = createRhythmSession(handMadeMap, 'Łatwy');
 session = stepRhythmSession(session, 1000);
 session = hitRhythmLane(session, 'S');
@@ -109,6 +163,10 @@ assertEqual(summary.grade, 'E', 'grade uses cumulative F-S quality tier threshol
 assertEqual(summary.comboMultiplier, 1.33, 'summary rewards max combo with a multiplier');
 assertEqual(summary.maxCombo, 2, 'summary reports max combo');
 assertEqual(summary.totalNotes, 3, 'summary reports total notes');
+
+const resonantSummary = getRhythmSummary(session, { level: 'high', comboBonus: 0.12 });
+assertEqual(resonantSummary.comboMultiplier, 1.45, 'high resonance can add an optional combo bonus');
+assert(resonantSummary.qualityProgress > summary.qualityProgress, 'resonance combo bonus increases quality progress');
 
 const holdMap: RhythmBeatmap = {
   trackId: 'manual',
