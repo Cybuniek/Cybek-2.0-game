@@ -1,7 +1,25 @@
 import { initialGroupMessages, initialPawelMessages } from './data/messages.ts';
 import { tracks } from './data/tracks.ts';
 import { tierFromQualityProgress } from './rhythm.ts';
-import type { ChatMessage, Difficulty, DraftTrack, GameState, PerformanceResult, PublishedTrack, QualityTier, RhythmSummary, Stats } from './types';
+import type {
+  ChatMessage,
+  Difficulty,
+  DraftTrack,
+  EchoMessage,
+  EchoState,
+  EndingRoute,
+  EndingState,
+  GameState,
+  NeuraEchoEffect,
+  PerformanceResult,
+  PublishedTrack,
+  QualityTier,
+  ResonanceLevel,
+  ResonanceState,
+  ResonanceVisualEffects,
+  RhythmSummary,
+  Stats,
+} from './types';
 
 const STORAGE_KEY = 'ustnik-2-state';
 
@@ -9,6 +27,44 @@ const initialStats: Stats = {
   performance: 8,
   cybart: 12,
   chatPressure: 18,
+};
+
+const defaultResonanceEffects: ResonanceVisualEffects = {
+  bloom: 0,
+  glitchIntensity: 0,
+  uiHighlight: 0,
+  timerScale: 1,
+  comboBonus: 0,
+};
+
+const defaultEchoState: EchoState = {
+  echoCount: 0,
+  messages: [],
+  lastPhrase: null,
+  lastEffect: null,
+  activeCutsceneId: null,
+};
+
+const defaultResonanceState: ResonanceState = {
+  level: 'silent',
+  score: 0,
+  lastAccuracy: 0,
+  bondWithNeura: 'distant',
+  effects: defaultResonanceEffects,
+};
+
+const defaultEndingState: EndingState = {
+  route: 'quietArchive',
+  label: 'Ciche archiwum',
+  influence: {
+    performance: 0,
+    chatPressure: 0,
+    cybart: 0,
+    echo: 0,
+    resonance: 0,
+    bond: 0,
+  },
+  updatedAt: null,
 };
 
 type RhythmResultCounters = Pick<PerformanceResult, 'perfectHits' | 'greatHits' | 'goodHits' | 'misses' | 'emptyPresses' | 'maxCombo' | 'totalNotes'>;
@@ -24,6 +80,9 @@ const CORRUPTED_CHARACTERS = ['#', '%', '&', '?', '@', 'X', '+', '=', '*', '~'];
 export const defaultState: GameState = {
   saveVersion: 1,
   stats: initialStats,
+  echo: defaultEchoState,
+  resonance: defaultResonanceState,
+  ending: defaultEndingState,
   createdTrackIds: [],
   titleRevealByTrackId: {},
   drafts: [],
@@ -54,6 +113,41 @@ export function clampStat(value: number) {
 
 export function addMessage(messages: ChatMessage[], author: string, text: string) {
   return [...messages, { author, text }];
+}
+
+export function getEchoState(state: Pick<GameState, 'echo'>): EchoState {
+  return normalizeEchoState(state.echo);
+}
+
+type EchoMessageInput = Pick<EchoMessage, 'source' | 'phrase' | 'effect'> & Partial<Pick<
+  EchoMessage,
+  'id' | 'trackId' | 'decisionLabel' | 'count' | 'createdAt'
+>>;
+
+export function incrementEchoCount(state: GameState, message: EchoMessageInput): GameState {
+  const echo = getEchoState(state);
+  const count = echo.echoCount + 1;
+  const nextMessage: EchoMessage = {
+    id: message.id ?? createId('echo'),
+    source: message.source,
+    phrase: message.phrase,
+    trackId: message.trackId,
+    decisionLabel: message.decisionLabel,
+    effect: message.effect,
+    count,
+    createdAt: message.createdAt ?? new Date().toISOString(),
+  };
+
+  return {
+    ...state,
+    echo: {
+      echoCount: count,
+      messages: [nextMessage, ...echo.messages].slice(0, 8),
+      lastPhrase: nextMessage.phrase,
+      lastEffect: nextMessage.effect,
+      activeCutsceneId: nextMessage.effect === 'cutscene' ? 'events.echo.after-publish' : echo.activeCutsceneId,
+    },
+  };
 }
 
 export function getStatDelta(
@@ -282,6 +376,9 @@ function migrateState(
     ...defaultState,
     ...saved,
     saveVersion: 1,
+    echo: normalizeEchoState(saved.echo),
+    resonance: normalizeResonanceState(saved.resonance),
+    ending: normalizeEndingState(saved.ending),
     createdTrackIds,
     titleRevealByTrackId,
     drafts,
@@ -311,4 +408,87 @@ function estimateLegacyProgress(accuracy: number) {
 function normalizeTier(value: string): QualityTier {
   if (['F', 'E', 'D', 'C', 'B', 'A', 'S'].includes(value)) return value as QualityTier;
   return 'C';
+}
+
+function normalizeEchoState(value: unknown): EchoState {
+  if (!value || typeof value !== 'object') return defaultEchoState;
+  const echo = value as Partial<EchoState>;
+  const messages = Array.isArray(echo.messages)
+    ? echo.messages
+        .filter((message): message is EchoMessage => !!message && typeof message === 'object' && 'phrase' in message)
+        .slice(0, 8)
+    : [];
+
+  return {
+    echoCount: normalizeNumber(echo.echoCount, messages.length),
+    messages,
+    lastPhrase: typeof echo.lastPhrase === 'string' ? echo.lastPhrase : messages[0]?.phrase ?? null,
+    lastEffect: normalizeEchoEffect(echo.lastEffect),
+    activeCutsceneId: typeof echo.activeCutsceneId === 'string' ? echo.activeCutsceneId : null,
+  };
+}
+
+function normalizeResonanceState(value: unknown): ResonanceState {
+  if (!value || typeof value !== 'object') return defaultResonanceState;
+  const resonance = value as Partial<ResonanceState>;
+  return {
+    level: normalizeResonanceLevel(resonance.level),
+    score: normalizeNumber(resonance.score, 0),
+    lastAccuracy: normalizeNumber(resonance.lastAccuracy, 0),
+    bondWithNeura: ['distant', 'curious', 'attuned', 'merged'].includes(String(resonance.bondWithNeura))
+      ? resonance.bondWithNeura as ResonanceState['bondWithNeura']
+      : 'distant',
+    effects: normalizeResonanceEffects(resonance.effects),
+  };
+}
+
+function normalizeEndingState(value: unknown): EndingState {
+  if (!value || typeof value !== 'object') return defaultEndingState;
+  const ending = value as Partial<EndingState>;
+  const route = normalizeEndingRoute(ending.route);
+  return {
+    ...defaultEndingState,
+    ...ending,
+    route,
+    label: typeof ending.label === 'string' ? ending.label : defaultEndingState.label,
+    influence: {
+      ...defaultEndingState.influence,
+      ...(ending.influence ?? {}),
+    },
+    updatedAt: typeof ending.updatedAt === 'string' ? ending.updatedAt : null,
+  };
+}
+
+function normalizeResonanceEffects(value: unknown): ResonanceVisualEffects {
+  if (!value || typeof value !== 'object') return defaultResonanceEffects;
+  const effects = value as Partial<ResonanceVisualEffects>;
+  return {
+    bloom: normalizeNumber(effects.bloom, 0),
+    glitchIntensity: normalizeNumber(effects.glitchIntensity, 0),
+    uiHighlight: normalizeNumber(effects.uiHighlight, 0),
+    timerScale: normalizeNumber(effects.timerScale, 1),
+    comboBonus: normalizeNumber(effects.comboBonus, 0),
+  };
+}
+
+function normalizeNumber(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeEchoEffect(value: unknown): NeuraEchoEffect | null {
+  return ['whisper', 'glitch', 'cutscene'].includes(String(value)) ? value as NeuraEchoEffect : null;
+}
+
+function normalizeResonanceLevel(value: unknown): ResonanceLevel {
+  return ['silent', 'low', 'medium', 'high', 'overload'].includes(String(value)) ? value as ResonanceLevel : 'silent';
+}
+
+function normalizeEndingRoute(value: unknown): EndingRoute {
+  return ['quietArchive', 'neuraBond', 'publicSpiral', 'offlineBreak'].includes(String(value))
+    ? value as EndingRoute
+    : 'quietArchive';
+}
+
+function createId(prefix: string) {
+  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 }

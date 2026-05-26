@@ -315,8 +315,16 @@ function matchesConditions(conditions: DialogueConditions | undefined, context: 
   if (conditions.lastPresenceEventId !== undefined && presence.lastPresenceEventId !== conditions.lastPresenceEventId) return false;
   if (conditions.hasPublishedTrackId && !gameState.publishedTrackIds.includes(conditions.hasPublishedTrackId)) return false;
   if (conditions.hasDraftTrackId && !gameState.drafts.some((draft) => draft.trackId === conditions.hasDraftTrackId)) return false;
+  if (conditions.minEchoCount !== undefined && (gameState.echo?.echoCount ?? 0) < conditions.minEchoCount) return false;
+  if (conditions.minResonanceLevel !== undefined && resonanceRank(gameState.resonance?.level ?? 'silent') < resonanceRank(conditions.minResonanceLevel)) return false;
+  if (conditions.bondWithNeura !== undefined && gameState.resonance?.bondWithNeura !== conditions.bondWithNeura) return false;
+  if (conditions.endingRoute !== undefined && gameState.ending?.route !== conditions.endingRoute) return false;
 
   return true;
+}
+
+function resonanceRank(level: string) {
+  return ['silent', 'low', 'medium', 'high', 'overload'].indexOf(level);
 }
 
 function resolveCooldownMs(line: NeuraVoiceLine, pack: NeuraVoicePack): number {

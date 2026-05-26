@@ -164,6 +164,10 @@ assertEqual(summary.comboMultiplier, 1.33, 'summary rewards max combo with a mul
 assertEqual(summary.maxCombo, 2, 'summary reports max combo');
 assertEqual(summary.totalNotes, 3, 'summary reports total notes');
 
+const resonantSummary = getRhythmSummary(session, { level: 'high', comboBonus: 0.12 });
+assertEqual(resonantSummary.comboMultiplier, 1.45, 'high resonance can add an optional combo bonus');
+assert(resonantSummary.qualityProgress > summary.qualityProgress, 'resonance combo bonus increases quality progress');
+
 const holdMap: RhythmBeatmap = {
   trackId: 'manual',
   bpm: 120,

@@ -56,6 +56,11 @@ assert(legacyState.publishedTrackIds.includes('wenezuelski-wystep-mashup'), 'pub
 assertEqual(legacyState.titleRevealByTrackId['wenezuelski-wystep-mashup'], 1, 'published track titles are fully revealed');
 assertEqual(legacyState.publishedTracks[0].grade, 'C', 'invalid published tier falls back to C');
 assertEqual(legacyState.publishedTracks[0].quality, getPublishedQuality('C'), 'published quality follows normalized tier');
+assertEqual(legacyState.echo.echoCount, 0, 'legacy state receives default echo count');
+assertEqual(legacyState.echo.activeCutsceneId, null, 'legacy state receives no active cutscene');
+assertEqual(legacyState.resonance.level, 'silent', 'legacy state receives default resonance level');
+assertEqual(legacyState.resonance.bondWithNeura, 'distant', 'legacy state receives default Neura bond');
+assertEqual(legacyState.ending.route, 'quietArchive', 'legacy state receives default ending route');
 
 const explicitPublishedIds = migrateSavedState({
   publishedTrackIds: ['vlog-wildforest-rave-anho27'],
@@ -67,3 +72,32 @@ assertEqual(
   1,
   'explicit published ids fully reveal titles even without published track records',
 );
+
+const restoredEchoState = migrateSavedState({
+  echo: {
+    echoCount: 3,
+    messages: [{ id: 'echo-1', source: 'decision', phrase: 'Publikuj dalej', effect: 'glitch', count: 3, createdAt: '2026-05-26T10:00:00.000Z' }],
+    lastPhrase: 'Publikuj dalej',
+    lastEffect: 'glitch',
+    activeCutsceneId: 'events.echo.after-publish',
+  },
+  resonance: {
+    level: 'high',
+    score: 91,
+    lastAccuracy: 88,
+    bondWithNeura: 'attuned',
+    effects: { bloom: 0.35, glitchIntensity: 0.28, uiHighlight: 0.42, timerScale: 0.84, comboBonus: 0.12 },
+  },
+  ending: {
+    route: 'neuraBond',
+    label: 'Więź z Neurą',
+    influence: { performance: 40, chatPressure: 12, cybart: 30, echo: 70, resonance: 91, bond: 85 },
+    updatedAt: '2026-05-26T10:02:00.000Z',
+  },
+} as unknown);
+
+assertEqual(restoredEchoState.echo.echoCount, 3, 'echo migration preserves echo count');
+assertEqual(restoredEchoState.echo.lastPhrase, 'Publikuj dalej', 'echo migration preserves last phrase');
+assertEqual(restoredEchoState.resonance.level, 'high', 'resonance migration preserves level');
+assertEqual(restoredEchoState.resonance.effects.comboBonus, 0.12, 'resonance migration preserves combo bonus');
+assertEqual(restoredEchoState.ending.route, 'neuraBond', 'ending migration preserves route');
