@@ -113,16 +113,26 @@ Beatmapy mogą być ręczne albo generowane. Runtime najpierw próbuje wczytać 
 Webowy `Beatmap Editor` jest traktowany jako docelowy codzienny workflow edycji beatmap, bo działa w tej samej aplikacji co runtime gry. Aktualny zakres:
 
 - wybór utworu i poziomu trudności,
-- edycja, przeciąganie, usuwanie i inspekcja nut `tap/hold/smash`,
+- edycja, przeciąganie, usuwanie i inspekcja nut `tap/hold`,
 - nagrywanie nut z klawiatury podczas playbacku,
 - `Test Mode` z tym samym wejściem `S/D/K/L`, którego używa ekran rytmiczny,
-- walidacja przed eksportem,
+- undo/redo, multi-select, kopiowanie/wklejanie nut oraz przesuwanie zaznaczenia skrótami,
+- snap do siatki BPM (`off`, `1/4`, `1/8`, `1/16`, `1/32`) przy klikaniu, przeciąganiu, resize, paste i nudge,
+- edycja BPM per mapa; BPM wpływa na snap, metronom i siatkę, ale nie przesuwa istniejących nut zapisanych w milisekundach,
+- ruchoma siatka BPM renderowana z czasu mapy, więc płynie razem z nutami zamiast być statycznym tłem,
+- przewijanie czasu mapy kółkiem myszy po planszy edytora, tylko gdy playback jest zatrzymany,
+- osobne ścieżki audio instrumental/vocal z suwakami głośności i głównym suwakiem miksu,
+- per-mapa `inputOffsetMs`, czyli kalibracja wejścia stosowana w ocenie trafień bez przesuwania audio ani wizualizacji,
+- markery edytorskie na timeline, zapisywane w `manualBeatmaps.json`, ale ignorowane przez gameplay,
+- prosty metronom ćwierćnutowy działający tylko podczas playbacku w edytorze,
+- walidacja przed eksportem z błędami blokującymi i ostrzeżeniami dla duplikatów, kolizji, ekstremalnego offsetu oraz markerów poza mapą,
 - import pełnego `manualBeatmaps.json`,
 - eksport pełnego katalogu jako `manualBeatmaps.json`,
 - backup eksportu w `localStorage` i przywracanie backupu z poziomu UI.
 - guard niezapisanych zmian: po edycji nuty zmiana utworu/poziomu, import i powrot do pulpitu wymagaja najpierw `Eksport + backup` albo `Porzuc zmiany`.
+- widoczna lista skrótów generowana z `src/editor/beatmapEditorKeybinds.ts`.
 
-Widok nut w edytorze powinien być odniesieniem do właściwej gry, nie osobną wizualizacją. Dlatego tory są renderowane jako cztery osobne kolumny, nuty używają tej samej bazowej klasy `.note` co runtime, a domyślne okno czasu przy `zoom x1` wynika z gameplayowego `travelMs` danego poziomu trudności. Suwak `Zoom` zawęża albo rozszerza okno czasu, ale nie rozciąga DOM-u pionowo.
+Widok nut w edytorze powinien być odniesieniem do właściwej gry, nie osobną wizualizacją. Dlatego tory są renderowane jako cztery osobne kolumny, nuty używają tej samej bazowej klasy `.note` co runtime i mają pełną szerokość toru, a domyślne okno czasu przy `zoom x1` wynika z gameplayowego `travelMs` danego poziomu trudności. Suwak `Zoom` zawęża albo rozszerza okno czasu, ale nie rozciąga DOM-u pionowo.
 
 Nagrywanie klawiaturą podczas playbacku działa tak:
 
@@ -137,12 +147,14 @@ Praktyczny workflow developerski:
 1. Otwórz `Beatmap Editor` w webowym prototypie.
 2. Jeśli zaczynasz od pliku z dysku, użyj `Import manualBeatmaps.json`.
 3. Edytuj mapę dla wybranego utworu i poziomu.
-4. Użyj `Eksport + backup`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
-5. Podmień `src/data/manualBeatmaps.json` pobranym plikiem dopiero po sprawdzeniu mapy.
-6. Jeśli edycja poszła w złą stronę, wybierz backup z listy i użyj `Przywróć`, potem ponownie wykonaj eksport.
-7. Jeśli chcesz zmienić utwór albo poziom bez zapisywania bieżących zmian, użyj `Porzuć zmiany`.
+4. Jeśli układasz ręcznie, ustaw BPM mapy, włącz snap i opcjonalny metronom; jeśli mapa nie trafia w audio, skoryguj `Offset wejścia ms`.
+5. Do większych refrenów użyj multi-select, `Ctrl+C` / `Ctrl+V`, markerów i nudge `,` / `.`.
+6. Użyj `Eksport + backup`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
+7. Podmień `src/data/manualBeatmaps.json` pobranym plikiem dopiero po sprawdzeniu mapy.
+8. Jeśli edycja poszła w złą stronę, użyj undo/redo albo wybierz backup z listy i użyj `Przywróć`, potem ponownie wykonaj eksport.
+9. Jeśli chcesz zmienić utwór albo poziom bez zapisywania bieżących zmian, użyj `Porzuć zmiany`.
 
-Audyt 2026-05-14: webowy edytor ma już bliższy runtime'owi workflow niż WinUI, ale nadal nie ma części wygód desktopowych: nie kopiuje automatycznie pobranego pliku do repo, nie importuje nowych utworów do `tracks.ts`, nie zapisuje backupów w katalogu `backups/manualBeatmaps` i nie ma osobnej kalibracji input laga. Największe tarcie po tej zmianie to ręczny krok podmiany pobranego `manualBeatmaps.json` w repo; jest celowo ręczny, żeby webowy prototyp nie udawał dostępu do systemu plików i nie nadpisywał danych bez kontroli.
+Audyt 2026-05-25: po analizie YunYunEditor przejęto lekkie wzorce workflow, ale bez migracji na Svelte, ZIP paczki, waveform albo pełną tempo mapę. Nadal ręcznie podmieniamy pobrany `manualBeatmaps.json` w repo, żeby webowy prototyp nie udawał dostępu do systemu plików i nie nadpisywał danych bez kontroli.
 
 ## Jakosc wersji i reakcje czatu
 

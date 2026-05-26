@@ -23,6 +23,19 @@ TODO:
 - Jeśli projekt ma dalej korzystać z testów przeglądarkowych z umiejętności `develop-web-game`, dodać `playwright` jako dev dependency albo wskazać wspólną instalację.
 - Kolejny krok rytmu: ręcznie sprawdzić start okna WinUI, potem ułożyć pełne autorskie mapy dla trzech utworów i ewentualnie dodać kalibrację input laga.
 
+Beatmap Editor 2026-05-25:
+- Po audycie YunYunEditor wdrożono pakiet P0/P1 bez migracji formatu: undo/redo, snap BPM, multi-select, clipboard, nudge, markery edytorskie, mocniejszą walidację i widoczną listę skrótów.
+- `RhythmBeatmap` obsługuje teraz `inputOffsetMs` per mapa oraz `markers`; runtime używa offsetu tylko do oceny wejścia, a markery ignoruje w gameplayu.
+- Beatmap Editor ma prosty metronom ćwierćnutowy podczas playbacku, bez przenoszenia go do właściwej gry.
+- Dodano `npm run test:editor` i podpięto go do `npm run test`.
+
+Beatmap Editor UX 2026-05-25:
+- Dopasowano szerokość nut w edytorze do runtime'u: nuty ponownie wypełniają tor zamiast wyglądać jak osobny, węższy podgląd.
+- Dodano przewijanie czasu mapy kółkiem myszy po planszy edytora, tylko przy zatrzymanym playbacku.
+- Statyczne paski tła toru zastąpiono ruchomą siatką BPM liczona z czasu mapy; linie płyną razem z nutami.
+- BPM można edytować per mapa, a eksport i runtime zachowują ręczne BPM zamiast nadpisywać je BPM-em utworu.
+- Edytor odtwarza osobne ścieżki instrumental/vocal i ma suwaki głośności dla miksu, instrumentalu, wokalu oraz metronomu.
+
 Beatmap Editor 2026-05-14:
 - Audyt: webowy edytor jest najlepszym docelowym workflow, bo siedzi obok runtime'u gry, ale brakowało mu jawnego importu pełnego `manualBeatmaps.json`, widocznego odzyskiwania backupów z `localStorage` i prostego eksportu katalogu pod docelową nazwą pliku.
 - Zmieniono mały zakres: edytor trzyma roboczy katalog beatmap w stanie Reacta, import/restore aktualizują bieżącą mapę, eksport pobiera `manualBeatmaps.json` i zapisuje backup w `localStorage`.

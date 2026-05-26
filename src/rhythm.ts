@@ -226,7 +226,7 @@ export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmS
   }
 
   const note = session.notes[candidateIndex];
-  const signedOffsetMs = session.elapsedMs - note.timeMs;
+  const signedOffsetMs = getInputAdjustedElapsedMs(session) - note.timeMs;
   const judgement = judgementFromOffset(signedOffsetMs);
 
   if (judgement === 'too_fast' || judgement === 'too_late') {
@@ -270,7 +270,7 @@ export function holdRhythmLane(session: RhythmSession, lane: RhythmLane): Rhythm
   if (candidateIndex === -1) return session;
 
   const note = session.notes[candidateIndex];
-  const judgement = judgementFromOffset(session.elapsedMs - note.timeMs);
+  const judgement = judgementFromOffset(getInputAdjustedElapsedMs(session) - note.timeMs);
   if (judgement === 'too_fast' || judgement === 'too_late') return session;
 
   const notes = session.notes.map((item, index) =>
@@ -438,22 +438,25 @@ function normalizeManualBeatmap(
   const hasExplicitRange = isPositiveNumber(beatmap.sourceStartMs) || isPositiveNumber(beatmap.sourceEndMs);
   const legacyDurationMs = isPositiveNumber(beatmap.durationMs) ? Math.round(beatmap.durationMs) : audioDurationMs;
   const durationMs = hasExplicitRange ? sourceEndMs - sourceStartMs : Math.max(legacyDurationMs, audioDurationMs);
+  const bpm = isPositiveNumber(beatmap.bpm) ? Math.round(beatmap.bpm) : track.bpm;
   const notes: RhythmNote[] = [];
 
   for (let index = 0; index < beatmap.notes.length; index += 1) {
-    const normalized = normalizeManualNote(beatmap.notes[index], track, difficulty, durationMs, index, beatmap.startOffsetMs ?? 0, beatmap.ticksPerBeat ?? 4);
+    const normalized = normalizeManualNote(beatmap.notes[index], track, difficulty, durationMs, index, bpm, beatmap.startOffsetMs ?? 0, beatmap.ticksPerBeat ?? 4);
     if (!normalized) return null;
     notes.push(normalized);
   }
 
   return {
     trackId: track.id,
-    bpm: track.bpm,
+    bpm,
     sourceStartMs,
     sourceEndMs: hasExplicitRange ? sourceEndMs : sourceStartMs + durationMs,
     audioDurationMs,
     durationMs,
     source: 'manual',
+    inputOffsetMs: Number.isFinite(beatmap.inputOffsetMs) ? Math.round(beatmap.inputOffsetMs ?? 0) : undefined,
+    markers: beatmap.markers?.map((marker) => ({ ...marker })),
     notes: notes.sort(compareNotes),
   };
 }
@@ -464,12 +467,13 @@ function normalizeManualNote(
   difficulty: Difficulty,
   beatmapDurationMs: number,
   index: number,
+  bpm: number,
   startOffsetMs: number,
   ticksPerBeatDefault: number,
 ): RhythmNote | null {
   if (!note || !RHYTHM_LANES.includes(note.lane)) return null;
   const ticksPerBeat = Math.max(1, Math.round(ticksPerBeatDefault));
-  const tickMs = isPositiveNumber(note.tick) ? rhythmTickToMs(note.tick, track.bpm, ticksPerBeat, startOffsetMs) : null;
+  const tickMs = isPositiveNumber(note.tick) ? rhythmTickToMs(note.tick, bpm, ticksPerBeat, startOffsetMs) : null;
   if (!isPositiveNumber(note.timeMs) && tickMs === null) return null;
 
   const kind = getRhythmNoteKind(note);
@@ -490,7 +494,7 @@ function normalizeManualNote(
     if (!isPositiveNumber(note.durationMs)) return null;
     normalized.kind = kind;
     const durationMs = isPositiveNumber(note.holdTicks)
-      ? rhythmTickToMs(note.holdTicks, track.bpm, ticksPerBeat, 0)
+      ? rhythmTickToMs(note.holdTicks, bpm, ticksPerBeat, 0)
       : Math.round(note.durationMs);
     normalized.durationMs = Math.max(MIN_LONG_NOTE_DURATION_MS, durationMs);
     if (timeMs + normalized.durationMs > beatmapDurationMs + MISS_FADE_MS) return null;
@@ -662,7 +666,7 @@ function findBestStartCandidate(session: RhythmSession, lane: RhythmLane) {
   session.notes.forEach((note, index) => {
     if (note.judged || note.startedAtMs !== undefined || note.lane !== lane) return;
 
-    const signedOffset = session.elapsedMs - note.timeMs;
+    const signedOffset = getInputAdjustedElapsedMs(session) - note.timeMs;
     const lowerBound = -MISS_WINDOW_MS;
     const upperBound = MISS_WINDOW_MS + LATE_HIT_GRACE_MS;
     const offset = Math.abs(signedOffset);
@@ -689,7 +693,7 @@ function findBestHoldStartCandidate(session: RhythmSession, lane: RhythmLane) {
       return;
     }
 
-    const signedOffset = session.elapsedMs - note.timeMs;
+    const signedOffset = getInputAdjustedElapsedMs(session) - note.timeMs;
     const lowerBound = -MISS_WINDOW_MS;
     const upperBound = MISS_WINDOW_MS + LATE_HIT_GRACE_MS;
     const offset = Math.abs(signedOffset);
@@ -733,6 +737,10 @@ function judgementFromOffset(signedOffsetMs: number): Exclude<RhythmJudgement, '
   if (offsetMs <= GOOD_WINDOW_MS) return 'good';
   if (signedOffsetMs > GOOD_WINDOW_MS && signedOffsetMs <= GOOD_WINDOW_MS + LATE_HIT_GRACE_MS) return 'good';
   return signedOffsetMs < 0 ? 'too_fast' : 'too_late';
+}
+
+function getInputAdjustedElapsedMs(session: RhythmSession): number {
+  return session.elapsedMs + Math.round(session.beatmap.inputOffsetMs ?? 0);
 }
 
 function recordEmptyPress(session: RhythmSession, lane: RhythmLane): RhythmSession {
