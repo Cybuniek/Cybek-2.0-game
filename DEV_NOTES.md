@@ -14,6 +14,7 @@
 - `src/data/neuraVoiceAssets.ts` - manifest sciezek MP3 dla kwestii Neury.
 - `src/data/chatReactions.ts` - dynamiczne reakcje czatu po wyslaniu draftu i publikacji.
 - `src/audio/useSoundscape.ts` - globalne tlo audio pulpitu: ambient OS, losowe glitche, mute i domyslne poziomy glosnosci.
+- `src/audio/useRhythmSfx.ts` - runtime efektow SFX sekcji rytmicznej: tapy, petle holdow, fade overlay i cleanup aktywnych holdow.
 
 ## Nowy model flow
 
@@ -102,7 +103,7 @@ Obsługiwane typy nut:
 - `hold` - trafienie początku i trzymanie klawisza do końca `durationMs`,
 - `smash` - trafienie początku i mash tego samego klawisza do osiągnięcia `requiredPresses`.
 
-Efekty trafien sekcji rytmicznej sa statycznymi MP3 w `public/audio/sfx/rhythm`. Tap i puste uderzenie losuja jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`. Hold uruchamia dwie petle: `SE-hold_loop-keyboard_typing.mp3` i `SE-hold_loop-overlay_effect.mp3`. Gdy koniec holda minie linie trafienia, overlay schodzi fadeoutem, a warstwa keyboard typing zostaje aktywna do faktycznego puszczenia klawisza.
+Efekty trafien sekcji rytmicznej sa statycznymi MP3 w `public/audio/sfx/rhythm`, a ich runtime siedzi w `src/audio/useRhythmSfx.ts`. `App.tsx` nie zarzadza juz szczegolami audio, tylko wywoluje kontroler hooka. Tap i puste uderzenie losuja jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`. Hold uruchamia dwie petle: `SE-hold_loop-keyboard_typing.mp3` i `SE-hold_loop-overlay_effect.mp3`. Gdy koniec holda minie linie trafienia, overlay schodzi fadeoutem, a warstwa keyboard typing zostaje aktywna do faktycznego puszczenia klawisza.
 
 Accuracy liczy się jako `(perfect + great * 0.85 + good * 0.65) / totalNotes * 100`. Grade jest tierem jakości `F/E/D/C/B/A/S`, wyliczanym z jakości próby, poziomu trudności i mnożnika combo. Próba trwa tyle, ile bazowy plik audio; jeśli metadane audio nie są jeszcze dostępne, runtime używa estymacji z BPM i liczby beatów tylko jako fallbacku.
 
