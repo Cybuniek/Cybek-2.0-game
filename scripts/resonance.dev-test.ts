@@ -34,10 +34,24 @@ assertEqual(resonantState.resonance.level, 'high', 'updateResonanceState stores 
 assert(resonantState.resonance.score > echoedState.resonance.score, 'updateResonanceState raises resonance score from accuracy and echo count');
 assertEqual(resonantState.resonance.bondWithNeura, 'attuned', 'high resonance creates an attuned bond with Neura');
 
+const mediumEffects = getResonanceEffects('medium');
 const effects = getResonanceEffects(resonantState.resonance);
 assert(effects.bloom > 0, 'high resonance enables bloom');
 assert(effects.glitchIntensity > defaultState.resonance.effects.glitchIntensity, 'high resonance increases glitch intensity');
+assert(effects.timerScale < mediumEffects.timerScale, 'high resonance shortens autonomy timers more than medium resonance');
+assert(effects.comboBonus > mediumEffects.comboBonus, 'high resonance gives a stronger combo bonus than medium resonance');
 
 const applied = applyResonanceEffects(resonantState);
 assert(applied.stats.cybart >= resonantState.stats.cybart, 'resonance effects never reduce Cybart pressure');
 assert(['neuraBond', 'publicSpiral', 'quietArchive', 'offlineBreak'].includes(calculateEndingRoute(applied)), 'resonance-fed state maps to a known ending route');
+
+const overloaded = updateResonanceState(Array.from({ length: 3 }).reduce(
+  (state, _, index) => incrementEchoCount(state, {
+    source: 'ambient',
+    phrase: `overload-echo-${index}`,
+    effect: 'whisper',
+  }),
+  echoedState,
+), 99);
+assertEqual(overloaded.resonance.level, 'overload', 'high accuracy with many echoes reaches overload');
+assertEqual(overloaded.resonance.bondWithNeura, 'merged', 'overload resonance merges the Neura bond');
