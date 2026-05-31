@@ -150,3 +150,72 @@ function withStats(gameState: GameState, performance: number, cybart: number, ch
   const wasPlayed = state.history.byLineId['final-001-window']?.playCount ?? 0;
   assertEqual(wasPlayed, 0, 'event nie odtwarza linii bezpośrednio');
 }
+
+// 8) Echo i rezonans odblokowują osobne kwestie Neury
+{
+  let state: NeuraVoiceDirectorState = createDefaultNeuraVoiceDirectorState();
+  const gameState = withPublishedCount(withStats({
+    ...defaultState,
+    echo: {
+      echoCount: 4,
+      messages: [],
+      lastPhrase: 'Opublikuj na czacie głównym',
+      lastEffect: 'glitch',
+      activeCutsceneId: 'events.echo.after-publish',
+    },
+    resonance: {
+      level: 'high',
+      score: 108,
+      lastAccuracy: 92,
+      bondWithNeura: 'attuned',
+      effects: {
+        bloom: 0.55,
+        glitchIntensity: 0.68,
+        uiHighlight: 0.52,
+        timerScale: 0.7,
+        comboBonus: 0.12,
+      },
+    },
+  }, 58, 62, 48), 2);
+  const context = createContext(gameState, 'track.published');
+  state = createVoiceQueueItemsFromEvent(state, { eventId: 'track.published', context }).state;
+  const queuedLineIds = state.queue.map((item) => item.lineId);
+  assert(queuedLineIds.includes('echo-001-decision-loop'), 'track publication queues the echo decision line');
+  assert(queuedLineIds.includes('resonance-001-attuned'), 'high resonance queues the attuned resonance line');
+}
+
+// 9) ending route może odblokować osobną linię Neury
+{
+  const gameState = withPublishedCount(withStats({
+    ...defaultState,
+    echo: {
+      echoCount: 7,
+      messages: [],
+      lastPhrase: 'Publikuj dalej',
+      lastEffect: 'cutscene',
+      activeCutsceneId: 'events.echo.after-publish',
+    },
+    resonance: {
+      level: 'overload',
+      score: 140,
+      lastAccuracy: 98,
+      bondWithNeura: 'merged',
+      effects: {
+        bloom: 0.72,
+        glitchIntensity: 0.86,
+        uiHighlight: 0.7,
+        timerScale: 0.55,
+        comboBonus: 0.18,
+      },
+    },
+    ending: {
+      ...defaultState.ending,
+      route: 'neuraBond',
+      label: 'Bonding z Neurą',
+    },
+  }, 76, 66, 42), 3);
+  const context = createContext(gameState, 'track.published');
+  const state = createVoiceQueueItemsFromEvent(createDefaultNeuraVoiceDirectorState(), { eventId: 'track.published', context }).state;
+  const queuedLineIds = state.queue.map((item) => item.lineId);
+  assert(queuedLineIds.includes('ending-001-neura-bond'), 'neuraBond ending route queues the ending-specific Neura line');
+}

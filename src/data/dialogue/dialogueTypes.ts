@@ -1,4 +1,4 @@
-import type { GameState } from '../../types.ts';
+import type { BondWithNeura, EndingRoute, GameState, ResonanceLevel } from '../../types.ts';
 
 export const dialoguePriorities = ['critical', 'main', 'milestone', 'lore', 'side', 'ambient'] as const;
 export type DialoguePriority = (typeof dialoguePriorities)[number];
@@ -56,6 +56,10 @@ export type DialogueConditions = {
   lastPresenceEventId?: NeuraPresenceEventId;
   hasPublishedTrackId?: string;
   hasDraftTrackId?: string;
+  minEchoCount?: number;
+  minResonanceLevel?: ResonanceLevel;
+  bondWithNeura?: BondWithNeura;
+  endingRoute?: EndingRoute;
 };
 
 export type DialogueEffects = {
