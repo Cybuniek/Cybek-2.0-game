@@ -38,11 +38,13 @@ export function NeuraPet({
   presenceState,
   onPresenceEvent,
   storyVoiceLineId,
+  voicePaused = false,
 }: {
   comment: NeuraVoiceLine;
   presenceState: NeuraPresenceState;
   onPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   storyVoiceLineId?: string | null;
+  voicePaused?: boolean;
 }) {
   const [mood, setMood] = useState<NeuraPetMood>('idle');
   const [position, setPosition] = useState<Point>(() => getDefaultNeuraPosition());
@@ -52,7 +54,7 @@ export function NeuraPet({
   const patrolTimerRef = useRef<number | null>(null);
   const manualPauseUntilRef = useRef(0);
   const availableVoiceLineIds = useAvailableNeuraVoiceIds();
-  const playNeuraVoice = useNeuraVoice(availableVoiceLineIds);
+  const playNeuraVoice = useNeuraVoice(availableVoiceLineIds, voicePaused);
   const animation = NEURA_ANIMATIONS[mood];
   const hasCommentAudio = availableVoiceLineIds.has(comment.id);
   const hasStoryAudio = storyVoiceLineId ? availableVoiceLineIds.has(storyVoiceLineId) : false;
@@ -74,16 +76,18 @@ export function NeuraPet({
   }, []);
 
   useEffect(() => {
+    if (voicePaused) return;
     if (!hasCommentAudio) return;
     playNeuraVoice(comment.id, 'comment');
-  }, [comment.id, hasCommentAudio, playNeuraVoice]);
+  }, [comment.id, hasCommentAudio, playNeuraVoice, voicePaused]);
 
   useEffect(() => {
+    if (voicePaused) return;
     if (!storyVoiceLineId || !hasStoryAudio) return;
     manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
     settleMood('review', 1300);
     playNeuraVoice(storyVoiceLineId, 'story');
-  }, [hasStoryAudio, playNeuraVoice, storyVoiceLineId]);
+  }, [hasStoryAudio, playNeuraVoice, storyVoiceLineId, voicePaused]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -118,6 +122,7 @@ export function NeuraPet({
   }
 
   function playReaction(nextMood: NeuraPetMood) {
+    if (voicePaused) return;
     const reactionLineId = neuraReactionVoiceLineIds[nextMood as keyof typeof neuraReactionVoiceLineIds];
     if (!reactionLineId || !availableVoiceLineIds.has(reactionLineId)) return;
     manualPauseUntilRef.current = Date.now() + NEURA_MANUAL_PAUSE_MS;
@@ -239,7 +244,7 @@ function useAvailableNeuraVoiceIds() {
   return availableIds;
 }
 
-function useNeuraVoice(availableVoiceLineIds: ReadonlySet<string>) {
+function useNeuraVoice(availableVoiceLineIds: ReadonlySet<string>, voicePaused: boolean) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isUnlockedRef = useRef(false);
   const canPlayOpusRef = useRef<boolean | null>(null);
@@ -248,6 +253,12 @@ function useNeuraVoice(availableVoiceLineIds: ReadonlySet<string>) {
   useEffect(() => () => {
     audioRef.current?.pause();
   }, []);
+
+  useEffect(() => {
+    if (!voicePaused) return;
+    queuedLineIdRef.current = null;
+    audioRef.current?.pause();
+  }, [voicePaused]);
 
   function canPlayOpus() {
     if (canPlayOpusRef.current !== null) return canPlayOpusRef.current;
@@ -288,6 +299,7 @@ function useNeuraVoice(availableVoiceLineIds: ReadonlySet<string>) {
   }, [createAudio]);
 
   return useCallback((lineId: string, source: 'comment' | 'reaction' | 'story') => {
+    if (voicePaused) return;
     if (source === 'reaction' || source === 'story') isUnlockedRef.current = true;
     if (!isUnlockedRef.current || !availableVoiceLineIds.has(lineId)) return;
 
@@ -300,7 +312,7 @@ function useNeuraVoice(availableVoiceLineIds: ReadonlySet<string>) {
 
     queuedLineIdRef.current = lineId;
     playQueuedLine();
-  }, [availableVoiceLineIds, playQueuedLine]);
+  }, [availableVoiceLineIds, playQueuedLine, voicePaused]);
 }
 
 function getNeuraVoiceSources(lineId: string) {

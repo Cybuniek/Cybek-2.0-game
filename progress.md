@@ -108,3 +108,13 @@ Patrol repozytorium 2026-05-12:
 - Naprawiono mały zakres: dodatkowy guard publikacji wewnątrz `setGameState`, disabled/tekst blokady publikacji w szufladzie dla opublikowanych tytułów, `getNextDifficulty` zwraca `null` dla poziomu spoza listy utworu.
 - Weryfikacja przed zmianami: `npm run test:rhythm` przeszedł; `npm run build` przeszedł po uruchomieniu poza sandboxem, bo zwykły sandbox zwrócił odmowę dostępu przy Vite/esbuild.
 - Następna mała sesja: uporządkować słownik etykiet UI oraz zdecydować, czy `Annihilation player.exe` ma pozostać zwykłym odtwarzaczem audio, czy wrócić do opisanego wcześniej placeholdera z przyciskiem `Odtwórz`.
+
+Sceny dialogowe Neura/Cybek 2026-05-27:
+- Utworzono gałąź `CODEX/sceny-dialogowe-neura-cybek` i wdrożono osobny system niepomijalnych scen: `src/data/dialogue/storyScenes.ts`, `src/neura/StorySceneDirector.ts` oraz `src/neura/StorySceneOverlay.tsx`.
+- Sceny odpalają się raz na checkpoint: po bootowaniu, po pierwszym ukończeniu minigry, per utwór/per kanał udostępnienia (`pawel` i `chat`) oraz przy poziomach obecności/glitchy Neury 1-4.
+- Dialogi odnoszą się do tekstów z `ref_data/lyrics` przez motywy i krótkie frazy: czekanie na występ, presję „daj występ”, suflera AI, Anihilację, kamerę, ryzyko i zapis historii.
+- Rozszerzono generator `scripts/generate-neura-voices.ts` o `--source story-scenes`, dwa głosy speakerów (`ELEVENLABS_NEURA_VOICE_ID`, `ELEVENLABS_CYBEK_VOICE_ID`) oraz output do `public/audio/story-scenes`.
+- Dodano test `scripts/story-scenes.dev-test.ts`, skrypt `npm run test:story-scenes` i wpięcie do `npm run test`.
+- Weryfikacja: `npm run test`, `npm run build` i `npm run voice:story-scenes:dry-run` przeszły. Dev server działa pod `http://127.0.0.1:5173/`.
+- Ograniczenie: właściwe `npm run voice:story-scenes:with-fallback` zostało zablokowane przez warstwę bezpieczeństwa, bo wysyła nowe dialogi do zewnętrznego ElevenLabs. Assety audio trzeba wygenerować po jawnej zgodzie na eksport treści do tej usługi.
+- Ograniczenie: test przeglądarkowy z klienta `develop-web-game` nie ruszył, bo w środowisku nie ma paczki `playwright`.

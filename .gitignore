@@ -7,3 +7,10 @@ obj/
 *.log
 .env.local
 reflog_backup.txt
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

@@ -1,0 +1,91 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { assetPath } from '../assetPaths.ts';
+import type { StoryScene } from '../data/dialogue/storyScenes.ts';
+
+type AudioStatus = 'loading' | 'playing' | 'ended' | 'error';
+
+const STORY_SCENE_AUDIO_BASE_PATH = assetPath('audio/story-scenes');
+
+export function StorySceneOverlay({
+  scene,
+  lineIndex,
+  onAdvance,
+}: {
+  scene: StoryScene;
+  lineIndex: number;
+  onAdvance: () => void;
+}) {
+  const [audioStatus, setAudioStatus] = useState<AudioStatus>('loading');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const line = scene.lines[lineIndex] ?? scene.lines[0];
+  const canAdvance = audioStatus === 'ended' || audioStatus === 'error';
+  const progressLabel = `${lineIndex + 1}/${scene.lines.length}`;
+  const statusLabel = audioStatus === 'error'
+    ? 'Audio niedostępne'
+    : audioStatus === 'ended'
+      ? 'Gotowe'
+      : 'Odtwarzanie...';
+
+  const sources = useMemo(() => ({
+    primary: `${STORY_SCENE_AUDIO_BASE_PATH}/${line.audioId}.ogg`,
+    fallback: `${STORY_SCENE_AUDIO_BASE_PATH}/${line.audioId}.mp3`,
+  }), [line.audioId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let triedFallback = false;
+    const audio = new Audio(sources.primary);
+    audioRef.current = audio;
+    setAudioStatus('loading');
+
+    function finishWith(status: AudioStatus) {
+      if (!cancelled) setAudioStatus(status);
+    }
+
+    function playCurrent(nextAudio: HTMLAudioElement) {
+      nextAudio.preload = 'auto';
+      nextAudio.addEventListener('playing', () => finishWith('playing'), { once: true });
+      nextAudio.addEventListener('ended', () => finishWith('ended'), { once: true });
+      nextAudio.addEventListener('error', () => {
+        if (triedFallback) {
+          finishWith('error');
+          return;
+        }
+        triedFallback = true;
+        const fallbackAudio = new Audio(sources.fallback);
+        audioRef.current = fallbackAudio;
+        playCurrent(fallbackAudio);
+      }, { once: true });
+      nextAudio.play().catch(() => finishWith('error'));
+    }
+
+    playCurrent(audio);
+
+    return () => {
+      cancelled = true;
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, [sources.fallback, sources.primary]);
+
+  return (
+    <section className="story-scene-backdrop" role="dialog" aria-modal="true" aria-labelledby="story-scene-title">
+      <div className="story-scene-panel">
+        <header className="story-scene-header">
+          <span>{progressLabel}</span>
+          <strong id="story-scene-title">{scene.title}</strong>
+          <em>{statusLabel}</em>
+        </header>
+        <div className={`story-scene-speaker speaker-${line.speaker.toLowerCase()}`}>
+          <span>{line.speaker}</span>
+          <p>{line.text}</p>
+        </div>
+        <footer className="story-scene-footer">
+          <button type="button" onClick={onAdvance} disabled={!canAdvance}>
+            Dalej
+          </button>
+        </footer>
+      </div>
+    </section>
+  );
+}

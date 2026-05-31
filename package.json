@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "npm run test:rhythm && npm run test:state && npm run test:neura-presence && npm run test:neura && npm run test:neura-tutorial",
+    "test": "npm run test:rhythm && npm run test:state && npm run test:neura-presence && npm run test:neura && npm run test:neura-tutorial && npm run test:story-scenes",
     "test:rhythm": "node --experimental-strip-types scripts/rhythm.dev-test.ts",
     "test:state": "node --experimental-strip-types scripts/state.dev-test.ts",
     "test:neura-presence": "node --experimental-strip-types scripts/neura-presence.dev-test.ts",
     "test:neura": "node --experimental-strip-types scripts/neura-voice-director.dev-test.ts",
     "test:neura-tutorial": "node --experimental-strip-types scripts/neura-tutorial-guide.dev-test.ts",
+    "test:story-scenes": "node --experimental-strip-types scripts/story-scenes.dev-test.ts",
     "voice:neura:dry-run": "node --experimental-strip-types scripts/generate-neura-voices.ts --dry-run",
     "voice:neura": "node --experimental-strip-types scripts/generate-neura-voices.ts",
     "voice:neura:force": "node --experimental-strip-types scripts/generate-neura-voices.ts --force",
@@ -19,6 +20,8 @@
     "voice:neura:dialogue:dry-run": "node --experimental-strip-types scripts/generate-neura-voices.ts --source dialogue-v2 --phase prologue --from-id prologue-003-cache --dry-run",
     "voice:neura:dialogue": "node --experimental-strip-types scripts/generate-neura-voices.ts --source dialogue-v2 --phase prologue --from-id prologue-003-cache",
     "voice:neura:dialogue:with-fallback": "node --experimental-strip-types scripts/generate-neura-voices.ts --source dialogue-v2 --phase prologue --from-id prologue-003-cache --with-fallback",
+    "voice:story-scenes:dry-run": "node --experimental-strip-types scripts/generate-neura-voices.ts --source story-scenes --dry-run",
+    "voice:story-scenes:with-fallback": "node --experimental-strip-types scripts/generate-neura-voices.ts --source story-scenes --with-fallback",
     "voice:neura:auto:dry-run": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/voice-neura-auto.ps1 -DryRun",
     "voice:neura:auto": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/voice-neura-auto.ps1",
     "voice:neura:auto:force": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/voice-neura-auto.ps1 -Force",
@@ -32,6 +35,8 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^25.9.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.8.0"

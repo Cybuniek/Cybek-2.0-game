@@ -20,12 +20,12 @@ function Assert-ElevenLabsKey {
 }
 
 function Resolve-VoiceId {
-  $voiceId = [Environment]::GetEnvironmentVariable("ELEVENLABS_VOICE_ID", "Process")
+  $voiceId = [Environment]::GetEnvironmentVariable("ELEVENLABS_NEURA_VOICE_ID", "Process")
   if ([string]::IsNullOrWhiteSpace($voiceId)) {
-    Write-Step "Brak ELEVENLABS_VOICE_ID w env. Użyję wartości domyślnej z generatora."
+    Write-Step "Brak ELEVENLABS_NEURA_VOICE_ID w env. Generator użyje legacy ELEVENLABS_VOICE_ID albo wartości domyślnej."
     return
   }
-  Write-Step "Używam ELEVENLABS_VOICE_ID z env."
+  Write-Step "Używam ELEVENLABS_NEURA_VOICE_ID z env."
 }
 
 function Load-LocalEnv {

@@ -1056,6 +1056,96 @@ button:disabled {
   color: var(--text-soft);
 }
 
+.story-scene-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background:
+    linear-gradient(180deg, rgba(3, 5, 10, 0.72), rgba(5, 7, 14, 0.88)),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 5px);
+  z-index: 40;
+}
+
+.story-scene-panel {
+  width: min(760px, 100%);
+  border: 1px solid rgba(143, 245, 211, 0.42);
+  border-radius: 8px;
+  background: rgba(13, 18, 26, 0.94);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.54), 0 0 34px rgba(101, 255, 209, 0.13);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.story-scene-header,
+.story-scene-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.story-scene-header span,
+.story-scene-header em {
+  color: rgba(245, 237, 210, 0.68);
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.story-scene-header strong {
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.story-scene-speaker {
+  display: grid;
+  gap: 14px;
+  min-height: 210px;
+  padding: 28px 30px;
+}
+
+.story-scene-speaker span {
+  width: max-content;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: rgba(245, 237, 210, 0.78);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
+.story-scene-speaker p {
+  margin: 0;
+  max-width: 62ch;
+  color: #fff8dc;
+  font-size: 1.35rem;
+  line-height: 1.48;
+}
+
+.story-scene-speaker.speaker-neura {
+  background: radial-gradient(circle at 18% 16%, rgba(105, 255, 205, 0.18), transparent 36%);
+}
+
+.story-scene-speaker.speaker-cybek {
+  background: radial-gradient(circle at 82% 14%, rgba(255, 213, 111, 0.15), transparent 34%);
+}
+
+.story-scene-footer {
+  justify-content: flex-end;
+}
+
+.story-scene-footer button {
+  min-width: 116px;
+}
+
+.story-scene-footer button:disabled {
+  cursor: wait;
+  opacity: 0.52;
+}
+
 .vocal-map {
   max-width: 1040px;
   height: clamp(82px, 12vh, 126px);

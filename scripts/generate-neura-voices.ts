@@ -3,8 +3,9 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { neuraVoiceLines as legacyNeuraVoiceLines } from '../src/data/neuraVoiceLines.ts';
 import { neuraVoiceLinesV2 } from '../src/data/dialogue/neuraVoiceLines.ts';
+import { storyScenes, type StorySceneSpeaker } from '../src/data/dialogue/storyScenes.ts';
 
-const DEFAULT_ELEVENLABS_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL';
+const DEFAULT_ELEVENLABS_NEURA_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL';
 const DEFAULT_ELEVENLABS_MODEL_ID = 'eleven_v3';
 const LANGUAGE_CODE = 'pl';
 const VOICE_OUTPUTS = {
@@ -18,17 +19,17 @@ const VOICE_OUTPUTS = {
   },
 } as const;
 type VoiceOutputKind = keyof typeof VOICE_OUTPUTS;
-type VoiceSource = 'legacy' | 'dialogue-v2';
+type VoiceSource = 'legacy' | 'dialogue-v2' | 'story-scenes';
 type VoiceLineForGeneration = {
   id: string;
   text: string;
   styleTag: string;
+  speaker: StorySceneSpeaker;
   phase?: string;
 };
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(scriptDir, '..');
-const outputDir = join(rootDir, 'public', 'audio', 'neura');
 
 type Options = {
   dryRun: boolean;
@@ -51,8 +52,8 @@ function parseOptions(): Options {
   const sourceIndex = args.indexOf('--source');
   if (sourceIndex !== -1) {
     const source = args[sourceIndex + 1];
-    if (source !== 'legacy' && source !== 'dialogue-v2') {
-      throw new Error(`Nieznane źródło głosu: ${source}. Użyj legacy albo dialogue-v2.`);
+    if (source !== 'legacy' && source !== 'dialogue-v2' && source !== 'story-scenes') {
+      throw new Error(`Nieznane źródło głosu: ${source}. Użyj legacy, dialogue-v2 albo story-scenes.`);
     }
     options.source = source;
   }
@@ -88,9 +89,9 @@ async function generateVoiceLine(
 ) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error('Brak ELEVENLABS_API_KEY w środowisku albo .env.local.');
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || DEFAULT_ELEVENLABS_VOICE_ID;
+  const voiceId = getVoiceIdForSpeaker(line.speaker);
   const modelId = process.env.ELEVENLABS_MODEL_ID || DEFAULT_ELEVENLABS_MODEL_ID;
-  console.log(`voice request: ${line.id} / model=${modelId} / voice=${voiceId} / tag=${line.styleTag}`);
+  console.log(`voice request: ${line.id} / speaker=${line.speaker} / model=${modelId} / voice=${voiceId} / tag=${line.styleTag}`);
 
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=${output.outputFormat}`,
@@ -125,18 +126,7 @@ async function generateVoiceLine(
 }
 
 function getVoiceLines(options: Options): VoiceLineForGeneration[] {
-  const sourceLines = options.source === 'dialogue-v2'
-    ? neuraVoiceLinesV2.map((line) => ({
-        id: line.audio.id,
-        text: line.text,
-        styleTag: styleTagFromAudioIntent(line.audioIntent),
-        phase: line.phase,
-      }))
-    : legacyNeuraVoiceLines.map((line) => ({
-        id: line.id,
-        text: line.text,
-        styleTag: line.styleTag,
-      }));
+  const sourceLines = getSourceVoiceLines(options.source);
 
   let lines = options.phase ? sourceLines.filter((line) => line.phase === options.phase) : sourceLines;
 
@@ -150,6 +140,46 @@ function getVoiceLines(options: Options): VoiceLineForGeneration[] {
   return lines;
 }
 
+function getSourceVoiceLines(source: VoiceSource): VoiceLineForGeneration[] {
+  if (source === 'story-scenes') {
+    return storyScenes.flatMap((scene) => scene.lines.map((line) => ({
+      id: line.audioId,
+      text: line.text,
+      styleTag: styleTagFromStoryLine(line.speaker, line.audioIntent),
+      speaker: line.speaker,
+    })));
+  }
+
+  if (source === 'dialogue-v2') {
+    return neuraVoiceLinesV2.map((line) => ({
+      id: line.audio.id,
+      text: line.text,
+      styleTag: styleTagFromAudioIntent(line.audioIntent),
+      speaker: 'Neura',
+      phase: line.phase,
+    }));
+  }
+
+  return legacyNeuraVoiceLines.map((line) => ({
+    id: line.id,
+    text: line.text,
+    styleTag: line.styleTag,
+    speaker: 'Neura',
+  }));
+}
+
+function getVoiceIdForSpeaker(speaker: StorySceneSpeaker) {
+  if (speaker === 'Cybek') {
+    const cybekVoiceId = process.env.ELEVENLABS_CYBEK_VOICE_ID;
+    if (!cybekVoiceId) throw new Error('Brak ELEVENLABS_CYBEK_VOICE_ID w środowisku albo .env.local.');
+    return cybekVoiceId;
+  }
+
+  return process.env.ELEVENLABS_NEURA_VOICE_ID
+    || process.env.ELEVENLABS_VOICE_ID
+    || DEFAULT_ELEVENLABS_NEURA_VOICE_ID;
+}
+
 function styleTagFromAudioIntent(intent: (typeof neuraVoiceLinesV2)[number]['audioIntent']) {
   if (intent === 'whisper') return '[whispers]';
   if (intent === 'glitch') return '[glitchy]';
@@ -157,9 +187,27 @@ function styleTagFromAudioIntent(intent: (typeof neuraVoiceLinesV2)[number]['aud
   return '[calm]';
 }
 
+function styleTagFromStoryLine(
+  speaker: StorySceneSpeaker,
+  intent: VoiceLineForGeneration['styleTag'] | undefined,
+) {
+  if (speaker === 'Cybek') {
+    if (intent === 'tired') return '[tired]';
+    if (intent === 'dry') return '[dry]';
+    if (intent === 'curious') return '[curious]';
+    return '[calm]';
+  }
+
+  if (intent === 'glitch') return '[glitchy]';
+  if (intent === 'dry') return '[dry]';
+  if (intent === 'curious') return '[curious]';
+  return '[calm]';
+}
+
 async function main() {
   const options = parseOptions();
   loadLocalEnv();
+  const outputDir = getOutputDir(options.source);
   mkdirSync(outputDir, { recursive: true });
 
   const selectedLines = getVoiceLines(options);
@@ -183,6 +231,12 @@ async function main() {
       console.log(`done: ${line.id}.${output.extension} (${size} B)`);
     }
   }
+}
+
+function getOutputDir(source: VoiceSource) {
+  return source === 'story-scenes'
+    ? join(rootDir, 'public', 'audio', 'story-scenes')
+    : join(rootDir, 'public', 'audio', 'neura');
 }
 
 main().catch((error) => {

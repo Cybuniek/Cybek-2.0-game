@@ -59,6 +59,8 @@ Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/
 
 Nowe data-driven dialogi mieszkaja w `src/data/dialogue/neuraVoiceLines.ts`. Ich `audio.id` moze wskazywac osobny plik `/audio/neura/<audio.id>.ogg`, niezaleznie od starego manifestu kompatybilnosci dla `NeuraPet`. Generator `scripts/generate-neura-voices.ts` obsluguje nowe zrodlo przez `--source dialogue-v2`, filtr fazy przez `--phase` i start od konkretnego id przez `--from-id`.
 
+Niepomijalne sceny Cybek/Neura mieszkaja w `src/data/dialogue/storyScenes.ts`, a ich kolejka i jednorazowe checkpointy w `src/neura/StorySceneDirector.ts`. Sa to pelne sceny overlayowe, nie ambientowe komentarze: blokuja UI, przechodza kliknieciem po zakonczonym audio i zapisuje sie je w `localStorage` pod `ustnik.storyScenes.v1`. Audio scen lezy w `/audio/story-scenes/<audioId>.ogg` z fallbackiem MP3. Sceny udostepnienia sa jednorazowe per utwor i kanal: osobno Pawcio, osobno czat glowny.
+
 ## Samouczek Neury
 
 `src/neura/tutorialGuide.ts` wylicza aktualny krok samouczka z aktualnego stanu gry, ekranu, aktywnego okna i trybu próby. Flow jest celowo mały: otworzenie generatora, stworzenie pierwszej wersji, zapis draftu, remix w szufladzie, nadpisanie draftu, publikacja na czacie głównym i sprawdzenie śladu publikacji.
@@ -71,15 +73,18 @@ Generowanie glosow:
 
 - utworz lokalny `.env.local` na podstawie `.env.example`,
 - ustaw `ELEVENLABS_API_KEY`,
+- ustaw `ELEVENLABS_NEURA_VOICE_ID` dla Neury i `ELEVENLABS_CYBEK_VOICE_ID` dla tymczasowego glosu Cybka,
 - uruchom `npm run voice:neura:dry-run`, zeby zobaczyc plan dla OGG/Opus,
 - uruchom `npm run voice:neura`, zeby wygenerowac brakujace pliki OGG/Opus,
 - uzyj `npm run voice:neura:force`, zeby nadpisac OGG/Opus,
 - uzyj `npm run voice:neura:with-fallback`, jesli swiadomie chcesz wygenerowac OGG/Opus i MP3,
+- uzyj `npm run voice:story-scenes:dry-run`, zeby sprawdzic pelny plan scen Cybek/Neura,
+- uzyj `npm run voice:story-scenes:with-fallback`, zeby wygenerowac pelne udzwiekowienie scen do `public/audio/story-scenes`,
 - uzyj `node --experimental-strip-types scripts/generate-neura-voices.ts --force --with-fallback`, jesli chcesz odswiezyc komplet OGG/Opus i MP3 fallbackow,
 - uzyj `npm run voice:neura:mp3`, jesli chcesz dogenerowac tylko fallback MP3,
 - opcjonalnie uruchom `node --experimental-strip-types scripts/generate-neura-voices.ts --only <id>`.
 
-Skrypt uzywa `voice_id` Neury, `model_id: eleven_v3`, `language_code: pl`, `output_format=opus_48000_32` dla OGG/Opus, `output_format=mp3_44100_128` dla fallbacku i kreatywnego profilu `voice_settings`. Klucza API nie wolno commitowac; `.env.local` jest ignorowany przez git. Klucz wklejony poza repo warto obrocic w panelu ElevenLabs.
+Skrypt uzywa `voice_id` dobranego po speakerze, `model_id: eleven_v3`, `language_code: pl`, `output_format=opus_48000_32` dla OGG/Opus, `output_format=mp3_44100_128` dla fallbacku i kreatywnego profilu `voice_settings`. Legacy `ELEVENLABS_VOICE_ID` jest tylko opcjonalnym fallbackiem dla Neury; nowy workflow go nie wymaga. Klucza API nie wolno commitowac; `.env.local` jest ignorowany przez git. Klucz wklejony poza repo warto obrocic w panelu ElevenLabs.
 
 ## Soundscape pulpitu
 
