@@ -4,6 +4,7 @@ bin/
 obj/
 .vs/
 .codex/
+.superpowers/
 *.log
 .env.local
 reflog_backup.txt
