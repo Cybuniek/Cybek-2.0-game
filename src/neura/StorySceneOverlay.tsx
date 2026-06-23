@@ -5,6 +5,7 @@ import type { StoryScene } from '../data/dialogue/storyScenes.ts';
 type AudioStatus = 'loading' | 'playing' | 'ended' | 'error';
 
 const STORY_SCENE_AUDIO_BASE_PATH = assetPath('audio/story-scenes');
+const TEXT_FALLBACK_DELAY_MS = 900;
 
 export function StorySceneOverlay({
   scene,
@@ -37,9 +38,13 @@ export function StorySceneOverlay({
     const audio = new Audio(sources.primary);
     audioRef.current = audio;
     setAudioStatus('loading');
+    const fallbackTimer = window.setTimeout(() => finishWith('error'), TEXT_FALLBACK_DELAY_MS);
 
     function finishWith(status: AudioStatus) {
-      if (!cancelled) setAudioStatus(status);
+      if (!cancelled) {
+        window.clearTimeout(fallbackTimer);
+        setAudioStatus(status);
+      }
     }
 
     function playCurrent(nextAudio: HTMLAudioElement) {
@@ -63,6 +68,7 @@ export function StorySceneOverlay({
 
     return () => {
       cancelled = true;
+      window.clearTimeout(fallbackTimer);
       audioRef.current?.pause();
       audioRef.current = null;
     };

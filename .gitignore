@@ -5,8 +5,10 @@ obj/
 .vs/
 .codex/
 .superpowers/
+.omx/
 *.log
 .env.local
+tmp/
 reflog_backup.txt
 
 # Playwright

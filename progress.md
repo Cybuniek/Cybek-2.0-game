@@ -146,3 +146,25 @@ Sceny dialogowe Neura/Cybek 2026-05-27:
 - Weryfikacja: `npm run test`, `npm run build` i `npm run voice:story-scenes:dry-run` przeszły. Dev server działa pod `http://127.0.0.1:5173/`.
 - Ograniczenie: właściwe `npm run voice:story-scenes:with-fallback` zostało zablokowane przez warstwę bezpieczeństwa, bo wysyła nowe dialogi do zewnętrznego ElevenLabs. Assety audio trzeba wygenerować po jawnej zgodzie na eksport treści do tej usługi.
 - Ograniczenie: test przeglądarkowy z klienta `develop-web-game` nie ruszył, bo w środowisku nie ma paczki `playwright`.
+
+Stabilny checkpoint 2026-06-01:
+- Dodano lokalny smoke test Playwright pod `npm run test:e2e`; test startuje Vite, przechodzi przez title -> boot -> desktop i sprawdza generator oraz `render_game_to_text` bez wejścia na zewnętrzne strony.
+- `playwright.config.ts` używa lokalnego `webServer` i Chromium jako minimalnej przeglądarki checkpointu.
+- Sceny fabularne mają tekstowy fallback: brak OGG/MP3 albo blokada autoplay nie zatrzymuje modala, tylko odblokowuje `Dalej` ze statusem `Audio niedostępne`.
+- Minimalny samouczek Neury został ponownie podpięty do istniejącego `tutorialGuide.ts`, ale znika podczas aktywnych scen fabularnych.
+- `ref_data/YunYunEditor` zostaje świadomie jako materiał referencyjny; ewentualne usunięcie/przeniesienie to osobny cleanup przed merge'em.
+
+Cutscenki Visual Novel 2026-06-07:
+- Zastąpiono runtime `StorySceneOverlay` nowym `CutsceneStage`, zachowując `StorySceneDirector`, dane scen, triggerowanie oraz zapis postępu.
+- Dodano moduły `src/neura/cutscene/*`: kontrakt manifestu assetów, mapowanie `audioIntent`, portret Neury ze stripów, portret Cybka przez `CybekWebcam`, typewriter i stage VN.
+- Neura korzysta z `public/pets/neura/cutscene/<expression>/manifest.json` oraz `strip.png`; `neura-miny.png` zostaje tylko źródłem/legacy workflow, nie portretem runtime cutscenek.
+- Dodano `scripts/cutscene-assets.dev-test.ts`, `npm run test:cutscene-assets` i wpięcie do `npm run test`; test sprawdza też wymiary PNG bez Pythona.
+- Dodano smoke Playwright dla bootowej cutscenki VN.
+- Weryfikacja: `npm run test`, `npm run build` i `npm run test:e2e` przeszły. `python scripts/neura-cutscene-assets.py validate` nie ruszył w tej sesji, bo środowisko nie ma działającego Pythona/PIL.
+
+Poprawki dialogów VN 2026-06-09:
+- `CutsceneStage` pozwala teraz przejść dalej drugim kliknięciem nawet podczas aktywnego audio; pierwsze kliknięcie nadal tylko odsłania pełny tekst typewritera.
+- `Enter` i `Spacja` korzystają z tej samej ścieżki co klik/przycisk `Dalej`.
+- Start audio jest opóźniony do następnego ticka i oznaczony tokenem odtwarzania, żeby devowy React StrictMode nie zostawiał podwójnego startu pierwszej kwestii.
+- Dodano regresję Playwright dla kliknięcia, Entera i Spacji przy audio pozostającym w stanie `playing`.
+- Typewriter cutscenki synchronizuje prędkość z metadanymi aktualnego audio (`duration / liczba znaków`), z dotychczasowym fallbackiem gdy przeglądarka nie poda czasu pliku.

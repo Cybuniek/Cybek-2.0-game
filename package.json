@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "npm run test:rhythm && npm run test:editor && npm run test:state && npm run test:echo && npm run test:resonance && npm run test:ending && npm run test:neura-presence && npm run test:neura && npm run test:neura-tutorial && npm run test:story-scenes",
+    "test": "npm run test:rhythm && npm run test:editor && npm run test:state && npm run test:echo && npm run test:resonance && npm run test:ending && npm run test:neura-presence && npm run test:neura && npm run test:neura-tutorial && npm run test:story-scenes && npm run test:cutscene-assets",
     "test:rhythm": "node --experimental-strip-types scripts/rhythm.dev-test.ts",
     "test:editor": "node --experimental-strip-types scripts/editor.dev-test.ts",
     "test:state": "node --experimental-strip-types scripts/state.dev-test.ts",
@@ -16,6 +16,8 @@
     "test:neura": "node --experimental-strip-types scripts/neura-voice-director.dev-test.ts",
     "test:neura-tutorial": "node --experimental-strip-types scripts/neura-tutorial-guide.dev-test.ts",
     "test:story-scenes": "node --experimental-strip-types scripts/story-scenes.dev-test.ts",
+    "test:cutscene-assets": "node --experimental-strip-types scripts/cutscene-assets.dev-test.ts",
+    "test:e2e": "playwright test",
     "voice:neura:dry-run": "node --experimental-strip-types scripts/generate-neura-voices.ts --dry-run",
     "voice:neura": "node --experimental-strip-types scripts/generate-neura-voices.ts",
     "voice:neura:force": "node --experimental-strip-types scripts/generate-neura-voices.ts --force",

@@ -64,6 +64,12 @@ Nowe data-driven dialogi mieszkaja w `src/data/dialogue/neuraVoiceLines.ts`. Ich
 
 Niepomijalne sceny Cybek/Neura mieszkaja w `src/data/dialogue/storyScenes.ts`, a ich kolejka i jednorazowe checkpointy w `src/neura/StorySceneDirector.ts`. Sa to pelne sceny overlayowe, nie ambientowe komentarze: blokuja UI, przechodza kliknieciem po zakonczonym audio i zapisuje sie je w `localStorage` pod `ustnik.storyScenes.v1`. Audio scen lezy w `/audio/story-scenes/<audioId>.ogg` z fallbackiem MP3. Sceny udostepnienia sa jednorazowe per utwor i kanal: osobno Pawcio, osobno czat glowny.
 
+Checkpoint 2026-06-01: sceny fabularne dzialaja tez w trybie tekstowym. Jesli OGG/MP3 jest niedostepne albo przegladarka blokuje autoplay, overlay po krotkim czasie pokazuje status `Audio niedostępne` i odblokowuje `Dalej`. Nie generujemy w tym kroku nowych glosow przez ElevenLabs. Znane brakujace audio scen: `story-share-chat-vlog-002-neura`, `story-presence-1-001-cybek`, `story-presence-1-002-neura`, `story-presence-2-001-cybek`, `story-presence-2-002-neura`, `story-presence-3-001-cybek`, `story-presence-3-002-neura`, `story-presence-4-001-cybek`, `story-presence-4-002-neura`.
+
+Checkpoint 2026-06-07: runtime scen fabularnych uzywa teraz `src/neura/cutscene/CutsceneStage.tsx` zamiast `StorySceneOverlay`. Rezyser scen, kolejka, dane dialogow i zapis `ustnik.storyScenes.v1` zostaja bez zmian. Stage renderuje układ Visual Novel: Cybek jest skladany przez `CybekWebcam`, a portret Neury laduje manifest ekspresji z `public/pets/neura/cutscene/<expression>/manifest.json` i strip `strip.png`. Legacy `public/pets/neura/neura-miny.png` zostaje materialem zrodlowym workflow assetow, ale nie jest juz runtime'owym portretem cutscenek.
+
+Mapowanie `audioIntent` mieszka w `src/neura/cutscene/expressionMapping.ts`: `calm/brak`, `curious`, `tired`, `dry`, `glitch` ida na odpowiadajace ekspresje Neury, a przyszle `success` mapuje sie na `delighted`. `scripts/cutscene-assets.dev-test.ts` waliduje kontrakt manifestow, znane ekspresje oraz wymiary PNG bez zaleznosci od Pythona/PIL.
+
 Dialogi moga byc teraz warunkowane przez `minEchoCount`, `minResonanceLevel`, `bondWithNeura` i `endingRoute`. Echo po publikacji doklada do kolejki linie, w ktorych Neura powtarza fragment decyzji gracza, a rezonans pozwala odblokowac kwestie zalezne od aktualnej wiezi.
 
 ## Echo, Resonance i EVENTS 2026-05-26
@@ -83,6 +89,8 @@ Ending jest logiczny, bez cinematic assetow. `src/ending.ts` wylicza trase `quie
 `src/neura/NeuraTutorialGuide.tsx` renderuje panel prowadzony przez Neurę obok awatara. Przyciski `Pokaż generator`, `Pokaż szufladę` i `Pokaż czat` tylko ustawiają aktywne okno, bez zmiany save'a. Udźwiękowienie samouczka używa lokalnego Web Speech API przeglądarki po kliknięciu `Włącz głos`; aplikacja nie wysyła tekstów samouczka do zewnętrznego API. Jeśli przeglądarka nie ma lokalnej syntezy mowy, panel zostaje tekstowy.
 
 Test kroków samouczka siedzi w `scripts/neura-tutorial-guide.dev-test.ts` i jest podpięty jako `npm run test:neura-tutorial` oraz do zbiorczego `npm run test`.
+
+Checkpoint 2026-06-01: panel samouczka Neury jest znowu aktywny jako minimalna prowadnica pierwszego obiegu, ale jest ukrywany podczas aktywnych scen fabularnych, zeby nie konkurowal z modalem dialogu.
 
 Generowanie glosow:
 
@@ -227,6 +235,12 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 - Player opublikowanego utworu odtwarza scalony plik audio. Głos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
 - Neura korzysta z atlasu `public/pets/neura/spritesheet.webp` i dziala jako niezalezny, przeciagalny awatar nad pulpitem. WebCam Cybka jest manifestowym rendererem warstwowym opisanym nizej.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
+
+## Testy przegladarkowe checkpointu
+
+`npm run test:e2e` uruchamia lokalny smoke test Playwright na Chromium. Konfiguracja startuje Vite przez `webServer` pod `http://127.0.0.1:5173`, czysci lokalny zapis testowy i sprawdza tytul, boot, pulpit, generator oraz podstawowy stan z `window.render_game_to_text`. Test nie wchodzi na zewnetrzne strony i nie wymaga internetu.
+
+`ref_data/YunYunEditor` zostaje na razie w repo jako material referencyjny do edytora beatmap. Przed merge'em do glownej galezi warto osobno zdecydowac, czy trzymamy pelny import, czy przenosimy go do dokumentacji/linku zewnetrznego, bo jest duzy i nie jest czescia runtime'u prototypu.
 
 ## Cybek WebCam 2026-05-24
 

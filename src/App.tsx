@@ -9,7 +9,7 @@ import { useRhythmSfx } from './audio/useRhythmSfx';
 import { CybekWebcam, type CybekWebcamEvent } from './cybekWebcam';
 import { BeatmapEditor } from './editor/BeatmapEditor';
 import { NeuraPet } from './neura/NeuraPet';
-import { StorySceneOverlay } from './neura/StorySceneOverlay';
+import { CutsceneStage } from './neura/cutscene/CutsceneStage';
 import { NeuraTutorialGuide } from './neura/NeuraTutorialGuide';
 import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
 import { useEnvironmentalUiEvents } from './neura/useEnvironmentalUiEvents';
@@ -34,7 +34,7 @@ import {
   type StorySceneDirectorState,
 } from './neura/StorySceneDirector';
 import type { StorySceneTrigger } from './data/dialogue/storyScenes';
-import type { NeuraTutorialStep } from './neura/tutorialGuide';
+import { getNeuraTutorialStep, type NeuraTutorialStep, type NeuraTutorialWindowTarget } from './neura/tutorialGuide';
 import type { NeuraPresenceEventId as DialoguePresenceEventId } from './data/dialogue/dialogueTypes';
 import {
   addUnique,
@@ -206,14 +206,27 @@ export default function App() {
     }),
     [gameState, lastNeuraEventId, neuraDebugOverride, neuraEventLog, neuraLowFxMode],
   );
-  // Tutorial wyłączony globalnie: panel i wskazówki nie są renderowane.
-  const neuraTutorialStep: NeuraTutorialStep | null = null;
+  const baseNeuraTutorialStep = useMemo(
+    () => {
+      if (screen === 'title') return null;
+
+      return getNeuraTutorialStep({
+        gameState,
+        screen,
+        activeWindow: isNeuraTutorialWindowTarget(activeWindow) ? activeWindow : null,
+        messengerTab,
+        runMode: activeRun?.mode ?? null,
+      });
+    },
+    [activeRun?.mode, activeWindow, gameState, messengerTab, screen],
+  );
   const soundscape = useSoundscape(neuraPresence);
   const activeStoryScene = useMemo(
     () => getActiveStoryScene(storySceneDirectorState),
     [storySceneDirectorState],
   );
   const isStorySceneActive = activeStoryScene !== null;
+  const neuraTutorialStep = isStorySceneActive ? null : baseNeuraTutorialStep;
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
     create: { x: 210, y: 116 },
@@ -817,10 +830,12 @@ export default function App() {
   }
 
   const storySceneOverlay = activeStoryScene ? (
-    <StorySceneOverlay
+    <CutsceneStage
       scene={activeStoryScene}
       lineIndex={storySceneLineIndex}
       onAdvance={advanceStoryScene}
+      lowFx={neuraPresence.lowFxMode}
+      glitchLevel={neuraPresence.glitchIntensity}
     />
   ) : null;
 
@@ -2632,6 +2647,10 @@ function readStoredNeuraLowFxMode() {
   } catch {
     return false;
   }
+}
+
+function isNeuraTutorialWindowTarget(windowId: WindowId): windowId is NeuraTutorialWindowTarget {
+  return windowId === 'messenger' || windowId === 'create' || windowId === 'me' || windowId === 'player';
 }
 
 declare global {

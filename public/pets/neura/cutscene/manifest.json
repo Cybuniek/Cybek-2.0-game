@@ -1,0 +1,38 @@
+{
+  "character": "Neura",
+  "frameWidth": 512,
+  "frameHeight": 512,
+  "anchor": "bottom-center",
+  "expressions": [
+    {
+      "name": "calm",
+      "frames": 3,
+      "fps": 4
+    },
+    {
+      "name": "curious",
+      "frames": 4,
+      "fps": 5
+    },
+    {
+      "name": "tired",
+      "frames": 3,
+      "fps": 3
+    },
+    {
+      "name": "dry",
+      "frames": 3,
+      "fps": 4
+    },
+    {
+      "name": "delighted",
+      "frames": 5,
+      "fps": 6
+    },
+    {
+      "name": "glitch",
+      "frames": 5,
+      "fps": 8
+    }
+  ]
+}

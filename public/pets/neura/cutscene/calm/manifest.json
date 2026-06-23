@@ -1,0 +1,13 @@
+{
+  "name": "calm",
+  "frameWidth": 512,
+  "frameHeight": 512,
+  "frames": 3,
+  "fps": 4,
+  "loop": true,
+  "anchor": "bottom-center",
+  "strip": "strip.png",
+  "framesDir": "frames",
+  "preview": "preview.png",
+  "source": "generated with gpt-image-1.5 from public/pets/neura/neura-miny.png reference board"
+}

@@ -1,0 +1,13 @@
+{
+  "name": "glitch",
+  "frameWidth": 512,
+  "frameHeight": 512,
+  "frames": 5,
+  "fps": 8,
+  "loop": true,
+  "anchor": "bottom-center",
+  "strip": "strip.png",
+  "framesDir": "frames",
+  "preview": "preview.png",
+  "source": "generated with gpt-image-1.5 from public/pets/neura/neura-miny.png reference board"
+}
