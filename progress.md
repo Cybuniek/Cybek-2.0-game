@@ -23,6 +23,10 @@ TODO:
 - Jeśli projekt ma dalej korzystać z testów przeglądarkowych z umiejętności `develop-web-game`, dodać `playwright` jako dev dependency albo wskazać wspólną instalację.
 - Kolejny krok rytmu: ręcznie sprawdzić start okna WinUI, potem ułożyć pełne autorskie mapy dla trzech utworów i ewentualnie dodać kalibrację input laga.
 
+Porzadki onboardingu 2026-06-23:
+- Usunieto overlayowa prowadnice Neury z runtime'u, dokumentacji i testow developerskich.
+- Decyzja projektowa: funkcje onboardingowe maja wrocic tylko jako jedna petla cutscenek obejmujaca start gry, pierwsze stworzenie piosenki, pierwszy remix, wyslanie do Pawla i publikacje na czacie.
+
 Beatmap Editor 2026-05-25:
 - Po audycie YunYunEditor wdrożono pakiet P0/P1 bez migracji formatu: undo/redo, snap BPM, multi-select, clipboard, nudge, markery edytorskie, mocniejszą walidację i widoczną listę skrótów.
 - `RhythmBeatmap` obsługuje teraz `inputOffsetMs` per mapa oraz `markers`; runtime używa offsetu tylko do oceny wejścia, a markery ignoruje w gameplayu.
@@ -125,11 +129,6 @@ Boot Cybek OS + merge 2026-05-22:
 - Gałąź `NEURA_fabularne-skrypty` została włączona fast-forwardem do obecnej gałęzi bez commita. Konflikty po przywróceniu lokalnego stasha rozwiązano tak, żeby zachować boot, Neura Presence i data-driven story actions.
 - Weryfikacja po scaleniu: `npm run test` przeszedł; `npm run build` przeszedł po ponowieniu poza sandboxem z powodu znanego błędu Vite/esbuild `Cannot read directory "../.."`.
 
-Samouczek Neury 2026-05-22:
-- Dodano prowadzony przez Neurę panel samouczka, który wylicza krok z aktualnego stanu gry i prowadzi przez generator, zapis draftu, remix, publikację oraz sprawdzenie czatu.
-- Udźwiękowienie działa przez lokalne Web Speech API po kliknięciu `Włącz głos`; panel nie wysyła tekstów do zewnętrznego API i zostaje tekstowy, jeśli przeglądarka nie ma lokalnego TTS.
-- Dodano `src/neura/tutorialGuide.ts`, `src/neura/NeuraTutorialGuide.tsx` i test `npm run test:neura-tutorial`; `render_game_to_text` raportuje aktualny krok samouczka.
-
 Patrol repozytorium 2026-05-12:
 - Audyt bez zmian: porównano aktualny kod z `DEV_NOTES.md`, `progress.md` i `ustnik_2_0_the_show_the_game_wizja.md`.
 - Kategorie problemów: krytyczne - brak nowych blokad po buildzie; ważne - jednorazowa publikacja oparta głównie o stan z renderu, remix dla niezgodnego/starego poziomu draftu, szuflada powinna komunikować blokadę publikacji; kosmetyczne - drobne niespójności etykiet `Pawła/Pawcia` i `Ustno.ai Ja/Me`; odłożyć - warianty audio zależne od poziomu, większa walidacja save'ów, testy przeglądarkowe.
@@ -151,7 +150,7 @@ Stabilny checkpoint 2026-06-01:
 - Dodano lokalny smoke test Playwright pod `npm run test:e2e`; test startuje Vite, przechodzi przez title -> boot -> desktop i sprawdza generator oraz `render_game_to_text` bez wejścia na zewnętrzne strony.
 - `playwright.config.ts` używa lokalnego `webServer` i Chromium jako minimalnej przeglądarki checkpointu.
 - Sceny fabularne mają tekstowy fallback: brak OGG/MP3 albo blokada autoplay nie zatrzymuje modala, tylko odblokowuje `Dalej` ze statusem `Audio niedostępne`.
-- Minimalny samouczek Neury został ponownie podpięty do istniejącego `tutorialGuide.ts`, ale znika podczas aktywnych scen fabularnych.
+- Dawna overlayowa prowadnica Neury zostala usunieta pozniej na rzecz planowanej petli cutscenkowej pierwszego obiegu.
 - `ref_data/YunYunEditor` zostaje świadomie jako materiał referencyjny; ewentualne usunięcie/przeniesienie to osobny cleanup przed merge'em.
 
 Cutscenki Visual Novel 2026-06-07:

@@ -557,33 +557,9 @@ Zasady:
 - glos Neury ma OGG jako format podstawowy i MP3 jako fallback tam, gdzie plik istnieje,
 - brak pliku audio nie blokuje tekstu ani UI.
 
-## 13. Samouczek Neury
+## 13. Debug i narzedzia
 
-Neura prowadzi gracza przez minimalna droge:
-
-1. otworz generator,
-2. stworz pierwsza wersje,
-3. zagraj probe,
-4. zapisz draft,
-5. przejdz do szuflady,
-6. uruchom remix,
-7. zapisz remix,
-8. opublikuj,
-9. sprawdz czat.
-
-Samouczek ma:
-
-- panel `Neura prowadzi`,
-- krok i liczbe krokow,
-- tekst instrukcji,
-- przycisk pokazania miejsca,
-- opcjonalny lokalny glos przez `speechSynthesis`,
-- mozliwosc powtorzenia kwestii,
-- mozliwosc zamkniecia.
-
-## 14. Debug i narzedzia
-
-### 14.1 Rhythm debug
+### 13.1 Rhythm debug
 
 W sekcji rytmicznej istnieje `Rhythm debug`. Pokazuje informacje potrzebne do sprawdzania map:
 

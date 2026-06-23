@@ -211,7 +211,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
   },
   {
     id: 'prologue-001-widget',
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue.widget',
     phase: 'prologue',
     timelineDirection: 'reverse-authored',
@@ -248,7 +248,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
   },
   {
     id: 'prologue-003-cache',
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue.desktop.cache',
     phase: 'prologue',
     timelineDirection: 'reverse-authored',
@@ -268,7 +268,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
   },
   {
     id: 'prologue-004-pawciu',
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue.messenger.pawciu',
     phase: 'prologue',
     timelineDirection: 'reverse-authored',
@@ -288,7 +288,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
   },
   {
     id: 'prologue-005-cybart-exe',
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue.desktop.cybart',
     phase: 'prologue',
     timelineDirection: 'reverse-authored',
@@ -308,7 +308,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
   },
   {
     id: 'prologue-006-localstorage',
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue.storage',
     phase: 'prologue',
     timelineDirection: 'reverse-authored',
@@ -328,7 +328,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
   },
   {
     id: 'prologue-007-ustno-ai',
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue.create',
     phase: 'prologue',
     timelineDirection: 'reverse-authored',
@@ -348,7 +348,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
   },
   {
     id: 'prologue-008-szuflada',
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue.drawer',
     phase: 'prologue',
     timelineDirection: 'reverse-authored',
@@ -368,7 +368,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
   },
   {
     id: 'prologue-009-nie-klikaj',
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue.pet.click',
     phase: 'prologue',
     timelineDirection: 'reverse-authored',

@@ -82,15 +82,9 @@ Ending jest logiczny, bez cinematic assetow. `src/ending.ts` wylicza trase `quie
 
 `EVENTS` nie jest juz normalna ikona pulpitu. Zamiast tego `EventCutsceneStage` w `src/App.tsx` renderuje kontrolowana makiete pulpitu pod cutscenki, gdy `echo.activeCutsceneId` jest aktywne. Stage pokazuje echo tekstowe, podswietlone decyzje, status Neury i aktualna trase endingowa. To narzedzie narracyjne, nie osobna aplikacja gracza.
 
-## Samouczek Neury
+## Decyzje porzadkowe
 
-`src/neura/tutorialGuide.ts` wylicza aktualny krok samouczka z aktualnego stanu gry, ekranu, aktywnego okna i trybu próby. Flow jest celowo mały: otworzenie generatora, stworzenie pierwszej wersji, zapis draftu, remix w szufladzie, nadpisanie draftu, publikacja na czacie głównym i sprawdzenie śladu publikacji.
-
-`src/neura/NeuraTutorialGuide.tsx` renderuje panel prowadzony przez Neurę obok awatara. Przyciski `Pokaż generator`, `Pokaż szufladę` i `Pokaż czat` tylko ustawiają aktywne okno, bez zmiany save'a. Udźwiękowienie samouczka używa lokalnego Web Speech API przeglądarki po kliknięciu `Włącz głos`; aplikacja nie wysyła tekstów samouczka do zewnętrznego API. Jeśli przeglądarka nie ma lokalnej syntezy mowy, panel zostaje tekstowy.
-
-Test kroków samouczka siedzi w `scripts/neura-tutorial-guide.dev-test.ts` i jest podpięty jako `npm run test:neura-tutorial` oraz do zbiorczego `npm run test`.
-
-Checkpoint 2026-06-01: panel samouczka Neury jest znowu aktywny jako minimalna prowadnica pierwszego obiegu, ale jest ukrywany podczas aktywnych scen fabularnych, zeby nie konkurowal z modalem dialogu.
+Checkpoint 2026-06-23: usunieto prowadzony panel Neury oraz jego test developerski. Pierwszy obieg gracza ma docelowo przejac jedna petla cutscenek: start gry, pierwsze stworzenie piosenki, pierwszy remix, pierwsze wyslanie do Pawla i pierwsza publikacja na czacie. Nie wracamy do osobnego overlayu prowadzacego.
 
 Generowanie glosow:
 

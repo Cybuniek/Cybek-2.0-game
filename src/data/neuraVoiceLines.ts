@@ -198,7 +198,7 @@ export type VoiceLinePlaybackMode =
   | 'debugOnly';
 
 export type VoicePackId =
-  | 'tutorialPack'
+  | 'prologuePack'
   | 'earlyNeuraPack'
   | 'glitchLevel1Pack'
   | 'glitchLevel2Pack'
@@ -268,7 +268,7 @@ export type NeuraVoiceLineMeta = {
 
 export const neuraVoiceLineMeta = {
   'comment-prologue-neura-boot': {
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue-desktop-boot',
     phase: 'prologue',
     timelineDirection: 'backwardSeed',
@@ -284,7 +284,7 @@ export const neuraVoiceLineMeta = {
   },
 
   'comment-prologue-process-friendly': {
-    packId: 'tutorialPack',
+    packId: 'prologuePack',
     sceneId: 'prologue-desktop-boot',
     phase: 'prologue',
     timelineDirection: 'backwardSeed',

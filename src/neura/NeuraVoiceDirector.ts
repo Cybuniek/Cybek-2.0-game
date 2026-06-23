@@ -36,7 +36,7 @@ export type DialogueRejectionReason = {
 export function createDefaultNeuraVoiceDirectorState(): NeuraVoiceDirectorState {
   return {
     version: 1,
-    unlockedPackIds: ['tutorialPack'],
+    unlockedPackIds: ['prologuePack'],
     queue: [],
     history: {
       byLineId: {},

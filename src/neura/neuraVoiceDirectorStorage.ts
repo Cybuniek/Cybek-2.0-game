@@ -1,4 +1,4 @@
-import type { NeuraVoiceDirectorState } from '../data/dialogue/dialogueTypes.ts';
+import type { NeuraVoiceDirectorState, VoicePackId } from '../data/dialogue/dialogueTypes.ts';
 import { createDefaultNeuraVoiceDirectorState } from './NeuraVoiceDirector.ts';
 
 const STORAGE_KEY = 'ustnik.neura.voiceDirector.v1';
@@ -12,9 +12,11 @@ export function loadNeuraVoiceDirectorState(storageKey = STORAGE_KEY): NeuraVoic
     if (parsed.version !== 1 || !Array.isArray(parsed.unlockedPackIds) || !Array.isArray(parsed.queue) || !parsed.history) {
       return createDefaultNeuraVoiceDirectorState();
     }
+    const migratedUnlockedPackIds = migrateUnlockedPackIds(parsed.unlockedPackIds);
     return {
       ...createDefaultNeuraVoiceDirectorState(),
       ...parsed,
+      unlockedPackIds: migratedUnlockedPackIds,
       history: {
         ...createDefaultNeuraVoiceDirectorState().history,
         ...parsed.history,
@@ -35,4 +37,22 @@ export function saveNeuraVoiceDirectorState(state: NeuraVoiceDirectorState, stor
 
 export function getNeuraVoiceDirectorStorageKey() {
   return STORAGE_KEY;
+}
+
+function migrateUnlockedPackIds(packIds: readonly unknown[]): VoicePackId[] {
+  return packIds.map((packId) => (
+    packId === 'tutorialPack' ? 'prologuePack' : packId
+  )).filter((packId): packId is VoicePackId => (
+    typeof packId === 'string'
+    && [
+      'prologuePack',
+      'earlyNeuraPack',
+      'glitchLevel1Pack',
+      'glitchLevel2Pack',
+      'publicationPack',
+      'loreExpansionPack',
+      'lateGamePack',
+      'finalScenePack',
+    ].includes(packId)
+  ));
 }

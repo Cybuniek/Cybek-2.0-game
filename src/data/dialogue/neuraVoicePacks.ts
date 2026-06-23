@@ -2,8 +2,8 @@ import type { NeuraVoicePack } from './dialogueTypes.ts';
 
 export const neuraVoicePacks: readonly NeuraVoicePack[] = [
   {
-    id: 'tutorialPack',
-    label: 'Tutorial / soft mask',
+    id: 'prologuePack',
+    label: 'Prologue / soft mask',
     unlock: {},
     priority: 'main',
     ordering: 10,

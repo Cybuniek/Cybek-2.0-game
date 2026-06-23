@@ -10,7 +10,6 @@ import { CybekWebcam, type CybekWebcamEvent } from './cybekWebcam';
 import { BeatmapEditor } from './editor/BeatmapEditor';
 import { NeuraPet } from './neura/NeuraPet';
 import { CutsceneStage } from './neura/cutscene/CutsceneStage';
-import { NeuraTutorialGuide } from './neura/NeuraTutorialGuide';
 import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
 import { useEnvironmentalUiEvents } from './neura/useEnvironmentalUiEvents';
 import {
@@ -34,7 +33,6 @@ import {
   type StorySceneDirectorState,
 } from './neura/StorySceneDirector';
 import type { StorySceneTrigger } from './data/dialogue/storyScenes';
-import { getNeuraTutorialStep, type NeuraTutorialStep, type NeuraTutorialWindowTarget } from './neura/tutorialGuide';
 import type { NeuraPresenceEventId as DialoguePresenceEventId } from './data/dialogue/dialogueTypes';
 import {
   addUnique,
@@ -123,7 +121,6 @@ type HitFeedback = {
 };
 type OverlayId =
   | 'webcam'
-  | 'tutorial'
   | 'stats'
   | 'todo'
   | 'identity'
@@ -187,7 +184,6 @@ export default function App() {
   const [isNeuraDebugOpen, setIsNeuraDebugOpen] = useState(false);
   const [isDebugOverlayDragEnabled, setIsDebugOverlayDragEnabled] = useState(false);
   const [isTodoVisible, setIsTodoVisible] = useState(true);
-  const [isTutorialDismissed, setIsTutorialDismissed] = useState(false);
   const [environmentEcho, setEnvironmentEcho] = useState<{ id: number; text: string } | null>(null);
   const [storyVoiceLineId, setStoryVoiceLineId] = useState<string | null>(null);
   const [lastDialogueEventId, setLastDialogueEventId] = useState<DialoguePresenceEventId | null>(null);
@@ -206,27 +202,12 @@ export default function App() {
     }),
     [gameState, lastNeuraEventId, neuraDebugOverride, neuraEventLog, neuraLowFxMode],
   );
-  const baseNeuraTutorialStep = useMemo(
-    () => {
-      if (screen === 'title') return null;
-
-      return getNeuraTutorialStep({
-        gameState,
-        screen,
-        activeWindow: isNeuraTutorialWindowTarget(activeWindow) ? activeWindow : null,
-        messengerTab,
-        runMode: activeRun?.mode ?? null,
-      });
-    },
-    [activeRun?.mode, activeWindow, gameState, messengerTab, screen],
-  );
   const soundscape = useSoundscape(neuraPresence);
   const activeStoryScene = useMemo(
     () => getActiveStoryScene(storySceneDirectorState),
     [storySceneDirectorState],
   );
   const isStorySceneActive = activeStoryScene !== null;
-  const neuraTutorialStep = isStorySceneActive ? null : baseNeuraTutorialStep;
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
     create: { x: 210, y: 116 },
@@ -238,7 +219,6 @@ export default function App() {
   });
   const [overlayPositions, setOverlayPositions] = useState<Record<OverlayId, Point>>({
     webcam: getDefaultWebcamPosition(),
-    tutorial: { x: 1020, y: 246 },
     stats: { x: 1000, y: 280 },
     todo: { x: 1000, y: 458 },
     identity: { x: 1000, y: 116 },
@@ -353,11 +333,6 @@ export default function App() {
     return () => window.clearInterval(id);
   }, []);
 
-  const focusNeuraTutorialTarget = useCallback((step: NeuraTutorialStep) => {
-    if (step.targetWindow) setActiveWindow(step.targetWindow);
-    if (step.targetMessengerTab) setMessengerTab(step.targetMessengerTab);
-  }, []);
-
   const completeBoot = useCallback(() => {
     setBootElapsedMs(BOOT_DURATION_MS);
     setScreen((current) => (current === 'boot' ? initialScreenRef.current : current));
@@ -425,10 +400,6 @@ export default function App() {
     setBootElapsedMs(0);
     setScreen('boot');
   }, []);
-
-  useEffect(() => {
-    setIsTutorialDismissed(false);
-  }, [neuraTutorialStep]);
 
   useEffect(() => {
     if (screen === 'title') {
@@ -515,7 +486,6 @@ export default function App() {
               completedSceneIds: storySceneDirectorState.completedSceneIds,
               completedCheckpointIds: storySceneDirectorState.completedCheckpointIds,
             },
-        neuraTutorial: null,
       });
     window.advanceTime = () => undefined;
   }, [
@@ -527,7 +497,6 @@ export default function App() {
     gameState,
     lastDialogueEventId,
     neuraPresence,
-    neuraTutorialStep,
     neuraVoiceDirectorDebug,
     neuraVoiceDirectorState.queue,
     neuraVoiceDirectorState.unlockedPackIds,
@@ -848,12 +817,9 @@ export default function App() {
           neuraComment={neuraComments[neuraIndex]}
           neuraPresence={neuraPresence}
           resonanceEffects={gameState.resonance.effects}
-          tutorialStep={neuraTutorialStep}
           overlayDragEnabled={isDebugOverlayDragEnabled}
           overlayPositions={overlayPositions}
           onOverlayMove={(overlayId, position) => setOverlayPositions((state) => ({ ...state, [overlayId]: position }))}
-          tutorialDismissed={isTutorialDismissed}
-          onDismissTutorial={() => setIsTutorialDismissed(true)}
           onNeuraPresenceEvent={recordNeuraPresenceEvent}
           onFinish={finishRun}
           onExit={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
@@ -905,12 +871,9 @@ export default function App() {
           alreadyPublished={gameState.publishedTrackIds.includes(result.trackId)}
           neuraComment={neuraComments[neuraIndex]}
           neuraPresence={neuraPresence}
-          tutorialStep={neuraTutorialStep}
           overlayDragEnabled={isDebugOverlayDragEnabled}
           overlayPositions={overlayPositions}
           onOverlayMove={(overlayId, position) => setOverlayPositions((state) => ({ ...state, [overlayId]: position }))}
-          tutorialDismissed={isTutorialDismissed}
-          onDismissTutorial={() => setIsTutorialDismissed(true)}
           onNeuraPresenceEvent={recordNeuraPresenceEvent}
           onSave={() => saveInitialDraft('inDrawer')}
           onSendToPawel={() => saveInitialDraft('sentToPawel')}
@@ -986,16 +949,10 @@ export default function App() {
         presenceState={neuraPresence}
         onPresenceEvent={recordNeuraPresenceEvent}
         storyVoiceLineId={storyVoiceLineId}
-        tutorialStep={neuraTutorialStep}
-        onTutorialTarget={focusNeuraTutorialTarget}
         webcamEvent="idle"
         dragEnabled={isDebugOverlayDragEnabled}
         webcamPosition={overlayPositions.webcam}
         onWebcamMove={(position) => setOverlayPositions((state) => ({ ...state, webcam: position }))}
-        tutorialPosition={overlayPositions.tutorial}
-        onTutorialMove={(position) => setOverlayPositions((state) => ({ ...state, tutorial: position }))}
-        tutorialDismissed={isTutorialDismissed}
-        onTutorialDismiss={() => setIsTutorialDismissed(true)}
         storySceneActive={isStorySceneActive}
       />
       {environmentEcho && (
@@ -1571,12 +1528,9 @@ function RhythmScreen({
   neuraComment,
   neuraPresence,
   resonanceEffects,
-  tutorialStep,
   overlayDragEnabled,
   overlayPositions,
   onOverlayMove,
-  tutorialDismissed,
-  onDismissTutorial,
   onNeuraPresenceEvent,
   onFinish,
   onExit,
@@ -1587,12 +1541,9 @@ function RhythmScreen({
   neuraComment: NeuraVoiceLine;
   neuraPresence: ReturnType<typeof createNeuraPresenceState>;
   resonanceEffects: ResonanceVisualEffects;
-  tutorialStep: NeuraTutorialStep | null;
   overlayDragEnabled: boolean;
   overlayPositions: Record<OverlayId, Point>;
   onOverlayMove: (overlayId: OverlayId, position: Point) => void;
-  tutorialDismissed: boolean;
-  onDismissTutorial: () => void;
   onNeuraPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   onFinish: (summary: RhythmSummary) => void;
   onExit: () => void;
@@ -1927,14 +1878,6 @@ function RhythmScreen({
         lastJudgement: currentSession.lastJudgement,
         score: currentSummary,
         neuraPresence,
-        neuraTutorial: tutorialStep
-          ? {
-              id: tutorialStep.id,
-              title: tutorialStep.title,
-              order: tutorialStep.order,
-              total: tutorialStep.total,
-            }
-          : null,
         nextNotes: currentVisibleNotes.slice(0, 12).map((note) => ({
           lane: note.lane,
           kind: getRhythmNoteKind(note),
@@ -1952,7 +1895,7 @@ function RhythmScreen({
     return () => {
       window.advanceTime = () => undefined;
     };
-  }, [activeRun, audioDurationMs, neuraPresence, resonanceEffects, stepByMs, tutorialStep]);
+  }, [activeRun, audioDurationMs, neuraPresence, resonanceEffects, stepByMs]);
 
   const debugPayload = {
     audioDurationMs,
@@ -2109,16 +2052,11 @@ function RhythmScreen({
         comment={neuraComment}
         presenceState={neuraPresence}
         onPresenceEvent={onNeuraPresenceEvent}
-        tutorialStep={tutorialStep}
         webcamEvent="rhythm"
         musicBpm={beatmap.bpm}
         dragEnabled={overlayDragEnabled}
         webcamPosition={overlayPositions.webcam}
         onWebcamMove={(position) => onOverlayMove('webcam', position)}
-        tutorialPosition={overlayPositions.tutorial}
-        onTutorialMove={(position) => onOverlayMove('tutorial', position)}
-        tutorialDismissed={tutorialDismissed}
-        onTutorialDismiss={onDismissTutorial}
         storySceneActive={storySceneActive}
       />
     </main>
@@ -2194,12 +2132,9 @@ function ResultsScreen({
   alreadyPublished,
   neuraComment,
   neuraPresence,
-  tutorialStep,
   overlayDragEnabled,
   overlayPositions,
   onOverlayMove,
-  tutorialDismissed,
-  onDismissTutorial,
   onNeuraPresenceEvent,
   onSave,
   onSendToPawel,
@@ -2215,12 +2150,9 @@ function ResultsScreen({
   alreadyPublished: boolean;
   neuraComment: NeuraVoiceLine;
   neuraPresence: ReturnType<typeof createNeuraPresenceState>;
-  tutorialStep: NeuraTutorialStep | null;
   overlayDragEnabled: boolean;
   overlayPositions: Record<OverlayId, Point>;
   onOverlayMove: (overlayId: OverlayId, position: Point) => void;
-  tutorialDismissed: boolean;
-  onDismissTutorial: () => void;
   onNeuraPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   onSave: () => void;
   onSendToPawel: () => void;
@@ -2273,15 +2205,10 @@ function ResultsScreen({
         comment={neuraComment}
         presenceState={neuraPresence}
         onPresenceEvent={onNeuraPresenceEvent}
-        tutorialStep={tutorialStep}
         webcamEvent={runMode === 'create' && result.grade !== 'F' ? 'published' : 'review'}
         dragEnabled={overlayDragEnabled}
         webcamPosition={overlayPositions.webcam}
         onWebcamMove={(position) => onOverlayMove('webcam', position)}
-        tutorialPosition={overlayPositions.tutorial}
-        onTutorialMove={(position) => onOverlayMove('tutorial', position)}
-        tutorialDismissed={tutorialDismissed}
-        onTutorialDismiss={onDismissTutorial}
         storySceneActive={storySceneActive}
       />
     </main>
@@ -2583,34 +2510,22 @@ function PersistentOverlays({
   presenceState,
   onPresenceEvent,
   storyVoiceLineId,
-  tutorialStep,
-  onTutorialTarget,
   webcamEvent = 'idle',
   musicBpm,
   dragEnabled,
   webcamPosition,
   onWebcamMove,
-  tutorialPosition,
-  onTutorialMove,
-  tutorialDismissed,
-  onTutorialDismiss,
   storySceneActive = false,
 }: {
   comment: NeuraVoiceLine;
   presenceState: ReturnType<typeof createNeuraPresenceState>;
   onPresenceEvent: (eventId: NeuraPresenceEventId) => void;
   storyVoiceLineId?: string | null;
-  tutorialStep?: NeuraTutorialStep | null;
-  onTutorialTarget?: (step: NeuraTutorialStep) => void;
   webcamEvent?: CybekWebcamEvent;
   musicBpm?: number;
   dragEnabled: boolean;
   webcamPosition: Point;
   onWebcamMove: (position: Point) => void;
-  tutorialPosition: Point;
-  onTutorialMove: (position: Point) => void;
-  tutorialDismissed: boolean;
-  onTutorialDismiss: () => void;
   storySceneActive?: boolean;
 }) {
   return (
@@ -2621,14 +2536,6 @@ function PersistentOverlays({
         position={webcamPosition}
         onMove={onWebcamMove}
         dragEnabled={dragEnabled}
-      />
-      <NeuraTutorialGuide
-        step={tutorialDismissed ? null : (tutorialStep ?? null)}
-        onOpenTarget={onTutorialTarget}
-        dragEnabled={dragEnabled}
-        position={tutorialPosition}
-        onMove={onTutorialMove}
-        onClose={onTutorialDismiss}
       />
       <NeuraPet
         comment={comment}
@@ -2647,10 +2554,6 @@ function readStoredNeuraLowFxMode() {
   } catch {
     return false;
   }
-}
-
-function isNeuraTutorialWindowTarget(windowId: WindowId): windowId is NeuraTutorialWindowTarget {
-  return windowId === 'messenger' || windowId === 'create' || windowId === 'me' || windowId === 'player';
 }
 
 declare global {

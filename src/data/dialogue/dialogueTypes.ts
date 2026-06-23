@@ -7,7 +7,7 @@ export const voiceLinePlaybackModes = ['requiredOnce', 'onceWhenUnlocked', 'rota
 export type VoiceLinePlaybackMode = (typeof voiceLinePlaybackModes)[number];
 
 export const voicePackIds = [
-  'tutorialPack',
+  'prologuePack',
   'earlyNeuraPack',
   'glitchLevel1Pack',
   'glitchLevel2Pack',

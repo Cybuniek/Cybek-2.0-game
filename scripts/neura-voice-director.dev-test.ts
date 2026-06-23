@@ -151,7 +151,28 @@ function withStats(gameState: GameState, performance: number, cybart: number, ch
   assertEqual(wasPlayed, 0, 'event nie odtwarza linii bezpośrednio');
 }
 
-// 8) Echo i rezonans odblokowują osobne kwestie Neury
+// 8) legacy tutorialPack migruje na prologuePack
+{
+  const store = new Map<string, string>();
+  const localStorageStub = {
+    getItem(key: string) {
+      return store.get(key) ?? null;
+    },
+    setItem(key: string, value: string) {
+      store.set(key, value);
+    },
+  };
+  (globalThis as { window: { localStorage: typeof localStorageStub } }).window = { localStorage: localStorageStub };
+
+  localStorageStub.setItem('test.neura.state.migration', JSON.stringify({
+    ...createDefaultNeuraVoiceDirectorState(),
+    unlockedPackIds: ['tutorialPack'],
+  }));
+  const loaded = loadNeuraVoiceDirectorState('test.neura.state.migration');
+  assert(loaded.unlockedPackIds.includes('prologuePack'), 'legacy tutorialPack powinien migrowac na prologuePack');
+}
+
+// 9) Echo i rezonans odblokowują osobne kwestie Neury
 {
   let state: NeuraVoiceDirectorState = createDefaultNeuraVoiceDirectorState();
   const gameState = withPublishedCount(withStats({
@@ -184,7 +205,7 @@ function withStats(gameState: GameState, performance: number, cybart: number, ch
   assert(queuedLineIds.includes('resonance-001-attuned'), 'high resonance queues the attuned resonance line');
 }
 
-// 9) ending route może odblokować osobną linię Neury
+// 10) ending route może odblokować osobną linię Neury
 {
   const gameState = withPublishedCount(withStats({
     ...defaultState,
