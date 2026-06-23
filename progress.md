@@ -27,6 +27,12 @@ Porzadki onboardingu 2026-06-23:
 - Usunieto overlayowa prowadnice Neury z runtime'u, dokumentacji i testow developerskich.
 - Decyzja projektowa: funkcje onboardingowe maja wrocic tylko jako jedna petla cutscenek obejmujaca start gry, pierwsze stworzenie piosenki, pierwszy remix, wyslanie do Pawla i publikacje na czacie.
 
+Petla cutscenkowa 2026-06-23:
+- Dodano checkpoint pierwszego nadpisanego remixu (`remix.firstOverwritten`) i test pilnujacy petli: boot -> pierwszy utwor -> pierwszy remix -> Pawel -> czat.
+- Ujednolicono aktywne UI/dane/testy na nazwe `Pawel` zamiast zdrobnienia.
+- Rozbito bundle na chunki `rhythm-data`, `story-data`, `BeatmapEditor` i `CutsceneStage`; glowny chunk spadl ponizej 500 kB.
+- `npm run test:e2e` korzysta z wlasnego runnera Vite i konczy proces po zielonych testach.
+
 Beatmap Editor 2026-05-25:
 - Po audycie YunYunEditor wdrożono pakiet P0/P1 bez migracji formatu: undo/redo, snap BPM, multi-select, clipboard, nudge, markery edytorskie, mocniejszą walidację i widoczną listę skrótów.
 - `RhythmBeatmap` obsługuje teraz `inputOffsetMs` per mapa oraz `markers`; runtime używa offsetu tylko do oceny wejścia, a markery ignoruje w gameplayu.

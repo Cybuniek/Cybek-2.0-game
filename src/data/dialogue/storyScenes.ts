@@ -12,6 +12,7 @@ export type StoryScenePresenceLevel = 1 | 2 | 3 | 4;
 export type StorySceneTrigger =
   | { type: 'boot.firstCompleted' }
   | { type: 'rhythm.firstFinished'; trackId: string }
+  | { type: 'remix.firstOverwritten'; trackId: string }
   | { type: 'share'; channel: StorySceneChannel; trackId: string }
   | { type: 'presence.level'; level: StoryScenePresenceLevel };
 
@@ -193,9 +194,81 @@ export const storyScenes: readonly StoryScene[] = [
     ],
   },
   {
+    id: 'story.remix.firstOverwritten.wystep-czekamy-czekamy',
+    checkpointId: 'checkpoint.remix.firstOverwritten',
+    title: 'Pierwszy remix: czekanie wraca',
+    trigger: { type: 'remix.firstOverwritten', trackId: 'wystep-czekamy-czekamy' },
+    trackId: 'wystep-czekamy-czekamy',
+    lyricSource: lyricsSources['wystep-czekamy-czekamy'],
+    lines: [
+      {
+        id: 'story.remix.wystep.001.cybek',
+        speaker: 'Cybek',
+        text: 'Nadpisałem draft. To już nie jest pierwsza panika, tylko panika po korekcie.',
+        audioId: 'story-remix-wystep-001-cybek',
+        audioIntent: 'tired',
+      },
+      {
+        id: 'story.remix.wystep.002.neura',
+        speaker: 'Neura',
+        text: 'Dobrze. Remix to dowód, że czekanie nie wygrało od razu. Teraz wybierz, komu pokażesz ślad.',
+        audioId: 'story-remix-wystep-002-neura',
+        audioIntent: 'calm',
+      },
+    ],
+  },
+  {
+    id: 'story.remix.firstOverwritten.wenezuelski-wystep-mashup',
+    checkpointId: 'checkpoint.remix.firstOverwritten',
+    title: 'Pierwszy remix: sufler poprawiony',
+    trigger: { type: 'remix.firstOverwritten', trackId: 'wenezuelski-wystep-mashup' },
+    trackId: 'wenezuelski-wystep-mashup',
+    lyricSource: lyricsSources['wenezuelski-wystep-mashup'],
+    lines: [
+      {
+        id: 'story.remix.wenezuelski.001.cybek',
+        speaker: 'Cybek',
+        text: 'Druga wersja brzmi mniej jak awaria. Albo po prostu awaria nauczyła się rytmu.',
+        audioId: 'story-remix-wenezuelski-001-cybek',
+        audioIntent: 'dry',
+      },
+      {
+        id: 'story.remix.wenezuelski.002.neura',
+        speaker: 'Neura',
+        text: 'Sufler przestał szeptać do ściany. Zostaje pytanie, czy Paweł ma to zobaczyć przed czatem.',
+        audioId: 'story-remix-wenezuelski-002-neura',
+        audioIntent: 'glitch',
+      },
+    ],
+  },
+  {
+    id: 'story.remix.firstOverwritten.vlog-wildforest-rave-anho27',
+    checkpointId: 'checkpoint.remix.firstOverwritten',
+    title: 'Pierwszy remix: kamera stabilizuje obraz',
+    trigger: { type: 'remix.firstOverwritten', trackId: 'vlog-wildforest-rave-anho27' },
+    trackId: 'vlog-wildforest-rave-anho27',
+    lyricSource: lyricsSources['vlog-wildforest-rave-anho27'],
+    lines: [
+      {
+        id: 'story.remix.vlog.001.cybek',
+        speaker: 'Cybek',
+        text: 'Remix trochę uspokoił kamerę. Nadal biegnie, ale przynajmniej wie, przed czym.',
+        audioId: 'story-remix-vlog-001-cybek',
+        audioIntent: 'curious',
+      },
+      {
+        id: 'story.remix.vlog.002.neura',
+        speaker: 'Neura',
+        text: 'To dobry moment na bufor. Prywatny odbiorca najpierw, publiczny ogień później.',
+        audioId: 'story-remix-vlog-002-neura',
+        audioIntent: 'calm',
+      },
+    ],
+  },
+  {
     id: 'story.share.pawel.wystep-czekamy-czekamy',
     checkpointId: 'checkpoint.share.pawel.wystep-czekamy-czekamy',
-    title: 'Plik do Pawcia: czekanie',
+    title: 'Plik do Pawła: czekanie',
     trigger: { type: 'share', channel: 'pawel', trackId: 'wystep-czekamy-czekamy' },
     trackId: 'wystep-czekamy-czekamy',
     channel: 'pawel',
@@ -204,7 +277,7 @@ export const storyScenes: readonly StoryScene[] = [
       {
         id: 'story.share.pawel.wystep.001.cybek',
         speaker: 'Cybek',
-        text: 'Wysyłam Pawciowi. Niech zobaczy, że „czekamy” może mieć wersję roboczą.',
+        text: 'Wysyłam Pawłowi. Niech zobaczy, że „czekamy” może mieć wersję roboczą.',
         audioId: 'story-share-pawel-wystep-001-cybek',
         audioIntent: 'calm',
       },
@@ -245,7 +318,7 @@ export const storyScenes: readonly StoryScene[] = [
   {
     id: 'story.share.pawel.wenezuelski-wystep-mashup',
     checkpointId: 'checkpoint.share.pawel.wenezuelski-wystep-mashup',
-    title: 'Plik do Pawcia: sufler',
+    title: 'Plik do Pawła: sufler',
     trigger: { type: 'share', channel: 'pawel', trackId: 'wenezuelski-wystep-mashup' },
     trackId: 'wenezuelski-wystep-mashup',
     channel: 'pawel',
@@ -254,7 +327,7 @@ export const storyScenes: readonly StoryScene[] = [
       {
         id: 'story.share.pawel.wenezuelski.001.cybek',
         speaker: 'Cybek',
-        text: 'Wysyłam Pawciowi ten mashup, zanim sufler znowu zgubi artystę.',
+        text: 'Wysyłam Pawłowi ten mashup, zanim sufler znowu zgubi artystę.',
         audioId: 'story-share-pawel-wenezuelski-001-cybek',
         audioIntent: 'dry',
       },
@@ -295,7 +368,7 @@ export const storyScenes: readonly StoryScene[] = [
   {
     id: 'story.share.pawel.vlog-wildforest-rave-anho27',
     checkpointId: 'checkpoint.share.pawel.vlog-wildforest-rave-anho27',
-    title: 'Plik do Pawcia: vlog',
+    title: 'Plik do Pawła: vlog',
     trigger: { type: 'share', channel: 'pawel', trackId: 'vlog-wildforest-rave-anho27' },
     trackId: 'vlog-wildforest-rave-anho27',
     channel: 'pawel',
@@ -304,14 +377,14 @@ export const storyScenes: readonly StoryScene[] = [
       {
         id: 'story.share.pawel.vlog.001.cybek',
         speaker: 'Cybek',
-        text: 'Wysyłam Pawciowi. Może powie, czy ta kamera dalej trzyma akcję.',
+        text: 'Wysyłam Pawłowi. Może powie, czy ta kamera dalej trzyma akcję.',
         audioId: 'story-share-pawel-vlog-001-cybek',
         audioIntent: 'curious',
       },
       {
         id: 'story.share.pawel.vlog.002.neura',
         speaker: 'Neura',
-        text: 'Pawcio dostaje wersję, zanim las, beton i bas zrobią z niej legendę.',
+        text: 'Paweł dostaje wersję, zanim las, beton i bas zrobią z niej legendę.',
         audioId: 'story-share-pawel-vlog-002-neura',
         audioIntent: 'calm',
       },
@@ -460,6 +533,9 @@ function matchesStorySceneTrigger(scene: StoryScene, trigger: StorySceneTrigger)
   if (trigger.type === 'boot.firstCompleted') return true;
   if (trigger.type === 'rhythm.firstFinished') {
     return scene.trigger.type === 'rhythm.firstFinished' && scene.trigger.trackId === trigger.trackId;
+  }
+  if (trigger.type === 'remix.firstOverwritten') {
+    return scene.trigger.type === 'remix.firstOverwritten' && scene.trigger.trackId === trigger.trackId;
   }
   if (trigger.type === 'share') {
     return (

@@ -1059,6 +1059,21 @@ button:disabled {
     linear-gradient(135deg, #020006, #05020d 50%, #021016);
 }
 
+.system-fallback {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  background: #020006;
+  color: var(--text-cyan);
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.system-fallback strong {
+  color: var(--accent-pink);
+  text-transform: uppercase;
+}
+
 .stage-header {
   display: flex;
   align-items: center;

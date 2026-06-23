@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 import { neuraComments } from './data/messages';
 import type { NeuraVoiceLine } from './data/neuraVoiceLines';
@@ -7,9 +7,7 @@ import { tracks } from './data/tracks';
 import { useSoundscape } from './audio/useSoundscape';
 import { useRhythmSfx } from './audio/useRhythmSfx';
 import { CybekWebcam, type CybekWebcamEvent } from './cybekWebcam';
-import { BeatmapEditor } from './editor/BeatmapEditor';
 import { NeuraPet } from './neura/NeuraPet';
-import { CutsceneStage } from './neura/cutscene/CutsceneStage';
 import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
 import { useEnvironmentalUiEvents } from './neura/useEnvironmentalUiEvents';
 import {
@@ -160,6 +158,9 @@ type ActiveRun = {
 };
 
 type RhythmPhase = 'loading' | 'countdown' | 'playing';
+
+const BeatmapEditor = lazy(() => import('./editor/BeatmapEditor').then((module) => ({ default: module.BeatmapEditor })));
+const CutsceneStage = lazy(() => import('./neura/cutscene/CutsceneStage').then((module) => ({ default: module.CutsceneStage })));
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
@@ -692,6 +693,7 @@ export default function App() {
 
     setGameState(nextState);
     runStoryAction('draft.saved', nextState);
+    queueStoryScene({ type: 'remix.firstOverwritten', trackId: result.trackId });
     recordNeuraPresenceEvent('draftSaved');
     returnToDesktop('me');
   }
@@ -799,13 +801,15 @@ export default function App() {
   }
 
   const storySceneOverlay = activeStoryScene ? (
-    <CutsceneStage
-      scene={activeStoryScene}
-      lineIndex={storySceneLineIndex}
-      onAdvance={advanceStoryScene}
-      lowFx={neuraPresence.lowFxMode}
-      glitchLevel={neuraPresence.glitchIntensity}
-    />
+    <Suspense fallback={<SystemOverlayFallback label="Ładowanie cutscenki..." />}>
+      <CutsceneStage
+        scene={activeStoryScene}
+        lineIndex={storySceneLineIndex}
+        onAdvance={advanceStoryScene}
+        lowFx={neuraPresence.lowFxMode}
+        glitchLevel={neuraPresence.glitchIntensity}
+      />
+    </Suspense>
   ) : null;
 
   if (screen === 'rhythm' && activeRun) {
@@ -851,10 +855,12 @@ export default function App() {
   if (screen === 'editor') {
     return (
       <>
-        <BeatmapEditor onExit={() => {
-          window.history.replaceState(null, '', window.location.pathname);
-          setScreen('desktop');
-        }} />
+        <Suspense fallback={<SystemOverlayFallback label="Ładowanie edytora..." />}>
+          <BeatmapEditor onExit={() => {
+            window.history.replaceState(null, '', window.location.pathname);
+            setScreen('desktop');
+          }} />
+        </Suspense>
         {storySceneOverlay}
       </>
     );
@@ -1125,6 +1131,15 @@ export default function App() {
           <HiddenWindowShell title={windowLabels.hiddenBroadcast} />
         </Window>
       )}
+    </main>
+  );
+}
+
+function SystemOverlayFallback({ label }: { label: string }) {
+  return (
+    <main className="system-fallback" aria-live="polite">
+      <strong>Cybek OS</strong>
+      <span>{label}</span>
     </main>
   );
 }
@@ -2351,7 +2366,7 @@ function EventCutsceneStage({
           <strong>Decyzja podświetlona przez echo</strong>
           <button className="event-decision highlighted" type="button">Publikuj dalej</button>
           <button className="event-decision" type="button">Schowaj do szuflady</button>
-          <button className="event-decision" type="button">Wyślij Pawciowi</button>
+          <button className="event-decision" type="button">Wyślij Pawłowi</button>
         </article>
 
         <article className="event-cutscene-window event-cutscene-window-neura">

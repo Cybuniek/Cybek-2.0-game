@@ -51,7 +51,7 @@ export const buttonLabels = {
   createFirstVersion: 'Stwórz pierwszą wersję',
   remix: '(Remix)',
   publish: 'Opublikuj na czacie głównym',
-  sendToPawel: 'Wyślij wersję roboczą do Pawcia',
+  sendToPawel: 'Wyślij wersję roboczą do Pawła',
   saveDraft: 'Zapisz draft do szuflady',
   overwriteDraft: 'Nadpisz draft w szufladzie',
   backToDesktop: 'Wyjdź do pulpitu',

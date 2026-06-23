@@ -266,7 +266,7 @@ Pokazuje:
 Dostepne akcje przy pierwszej wersji:
 
 - `Zapisz draft do szuflady`,
-- `Wyslij wersje robocza do Pawcia`,
+- `Wyslij wersje robocza do Pawla`,
 - `Opublikuj na czacie glownym`,
 - `Wroc bez zapisu`.
 
@@ -728,16 +728,16 @@ Legenda audio:
 | `story.rhythm.firstFinished.vlog-wildforest-rave-anho27` | Po pierwszym wystepie: kamera | Neura | `story-rhythm-vlog-002-neura` | brak | Vlog robi z ryzyka pamiatke. Bas mija, ale plik zostaje. |
 | `story.rhythm.firstFinished.vlog-wildforest-rave-anho27` | Po pierwszym wystepie: kamera | Cybek | `story-rhythm-vlog-003-cybek` | brak | Czyli jesli zapisze wersje, to juz czesc historii? |
 | `story.rhythm.firstFinished.vlog-wildforest-rave-anho27` | Po pierwszym wystepie: kamera | Neura | `story-rhythm-vlog-004-neura` | brak | Tak. Nawet jesli historia ma bloto na butach i glitch na koncu nocy. |
-| `story.share.pawel.wystep-czekamy-czekamy` | Plik do Pawcia: czekanie | Cybek | `story-share-pawel-wystep-001-cybek` | brak | Wysylam Pawciowi. Niech zobaczy, ze "czekamy" moze miec wersje robocza. |
-| `story.share.pawel.wystep-czekamy-czekamy` | Plik do Pawcia: czekanie | Neura | `story-share-pawel-wystep-002-neura` | brak | Dobrze. Jedna osoba to jeszcze nie tlum. To tylko presja w wersji demo. |
+| `story.share.pawel.wystep-czekamy-czekamy` | Plik do Pawla: czekanie | Cybek | `story-share-pawel-wystep-001-cybek` | brak | Wysylam Pawlowi. Niech zobaczy, ze "czekamy" moze miec wersje robocza. |
+| `story.share.pawel.wystep-czekamy-czekamy` | Plik do Pawla: czekanie | Neura | `story-share-pawel-wystep-002-neura` | brak | Dobrze. Jedna osoba to jeszcze nie tlum. To tylko presja w wersji demo. |
 | `story.share.chat.wystep-czekamy-czekamy` | Czat: czekanie | Cybek | `story-share-chat-wystep-001-cybek` | brak | Publikuje. Jak krzykna "dawaj", to juz bedzie po fakcie. |
 | `story.share.chat.wystep-czekamy-czekamy` | Czat: czekanie | Neura | `story-share-chat-wystep-002-neura` | brak | Wlasnie o to chodzi. Czekanie konczy sie dopiero wtedy, gdy plik zaczyna mowic za ciebie. |
-| `story.share.pawel.wenezuelski-wystep-mashup` | Plik do Pawcia: sufler | Cybek | `story-share-pawel-wenezuelski-001-cybek` | brak | Wysylam Pawciowi ten mashup, zanim sufler znowu zgubi artyste. |
-| `story.share.pawel.wenezuelski-wystep-mashup` | Plik do Pawcia: sufler | Neura | `story-share-pawel-wenezuelski-002-neura` | brak | Niech sprawdzi, czy chaos jeszcze tanczy, czy juz tylko udaje Anihilacje. |
+| `story.share.pawel.wenezuelski-wystep-mashup` | Plik do Pawla: sufler | Cybek | `story-share-pawel-wenezuelski-001-cybek` | brak | Wysylam Pawlowi ten mashup, zanim sufler znowu zgubi artyste. |
+| `story.share.pawel.wenezuelski-wystep-mashup` | Plik do Pawla: sufler | Neura | `story-share-pawel-wenezuelski-002-neura` | brak | Niech sprawdzi, czy chaos jeszcze tanczy, czy juz tylko udaje Anihilacje. |
 | `story.share.chat.wenezuelski-wystep-mashup` | Czat: Anihilacja | Cybek | `story-share-chat-wenezuelski-001-cybek` | brak | Dobra. Czat dostaje Anihilacje. Niech sami zdecyduja, czy to wystep, czy raport z wypadku. |
 | `story.share.chat.wenezuelski-wystep-mashup` | Czat: Anihilacja | Neura | `story-share-chat-wenezuelski-002-neura` | brak | Opublikowane. Teraz blad 404 ma publicznosc. |
-| `story.share.pawel.vlog-wildforest-rave-anho27` | Plik do Pawcia: vlog | Cybek | `story-share-pawel-vlog-001-cybek` | brak | Wysylam Pawciowi. Moze powie, czy ta kamera dalej trzyma akcje. |
-| `story.share.pawel.vlog-wildforest-rave-anho27` | Plik do Pawcia: vlog | Neura | `story-share-pawel-vlog-002-neura` | brak | Pawcio dostaje wersje, zanim las, beton i bas zrobia z niej legende. |
+| `story.share.pawel.vlog-wildforest-rave-anho27` | Plik do Pawla: vlog | Cybek | `story-share-pawel-vlog-001-cybek` | brak | Wysylam Pawlowi. Moze powie, czy ta kamera dalej trzyma akcje. |
+| `story.share.pawel.vlog-wildforest-rave-anho27` | Plik do Pawla: vlog | Neura | `story-share-pawel-vlog-002-neura` | brak | Pawel dostaje wersje, zanim las, beton i bas zrobia z niej legende. |
 | `story.share.chat.vlog-wildforest-rave-anho27` | Czat: vlog | Cybek | `story-share-chat-vlog-001-cybek` | brak | Publikuje vloga. Jak ktos pyta, to nic nie spadlo z dachu. Jeszcze. |
 | `story.share.chat.vlog-wildforest-rave-anho27` | Czat: vlog | Neura | `story-share-chat-vlog-002-neura` | brak | Czat lubi ryzyko, kiedy oglada je z bezpiecznej odleglosci. Plik wlasnie skraca dystans. |
 | `story.presence.level.1` | Glitch 1: nerwy interfejsu | Cybek | `story-presence-1-001-cybek` | brak | Pulpit drgnal. To efekt, czy ostrzezenie? |

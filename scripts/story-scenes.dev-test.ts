@@ -27,7 +27,8 @@ const trackIds = tracks.map((track) => track.id);
   assertEqual(storySceneTrackIds.length, trackIds.length, 'liczba trackId w scenach zgadza się z tracks.ts');
   for (const trackId of trackIds) {
     assert(storySceneTrackIds.includes(trackId), `sceny zawierają trackId: ${trackId}`);
-    assert(!!getStorySceneForTrigger({ type: 'share', channel: 'pawel', trackId }), `istnieje scena Pawcia dla ${trackId}`);
+    assert(!!getStorySceneForTrigger({ type: 'remix.firstOverwritten', trackId }), `istnieje scena remixu dla ${trackId}`);
+    assert(!!getStorySceneForTrigger({ type: 'share', channel: 'pawel', trackId }), `istnieje scena Pawła dla ${trackId}`);
     assert(!!getStorySceneForTrigger({ type: 'share', channel: 'chat', trackId }), `istnieje scena czatu dla ${trackId}`);
   }
 }
@@ -46,21 +47,21 @@ const trackIds = tracks.map((track) => track.id);
   }
 }
 
-// 3) Pawcio i czat są osobnymi checkpointami per utwór
+// 3) Paweł i czat są osobnymi checkpointami per utwór
 {
   let state = createDefaultStorySceneDirectorState();
   const trackId = 'wystep-czekamy-czekamy';
 
   state = queueStorySceneForTrigger(state, { type: 'share', channel: 'pawel', trackId }).state;
-  assertEqual(state.queue.length, 1, 'pierwsza wysyłka do Pawcia kolejkuje scenę');
+  assertEqual(state.queue.length, 1, 'pierwsza wysyłka do Pawła kolejkuje scenę');
   const pawelSceneId = state.queue[0];
   state = completeStoryScene(state, pawelSceneId);
   state = queueStorySceneForTrigger(state, { type: 'share', channel: 'pawel', trackId }).state;
-  assertEqual(state.queue.length, 0, 'druga wysyłka do Pawcia nie powtarza sceny');
+  assertEqual(state.queue.length, 0, 'druga wysyłka do Pawła nie powtarza sceny');
 
   state = queueStorySceneForTrigger(state, { type: 'share', channel: 'chat', trackId }).state;
   assertEqual(state.queue.length, 1, 'publikacja na czacie ma osobny checkpoint');
-  assert(state.queue[0] !== pawelSceneId, 'scena czatu różni się od sceny Pawcia');
+  assert(state.queue[0] !== pawelSceneId, 'scena czatu różni się od sceny Pawła');
 }
 
 // 4) scena po minigrze jest globalnie jednorazowa, ale wybiera wariant po trackId
@@ -95,4 +96,26 @@ const trackIds = tracks.map((track) => track.id);
   for (const sceneId of [...state.queue]) state = completeStoryScene(state, sceneId);
   state = queueStoryScenesForPresenceLevel(state, 4).state;
   assertEqual(state.queue.length, 0, 'ponowny poziom 4 nie powtarza scen glitchy');
+}
+
+// 6) onboarding fabularny obejmuje jedna petle: start -> utwor -> remix -> Pawel -> czat
+{
+  let state = createDefaultStorySceneDirectorState();
+  const trackId = 'wystep-czekamy-czekamy';
+
+  state = queueStorySceneForTrigger(state, { type: 'boot.firstCompleted' }).state;
+  state = queueStorySceneForTrigger(state, { type: 'rhythm.firstFinished', trackId }).state;
+  state = queueStorySceneForTrigger(state, { type: 'remix.firstOverwritten', trackId }).state;
+  state = queueStorySceneForTrigger(state, { type: 'share', channel: 'pawel', trackId }).state;
+  state = queueStorySceneForTrigger(state, { type: 'share', channel: 'chat', trackId }).state;
+
+  assertEqual(
+    state.queue.map((sceneId) => getStorySceneById(sceneId)?.trigger.type).join(' -> '),
+    'boot.firstCompleted -> rhythm.firstFinished -> remix.firstOverwritten -> share -> share',
+    'kolejka pierwszej petli ma oczekiwana kolejnosc scen',
+  );
+
+  for (const sceneId of [...state.queue]) state = completeStoryScene(state, sceneId);
+  state = queueStorySceneForTrigger(state, { type: 'remix.firstOverwritten', trackId: 'vlog-wildforest-rave-anho27' }).state;
+  assertEqual(state.queue.length, 0, 'pierwszy remix jest globalnym checkpointem petli');
 }

@@ -20,12 +20,12 @@
 
 ## Nowy model flow
 
-Generator `anh://www.ustno.ai/create` sluzy tylko do stworzenia pierwszej wersji utworu na najnizszym dostepnym poziomie. Po zapisaniu, wyslaniu do Pawcia albo publikacji tytul trafia do `createdTrackIds` i znika z generatora.
+Generator `anh://www.ustno.ai/create` sluzy tylko do stworzenia pierwszej wersji utworu na najnizszym dostepnym poziomie. Po zapisaniu, wyslaniu do Pawla albo publikacji tytul trafia do `createdTrackIds` i znika z generatora.
 
 Szuflada `anh://www.ustno.ai/me` pokazuje stworzone, nieopublikowane drafty. Draft ma aktualny poziom, najlepszy wynik i status:
 
 - `inDrawer` - draft jest w szufladzie.
-- `sentToPawel` - draft zostal wyslany do Pawcia, ale nadal mozna go opublikowac lub remiksowac.
+- `sentToPawel` - draft zostal wyslany do Pawla, ale nadal mozna go opublikowac lub remiksowac.
 
 Remix dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom draftu. Jesli stary albo recznie zmieniony save zawiera poziom spoza listy poziomow danego utworu, aplikacja nie przeskakuje do pierwszego poziomu, tylko blokuje kolejny remix. Po remixie ekran wynikow pokazuje porownanie obecnego draftu z nowa proba: poprzednia dokladnosc, nowa dokladnosc, roznica i werdykt. Gracz nadal moze nadpisac slabsza wersja, bo nieudany numer moze byc swiadoma decyzja fabularna.
 
@@ -58,11 +58,11 @@ Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wyma
 
 Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu, a tekst kwestii bez dostepnego audio nie jest pokazywany jako osobny dymek.
 
-`src/neura/NeuraVoiceDirector.ts` jest pierwszym data-driven routerem narracyjnego glosu Neury. Eventy gry nie odtwarzaja audio bezposrednio: emituja event fabularny, director aktualizuje kolejke i wybiera nastepna linie. Runtime odpala eventy dla startu sesji, zapisu draftu, wysylki do Pawcia, publikacji oraz spike'a glitcha przy wysokiej presji czatu. Dodatkowy story beat pulpitu probuje dobrac ambient tylko wtedy, gdy kolejka jest pusta i cooldown pozwala. Stan directora zapisuje sie przez `src/neura/neuraVoiceDirectorStorage.ts`, a `render_game_to_text` pokazuje aktywna linie, kolejke, odblokowane paczki i debug odrzuconych kandydatow.
+`src/neura/NeuraVoiceDirector.ts` jest pierwszym data-driven routerem narracyjnego glosu Neury. Eventy gry nie odtwarzaja audio bezposrednio: emituja event fabularny, director aktualizuje kolejke i wybiera nastepna linie. Runtime odpala eventy dla startu sesji, zapisu draftu, wysylki do Pawla, publikacji oraz spike'a glitcha przy wysokiej presji czatu. Dodatkowy story beat pulpitu probuje dobrac ambient tylko wtedy, gdy kolejka jest pusta i cooldown pozwala. Stan directora zapisuje sie przez `src/neura/neuraVoiceDirectorStorage.ts`, a `render_game_to_text` pokazuje aktywna linie, kolejke, odblokowane paczki i debug odrzuconych kandydatow.
 
 Nowe data-driven dialogi mieszkaja w `src/data/dialogue/neuraVoiceLines.ts`. Ich `audio.id` moze wskazywac osobny plik `/audio/neura/<audio.id>.ogg`, niezaleznie od starego manifestu kompatybilnosci dla `NeuraPet`. Generator `scripts/generate-neura-voices.ts` obsluguje nowe zrodlo przez `--source dialogue-v2`, filtr fazy przez `--phase` i start od konkretnego id przez `--from-id`.
 
-Niepomijalne sceny Cybek/Neura mieszkaja w `src/data/dialogue/storyScenes.ts`, a ich kolejka i jednorazowe checkpointy w `src/neura/StorySceneDirector.ts`. Sa to pelne sceny overlayowe, nie ambientowe komentarze: blokuja UI, przechodza kliknieciem po zakonczonym audio i zapisuje sie je w `localStorage` pod `ustnik.storyScenes.v1`. Audio scen lezy w `/audio/story-scenes/<audioId>.ogg` z fallbackiem MP3. Sceny udostepnienia sa jednorazowe per utwor i kanal: osobno Pawcio, osobno czat glowny.
+Niepomijalne sceny Cybek/Neura mieszkaja w `src/data/dialogue/storyScenes.ts`, a ich kolejka i jednorazowe checkpointy w `src/neura/StorySceneDirector.ts`. Sa to pelne sceny overlayowe, nie ambientowe komentarze: blokuja UI, przechodza kliknieciem po zakonczonym audio i zapisuje sie je w `localStorage` pod `ustnik.storyScenes.v1`. Audio scen lezy w `/audio/story-scenes/<audioId>.ogg` z fallbackiem MP3. Pierwsza petla fabularna obejmuje boot, pierwsze wykonanie, pierwszy nadpisany remix, wysylke do Pawla i publikacje na czacie. Sceny udostepnienia sa jednorazowe per utwor i kanal: osobno Pawel, osobno czat glowny.
 
 Checkpoint 2026-06-01: sceny fabularne dzialaja tez w trybie tekstowym. Jesli OGG/MP3 jest niedostepne albo przegladarka blokuje autoplay, overlay po krotkim czasie pokazuje status `Audio niedostępne` i odblokowuje `Dalej`. Nie generujemy w tym kroku nowych glosow przez ElevenLabs. Znane brakujace audio scen: `story-share-chat-vlog-002-neura`, `story-presence-1-001-cybek`, `story-presence-1-002-neura`, `story-presence-2-001-cybek`, `story-presence-2-002-neura`, `story-presence-3-001-cybek`, `story-presence-3-002-neura`, `story-presence-4-001-cybek`, `story-presence-4-002-neura`.
 
@@ -216,7 +216,7 @@ Migracja w `storage.ts` probuje zachowac starsze save'y z poprzedniego modelu `d
 Zmiany statystyk sa liczone przez `getStatDelta` w `src/storage.ts` i zaleza od dokladnosci oraz poziomu trudnosci.
 
 - Zapis draftu lekko podnosi `Presja Czatu`.
-- Wyslanie draftu do Pawcia podnosi `Presja Czatu`.
+- Wyslanie draftu do Pawla podnosi `Presja Czatu`.
 - Publikacja podnosi `Wystep`, `Cybart.exe` i `Presja Czatu`.
 
 Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.

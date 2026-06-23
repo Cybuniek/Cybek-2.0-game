@@ -284,7 +284,7 @@ export const neuraVoiceLinesV2: readonly NeuraVoiceLine[] = [
     priority: 'side',
     playbackMode: 'rotating',
     audio: { id: 'prologue-004-pawciu' },
-    debugNotes: 'Easter egg Pawcia jako presji aktualizacji.',
+    debugNotes: 'Easter egg Pawła jako presji aktualizacji.',
   },
   {
     id: 'prologue-005-cybart-exe',
