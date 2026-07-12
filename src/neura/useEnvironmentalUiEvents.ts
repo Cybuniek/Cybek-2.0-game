@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { getNeuraPresencePreset } from '../data/neuraPresence.ts';
-import type { NeuraPresenceState } from '../types.ts';
+import type { EchoState, NeuraPresenceState, ResonanceState } from '../types.ts';
 
 type Point = { x: number; y: number };
 
@@ -15,6 +15,8 @@ export const neuraEnvironmentalEchoes = [
 export function useEnvironmentalUiEvents<TWindowId extends string>({
   isDesktop,
   presenceState,
+  echoState,
+  resonanceState,
   activeWindow,
   setWindowPositions,
   onEcho,
@@ -22,6 +24,8 @@ export function useEnvironmentalUiEvents<TWindowId extends string>({
 }: {
   isDesktop: boolean;
   presenceState: NeuraPresenceState;
+  echoState?: EchoState;
+  resonanceState?: ResonanceState;
   activeWindow: TWindowId | null;
   setWindowPositions: Dispatch<SetStateAction<Record<TWindowId, Point>>>;
   onEcho: (text: string) => void;
@@ -35,11 +39,16 @@ export function useEnvironmentalUiEvents<TWindowId extends string>({
     let cancelled = false;
 
     const schedule = () => {
+      const echoTimerPressure = Math.min(0.35, (echoState?.echoCount ?? 0) * 0.045);
+      const timerScale = resonanceState?.effects.timerScale ?? 1;
+      const minDelay = Math.max(1800, Math.round(preset.ui.minDelayMs * timerScale * (1 - echoTimerPressure)));
+      const maxDelay = Math.max(minDelay + 900, Math.round(preset.ui.maxDelayMs * timerScale * (1 - echoTimerPressure)));
+
       timeoutId = window.setTimeout(() => {
         if (cancelled) return;
 
         if (activeWindow && preset.ui.windowDriftPx > 0) {
-          const drift = preset.ui.windowDriftPx * presenceState.uiAutonomy;
+          const drift = (preset.ui.windowDriftPx + (resonanceState?.effects.uiHighlight ?? 0) * 8) * presenceState.uiAutonomy;
           setWindowPositions((positions) => ({
             ...positions,
             [activeWindow]: clampWindowPosition({
@@ -49,8 +58,12 @@ export function useEnvironmentalUiEvents<TWindowId extends string>({
           }));
         }
 
-        if (Math.random() < preset.ui.staleReplyChance) {
-          onEcho(pickRandom(neuraEnvironmentalEchoes));
+        const echoChance = Math.min(
+          0.78,
+          preset.ui.staleReplyChance + (echoState?.echoCount ?? 0) * 0.035 + (resonanceState?.effects.uiHighlight ?? 0) * 0.18,
+        );
+        if (Math.random() < echoChance) {
+          onEcho(echoState?.lastPhrase ? `Echo: ${echoState.lastPhrase}` : pickRandom(neuraEnvironmentalEchoes));
         }
 
         if (presenceState.glitchIntensity > 0.2) {
@@ -58,7 +71,7 @@ export function useEnvironmentalUiEvents<TWindowId extends string>({
         }
 
         schedule();
-      }, randomBetween(preset.ui.minDelayMs, preset.ui.maxDelayMs));
+      }, randomBetween(minDelay, maxDelay));
     };
 
     schedule();
@@ -66,7 +79,7 @@ export function useEnvironmentalUiEvents<TWindowId extends string>({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [activeWindow, isDesktop, onEcho, onGlitch, presenceState, setWindowPositions]);
+  }, [activeWindow, echoState, isDesktop, onEcho, onGlitch, presenceState, resonanceState, setWindowPositions]);
 }
 
 function clampWindowPosition(position: Point): Point {

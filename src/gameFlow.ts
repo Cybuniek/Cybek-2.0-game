@@ -1,4 +1,5 @@
-import type { DraftTrack, PerformanceResult, PublishedTrack } from './types';
+import { incrementEchoCount } from './storage.ts';
+import type { DraftTrack, GameState, PerformanceResult, PublishedTrack } from './types';
 
 export type RemixComparison = {
   previousAccuracy: number;
@@ -55,4 +56,14 @@ export function createRemixComparison(draft: DraftTrack, result: PerformanceResu
     accuracyDelta,
     verdict,
   };
+}
+
+export function triggerEchoAfterPublish(state: GameState, published: PublishedTrack): GameState {
+  return incrementEchoCount(state, {
+    source: 'publish',
+    phrase: `Opublikuj: ${published.trackTitle} / ${published.difficulty} / ${published.accuracy}%`,
+    trackId: published.trackId,
+    decisionLabel: 'publish',
+    effect: 'cutscene',
+  });
 }

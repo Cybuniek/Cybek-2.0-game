@@ -1,0 +1,93 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LibRoot>/media/games/SteamLibrary/steamapps/common/Yunyun_Syndrome</LibRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>$(LibRoot)\BepInEx\core\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="App">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\App.dll</HintPath>
+    </Reference>
+    <Reference Include="App.Common">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\App.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="App.Steam">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\App.Steam.dll</HintPath>
+    </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>$(LibRoot)\BepInEx\core\BepInEx.dll</HintPath>
+    </Reference>
+    <Reference Include="BepInEx.Harmony">
+      <HintPath>$(LibRoot)\BepInEx\core\BepInEx.Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="BepInEx.Preloader">
+      <HintPath>$(LibRoot)\BepInEx\core\BepInEx.Preloader.dll</HintPath>
+    </Reference>
+    <Reference Include="GameStateStructure">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\GameStateStructure.dll</HintPath>
+    </Reference>
+    <Reference Include="HarmonyXInterop">
+      <HintPath>$(LibRoot)\BepInEx\core\HarmonyXInterop.dll</HintPath>
+    </Reference>
+    <Reference Include="ILib.ServInjector">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\ILib.ServInjector.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="UniTask">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UniTask.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.Localization">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\Unity.Localization.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.InputModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.UnityWebRequestModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestTextureModule">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UVMBinding">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UVMBinding.dll</HintPath>
+    </Reference>
+    <Reference Include="UVMBinding.Localization">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\UVMBinding.Localization.dll</HintPath>
+    </Reference>
+    <Reference Include="YYNoteEditor.ScoreData">
+      <HintPath>$(LibRoot)\Yunyun_Syndrome_Data\Managed\YYNoteEditor.ScoreData.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

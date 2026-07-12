@@ -1,0 +1,168 @@
+<script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
+  import { parseZip } from '../../lib/io/import';
+  import { chart, loadFromImport, updateSong, addLevel } from '../../lib/state/chartStore';
+  import { putAudio } from '../../lib/storage/audioStore';
+  import { putImage, deleteImage } from '../../lib/storage/imageStore';
+  import { CURRENT_ID } from '../../lib/storage/drafts';
+  import { isOggFilename, checkOggSize } from '../../lib/audio/decode';
+  import { clearHistory } from '../../lib/state/history';
+  import { SUPPORTED_LEVELS } from '../../lib/model/level';
+
+  let dragOver = $state(false);
+  // dragenter/dragleave bubble for every nested element transition; track depth so the overlay
+  // doesn't flicker while the cursor moves between children.
+  let dragDepth = 0;
+
+  async function handleFile(file: File) {
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.zip')) {
+      await handleZip(file);
+      return;
+    }
+    if (isOggFilename(lower)) {
+      await handleOgg(file);
+      return;
+    }
+    alert('Only .zip (mod) and .ogg (audio) files are accepted.');
+  }
+
+  async function handleZip(file: File) {
+    try {
+      const mod = await parseZip(file);
+      // Reject oversized audio at the boundary — IndexedDB writes would still succeed, but the
+      // subsequent decode would fail anyway and we'd be carrying multi-MB bytes around for nothing.
+      checkOggSize(mod.audio.bytes.byteLength);
+      // Persist audio bytes before mutating chart state — App.svelte's $effect picks up the new bytes
+      // by re-reading IndexedDB after dirtyTick bumps.
+      await putAudio({ id: CURRENT_ID, filename: mod.audio.filename, mime: mod.audio.mime, bytes: mod.audio.bytes });
+      // Mirror the audio rule for the icon: a fresh import must not keep the previous mod's icon.
+      if (mod.icon) {
+        await putImage({ id: CURRENT_ID, filename: mod.icon.filename, mime: mod.icon.mime, bytes: mod.icon.bytes });
+      } else {
+        await deleteImage(CURRENT_ID).catch(() => undefined);
+      }
+      loadFromImport(mod);
+      // History snapshots only carry chart state. After a fresh import the previous history
+      // refers to a different audio file, so undo could pair the old chart with the new audio.
+      clearHistory();
+      if (mod.warnings.length > 0) {
+        console.warn('import warnings:', mod.warnings);
+      }
+    } catch (err: any) {
+      alert(`Import failed: ${err?.message ?? err}`);
+    }
+  }
+
+  async function handleOgg(file: File) {
+    try {
+      checkOggSize(file.size);
+      const bytes = await file.arrayBuffer();
+      await putAudio({ id: CURRENT_ID, filename: file.name, mime: file.type || 'audio/ogg', bytes });
+      // Update song.Audio so export uses the new filename. This also bumps dirtyTick → App reloads transport.
+      updateSong({ Audio: file.name });
+      // If the project has zero levels (e.g., a brand-new chart with no .zip yet), bootstrap one
+      // so the user has somewhere to place notes immediately. The Add Level button is small and
+      // users have asked what to do first; pairing audio drop with auto-create answers that.
+      const c = get(chart);
+      if (Object.keys(c.levels).length === 0) {
+        addLevel('Editor', SUPPORTED_LEVELS[0], 1);
+      }
+      // The old IDB audio bytes are gone; an undo of updateSong would restore song.Audio
+      // pointing at audio that no longer exists in storage.
+      clearHistory();
+    } catch (err: any) {
+      alert(`Audio import failed: ${err?.message ?? err}`);
+    }
+  }
+
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    dragDepth = 0;
+    dragOver = false;
+    const f = e.dataTransfer?.files?.[0];
+    if (f) handleFile(f);
+  }
+
+  function onDragOver(e: DragEvent) {
+    e.preventDefault();
+  }
+
+  function onDragEnter(e: DragEvent) {
+    e.preventDefault();
+    dragDepth += 1;
+    dragOver = true;
+  }
+
+  function onDragLeave() {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dragOver = false;
+  }
+
+  onMount(() => {
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+  });
+
+  onDestroy(() => {
+    window.removeEventListener('dragenter', onDragEnter);
+    window.removeEventListener('dragover', onDragOver);
+    window.removeEventListener('dragleave', onDragLeave);
+    window.removeEventListener('drop', onDrop);
+  });
+
+  export function pickFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip,application/zip';
+    input.onchange = () => {
+      const f = input.files?.[0];
+      if (f) handleZip(f);
+    };
+    input.click();
+  }
+
+  export function pickAudio() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.ogg,audio/ogg';
+    input.onchange = () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      if (!isOggFilename(f.name)) {
+        alert('Only .ogg files are accepted.');
+        return;
+      }
+      handleOgg(f);
+    };
+    input.click();
+  }
+</script>
+
+{#if dragOver}
+  <div class="overlay">
+    <div class="message">Drop .zip (mod) or .ogg (audio)</div>
+  </div>
+{/if}
+
+<style>
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(14, 15, 19, 0.85);
+    display: grid;
+    place-items: center;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .message {
+    border: 2px dashed var(--accent);
+    padding: var(--sp-6) var(--sp-6);
+    color: var(--accent);
+    font-size: 14px;
+    background: var(--bg-1);
+  }
+</style>

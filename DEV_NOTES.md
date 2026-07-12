@@ -6,6 +6,8 @@
 - `src/styles.css` - prosty styl OS/CRT/neon/glitch.
 - `src/types.ts` - wspolne typy stanu, draftow, publikacji, wynikow i beatmap rytmicznych.
 - `src/rhythm.ts` - deterministyczny generator beatmap wedlug dlugosci audio, stan proby rytmicznej, trafienia, missy, combo i tier jakosci.
+- `src/resonance.ts` - czysta logika rezonansu Neury liczona z accuracy i echoCount, z efektami UI/audio oraz opcjonalnym bonusem combo.
+- `src/ending.ts` - czysta logika aktualnej trasy endingowej na podstawie statystyk, echo, rezonansu i wiezi z Neura.
 - `src/storage.ts` - localStorage, migracja save'a, statystyki, jakosc publikacji i pomocnicze funkcje flow.
 - `src/data/tracks.ts` - lista utworow i ich poziomy trudnosci.
 - `src/data/uiLabels.ts` - etykiety UI: nazwy okien, aplikacji, ikon, przyciskow, statystyk, statusow i placeholderow.
@@ -14,6 +16,7 @@
 - `src/data/neuraVoiceAssets.ts` - manifest sciezek MP3 dla kwestii Neury.
 - `src/data/chatReactions.ts` - dynamiczne reakcje czatu po wyslaniu draftu i publikacji.
 - `src/audio/useSoundscape.ts` - globalne tlo audio pulpitu: ambient OS, losowe glitche, mute i domyslne poziomy glosnosci.
+- `src/audio/useRhythmSfx.ts` - runtime efektow SFX sekcji rytmicznej: tapy, petle holdow, fade overlay i cleanup aktywnych holdow.
 
 ## Nowy model flow
 
@@ -59,6 +62,18 @@ Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/
 
 Nowe data-driven dialogi mieszkaja w `src/data/dialogue/neuraVoiceLines.ts`. Ich `audio.id` moze wskazywac osobny plik `/audio/neura/<audio.id>.ogg`, niezaleznie od starego manifestu kompatybilnosci dla `NeuraPet`. Generator `scripts/generate-neura-voices.ts` obsluguje nowe zrodlo przez `--source dialogue-v2`, filtr fazy przez `--phase` i start od konkretnego id przez `--from-id`.
 
+Dialogi moga byc teraz warunkowane przez `minEchoCount`, `minResonanceLevel`, `bondWithNeura` i `endingRoute`. Echo po publikacji doklada do kolejki linie, w ktorych Neura powtarza fragment decyzji gracza, a rezonans pozwala odblokowac kwestie zalezne od aktualnej wiezi.
+
+## Echo, Resonance i EVENTS 2026-05-26
+
+Echo zapisuje sie w `GameState.echo`. Zawiera `echoCount`, ostatnia fraze decyzji, krotka liste `EchoMessage` i opcjonalne `activeCutsceneId`. Publikacja utworu przechodzi przez `triggerEchoAfterPublish()` w `src/gameFlow.ts`, ktore zwieksza echo i zapisuje fraze publikacji jako impuls fabularny.
+
+Rezonans siedzi w `src/resonance.ts`. `calculateResonance(accuracy, echoCount)` wylicza poziom `silent/low/medium/high/overload`, `updateResonanceState()` zapisuje wynik oraz `bondWithNeura`, a `applyResonanceEffects()` lagodnie wzmacnia statystyke Cybarta. Efekty wizualne rezonansu sa przechowywane w stanie jako `ResonanceVisualEffects`: bloom, glitch intensity, ui highlight, timer scale i opcjonalny `comboBonus` dla sekcji rytmicznej.
+
+Ending jest logiczny, bez cinematic assetow. `src/ending.ts` wylicza trase `quietArchive/neuraBond/publicSpiral/offlineBreak` na podstawie `performance`, `chatPressure`, `cybart`, `echoCount`, `resonance` i `bondWithNeura`. `GameState.ending` trzyma aktualna trase, etykiete oraz prosty rozklad wplywow do debugowania.
+
+`EVENTS` nie jest juz normalna ikona pulpitu. Zamiast tego `EventCutsceneStage` w `src/App.tsx` renderuje kontrolowana makiete pulpitu pod cutscenki, gdy `echo.activeCutsceneId` jest aktywne. Stage pokazuje echo tekstowe, podswietlone decyzje, status Neury i aktualna trase endingowa. To narzedzie narracyjne, nie osobna aplikacja gracza.
+
 ## Samouczek Neury
 
 `src/neura/tutorialGuide.ts` wylicza aktualny krok samouczka z aktualnego stanu gry, ekranu, aktywnego okna i trybu próby. Flow jest celowo mały: otworzenie generatora, stworzenie pierwszej wersji, zapis draftu, remix w szufladzie, nadpisanie draftu, publikacja na czacie głównym i sprawdzenie śladu publikacji.
@@ -102,9 +117,11 @@ Obsługiwane typy nut:
 - `hold` - trafienie początku i trzymanie klawisza do końca `durationMs`,
 - `smash` - trafienie początku i mash tego samego klawisza do osiągnięcia `requiredPresses`.
 
-Efekty trafien sekcji rytmicznej sa statycznymi MP3 w `public/audio/sfx/rhythm`. Tap i puste uderzenie losuja jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`. Hold uruchamia dwie petle: `SE-hold_loop-keyboard_typing.mp3` i `SE-hold_loop-overlay_effect.mp3`. Gdy koniec holda minie linie trafienia, overlay schodzi fadeoutem, a warstwa keyboard typing zostaje aktywna do faktycznego puszczenia klawisza.
+Efekty trafien sekcji rytmicznej sa statycznymi MP3 w `public/audio/sfx/rhythm`, a ich runtime siedzi w `src/audio/useRhythmSfx.ts`. `App.tsx` nie zarzadza juz szczegolami audio, tylko wywoluje kontroler hooka. Tap i puste uderzenie losuja jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`. Hold uruchamia dwie petle: `SE-hold_loop-keyboard_typing.mp3` i `SE-hold_loop-overlay_effect.mp3`. Gdy koniec holda minie linie trafienia, overlay schodzi fadeoutem, a warstwa keyboard typing zostaje aktywna do faktycznego puszczenia klawisza.
 
 Accuracy liczy się jako `(perfect + great * 0.85 + good * 0.65) / totalNotes * 100`. Grade jest tierem jakości `F/E/D/C/B/A/S`, wyliczanym z jakości próby, poziomu trudności i mnożnika combo. Próba trwa tyle, ile bazowy plik audio; jeśli metadane audio nie są jeszcze dostępne, runtime używa estymacji z BPM i liczby beatów tylko jako fallbacku.
+
+Przy aktywnym rezonansie `getRhythmSummary(session, resonanceEffects)` moze dostac opcjonalny `comboBonus`. Runtime przekazuje aktualne efekty z `GameState.resonance`, a czysta logika pozostaje testowalna bez Reacta.
 
 Beatmapy mogą być ręczne albo generowane. Runtime najpierw próbuje wczytać mapę z `src/data/manualBeatmaps.json`, a jeśli jej brakuje albo nie przechodzi walidacji, używa deterministycznego generatora z seedów w `src/data/tracks.ts`. Format ręczny `schemaVersion: 2` obsługuje `sourceStartMs` i `sourceEndMs` per poziom trudności. Nuty są liczone od początku wycinka, więc `timeMs: 0` oznacza `sourceStartMs` w pliku audio. Stare mapy bez jawnego zakresu nie mogą przypadkiem skrócić utworu samym `durationMs`; runtime migruje je do pełnego czasu audio. BPM pochodzi z pełnej wersji bazowego utworu, a poziomy trudności nie zmieniają BPM-u, tylko gęstość nut: `Łatwy=0.5`, `Normalny=0.7`, `Cybart=1.0`.
 
@@ -113,16 +130,26 @@ Beatmapy mogą być ręczne albo generowane. Runtime najpierw próbuje wczytać 
 Webowy `Beatmap Editor` jest traktowany jako docelowy codzienny workflow edycji beatmap, bo działa w tej samej aplikacji co runtime gry. Aktualny zakres:
 
 - wybór utworu i poziomu trudności,
-- edycja, przeciąganie, usuwanie i inspekcja nut `tap/hold/smash`,
+- edycja, przeciąganie, usuwanie i inspekcja nut `tap/hold`,
 - nagrywanie nut z klawiatury podczas playbacku,
 - `Test Mode` z tym samym wejściem `S/D/K/L`, którego używa ekran rytmiczny,
-- walidacja przed eksportem,
+- undo/redo, multi-select, kopiowanie/wklejanie nut oraz przesuwanie zaznaczenia skrótami,
+- snap do siatki BPM (`off`, `1/4`, `1/8`, `1/16`, `1/32`) przy klikaniu, przeciąganiu, resize, paste i nudge,
+- edycja BPM per mapa; BPM wpływa na snap, metronom i siatkę, ale nie przesuwa istniejących nut zapisanych w milisekundach,
+- ruchoma siatka BPM renderowana z czasu mapy, więc płynie razem z nutami zamiast być statycznym tłem,
+- przewijanie czasu mapy kółkiem myszy po planszy edytora, tylko gdy playback jest zatrzymany,
+- osobne ścieżki audio instrumental/vocal z suwakami głośności i głównym suwakiem miksu,
+- per-mapa `inputOffsetMs`, czyli kalibracja wejścia stosowana w ocenie trafień bez przesuwania audio ani wizualizacji,
+- markery edytorskie na timeline, zapisywane w `manualBeatmaps.json`, ale ignorowane przez gameplay,
+- prosty metronom ćwierćnutowy działający tylko podczas playbacku w edytorze,
+- walidacja przed eksportem z błędami blokującymi i ostrzeżeniami dla duplikatów, kolizji, ekstremalnego offsetu oraz markerów poza mapą,
 - import pełnego `manualBeatmaps.json`,
 - eksport pełnego katalogu jako `manualBeatmaps.json`,
 - backup eksportu w `localStorage` i przywracanie backupu z poziomu UI.
 - guard niezapisanych zmian: po edycji nuty zmiana utworu/poziomu, import i powrot do pulpitu wymagaja najpierw `Eksport + backup` albo `Porzuc zmiany`.
+- widoczna lista skrótów generowana z `src/editor/beatmapEditorKeybinds.ts`.
 
-Widok nut w edytorze powinien być odniesieniem do właściwej gry, nie osobną wizualizacją. Dlatego tory są renderowane jako cztery osobne kolumny, nuty używają tej samej bazowej klasy `.note` co runtime, a domyślne okno czasu przy `zoom x1` wynika z gameplayowego `travelMs` danego poziomu trudności. Suwak `Zoom` zawęża albo rozszerza okno czasu, ale nie rozciąga DOM-u pionowo.
+Widok nut w edytorze powinien być odniesieniem do właściwej gry, nie osobną wizualizacją. Dlatego tory są renderowane jako cztery osobne kolumny, nuty używają tej samej bazowej klasy `.note` co runtime i mają pełną szerokość toru, a domyślne okno czasu przy `zoom x1` wynika z gameplayowego `travelMs` danego poziomu trudności. Suwak `Zoom` zawęża albo rozszerza okno czasu, ale nie rozciąga DOM-u pionowo.
 
 Nagrywanie klawiaturą podczas playbacku działa tak:
 
@@ -137,12 +164,14 @@ Praktyczny workflow developerski:
 1. Otwórz `Beatmap Editor` w webowym prototypie.
 2. Jeśli zaczynasz od pliku z dysku, użyj `Import manualBeatmaps.json`.
 3. Edytuj mapę dla wybranego utworu i poziomu.
-4. Użyj `Eksport + backup`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
-5. Podmień `src/data/manualBeatmaps.json` pobranym plikiem dopiero po sprawdzeniu mapy.
-6. Jeśli edycja poszła w złą stronę, wybierz backup z listy i użyj `Przywróć`, potem ponownie wykonaj eksport.
-7. Jeśli chcesz zmienić utwór albo poziom bez zapisywania bieżących zmian, użyj `Porzuć zmiany`.
+4. Jeśli układasz ręcznie, ustaw BPM mapy, włącz snap i opcjonalny metronom; jeśli mapa nie trafia w audio, skoryguj `Offset wejścia ms`.
+5. Do większych refrenów użyj multi-select, `Ctrl+C` / `Ctrl+V`, markerów i nudge `,` / `.`.
+6. Użyj `Eksport + backup`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
+7. Podmień `src/data/manualBeatmaps.json` pobranym plikiem dopiero po sprawdzeniu mapy.
+8. Jeśli edycja poszła w złą stronę, użyj undo/redo albo wybierz backup z listy i użyj `Przywróć`, potem ponownie wykonaj eksport.
+9. Jeśli chcesz zmienić utwór albo poziom bez zapisywania bieżących zmian, użyj `Porzuć zmiany`.
 
-Audyt 2026-05-14: webowy edytor ma już bliższy runtime'owi workflow niż WinUI, ale nadal nie ma części wygód desktopowych: nie kopiuje automatycznie pobranego pliku do repo, nie importuje nowych utworów do `tracks.ts`, nie zapisuje backupów w katalogu `backups/manualBeatmaps` i nie ma osobnej kalibracji input laga. Największe tarcie po tej zmianie to ręczny krok podmiany pobranego `manualBeatmaps.json` w repo; jest celowo ręczny, żeby webowy prototyp nie udawał dostępu do systemu plików i nie nadpisywał danych bez kontroli.
+Audyt 2026-05-25: po analizie YunYunEditor przejęto lekkie wzorce workflow, ale bez migracji na Svelte, ZIP paczki, waveform albo pełną tempo mapę. Nadal ręcznie podmieniamy pobrany `manualBeatmaps.json` w repo, żeby webowy prototyp nie udawał dostępu do systemu plików i nie nadpisywał danych bez kontroli.
 
 ## Jakosc wersji i reakcje czatu
 
@@ -161,6 +190,9 @@ Stan jest zapisywany w localStorage pod kluczem `ustnik-2-state`. Save ma `saveV
 Zapisywane sa:
 
 - statystyki,
+- `echo` - licznik i ostatnie echo decyzji gracza oraz aktywna cutscenka EVENTS,
+- `resonance` - poziom rezonansu, wynik, ostatnia accuracy, wiez z Neura i efekty runtime,
+- `ending` - aktualna trasa endingowa oraz wplywy decyzyjne,
 - `createdTrackIds` - utwory juz stworzone w generatorze,
 - `drafts` - drafty w szufladzie,
 - aktualny poziom draftu,

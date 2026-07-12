@@ -3,7 +3,7 @@ name: Deploy GitHub Pages
 on:
   push:
     branches:
-      - main
+      - codex/instancjonowanie-ekranów
   workflow_dispatch:
 
 permissions:
@@ -37,7 +37,7 @@ jobs:
           GITHUB_PAGES: 'true'
 
       - name: Skonfiguruj Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v4
 
       - name: Przygotuj artefakt Pages
         uses: actions/upload-pages-artifact@v3
