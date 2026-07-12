@@ -6,6 +6,12 @@ import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/cha
 import { tracks } from './data/tracks';
 import { useSoundscape } from './audio/useSoundscape';
 import { useRhythmSfx } from './audio/useRhythmSfx';
+import {
+  SESSION_BOOT_DURATION_MS,
+  SESSION_BOOT_SKIP_AFTER_MS,
+  useSessionController,
+  type ActiveRun,
+} from './controllers/useSessionController';
 import { CybekWebcam, type CybekWebcamEvent } from './cybekWebcam';
 import { NeuraPet } from './neura/NeuraPet';
 import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
@@ -48,7 +54,6 @@ import {
   applyStatDelta,
   createDraftFromResult,
   createPublishedTrack,
-  createResult,
   defaultState,
   getNextDifficulty,
   getStatDelta,
@@ -110,7 +115,6 @@ import type {
 
 type WindowId = 'messenger' | 'create' | 'me' | 'player' | 'event' | 'ustniki' | 'titleHub' | null;
 type HiddenWindowId = 'lab' | 'archive' | 'broadcast';
-type Screen = 'title' | 'boot' | 'desktop' | 'rhythm' | 'results' | 'editor';
 type Point = { x: number; y: number };
 type HitFeedback = {
   id: number;
@@ -126,8 +130,7 @@ type OverlayId =
   | 'neuraDebug'
   | 'neuraEcho';
 
-const BOOT_DURATION_MS = 4500;
-const BOOT_SKIP_AFTER_MS = 1000;
+const BOOT_DURATION_MS = SESSION_BOOT_DURATION_MS;
 const NEURA_COMMENT_INTERVAL_MS = 27500;
 const NEURA_STORY_BEAT_INTERVAL_MS = 41000;
 const NEURA_LOW_FX_STORAGE_KEY = 'ustnik.neura.lowFxMode';
@@ -151,13 +154,6 @@ const BOOT_LOGS = [
   'Time: 2025-05-25 21:37:00',
   'Witaj, USTNIK!',
 ] as const;
-type ActiveRun = {
-  track: Track;
-  difficulty: Difficulty;
-  mode: 'create' | 'remix';
-  draftId?: string;
-};
-
 type RhythmPhase = 'loading' | 'countdown' | 'playing';
 
 const BeatmapEditor = lazy(() => import('./editor/BeatmapEditor').then((module) => ({ default: module.BeatmapEditor })));
@@ -167,12 +163,7 @@ export default function App() {
   const [gameState, setGameState] = useState<GameState>(() => loadState());
   const shouldStartInEditor = window.location.hash === '#editor';
   const [activeWindow, setActiveWindow] = useState<WindowId>('messenger');
-  const initialScreenRef = useRef<Screen>(shouldStartInEditor ? 'editor' : 'desktop');
-  const [screen, setScreen] = useState<Screen>(shouldStartInEditor ? 'editor' : 'title');
   const [activeHiddenWindow, setActiveHiddenWindow] = useState<HiddenWindowId | null>(null);
-  const [bootElapsedMs, setBootElapsedMs] = useState(0);
-  const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
-  const [result, setResult] = useState<PerformanceResult | null>(null);
   const [messengerTab, setMessengerTab] = useState<'pawel' | 'group'>('pawel');
   const [neuraIndex, setNeuraIndex] = useState(0);
   const [corruptionTick, setCorruptionTick] = useState(0);
@@ -269,6 +260,62 @@ export default function App() {
     updateStorySceneDirectorState((state) => queueStoryScenesForPresenceLevel(state, level).state);
   }, [updateStorySceneDirectorState]);
 
+  const handleBootCompleted = useCallback(() => {
+    queueStoryScene({ type: 'boot.firstCompleted' });
+  }, [queueStoryScene]);
+
+  const handleRunStarted = useCallback(() => {
+    recordNeuraPresenceEvent('rhythmStarted');
+  }, [recordNeuraPresenceEvent]);
+
+  const handleRunFinished = useCallback((run: ActiveRun) => {
+    recordNeuraPresenceEvent('rhythmFinished');
+    queueStoryScene({ type: 'rhythm.firstFinished', trackId: run.track.id });
+  }, [queueStoryScene, recordNeuraPresenceEvent]);
+
+  const resetSessionDependencies = useCallback(() => {
+    setGameState(defaultState);
+    const resetDirectorState = createDefaultNeuraVoiceDirectorState();
+    neuraVoiceDirectorStateRef.current = resetDirectorState;
+    setNeuraVoiceDirectorState(resetDirectorState);
+    const resetStorySceneDirectorState = createDefaultStorySceneDirectorState();
+    storySceneDirectorStateRef.current = resetStorySceneDirectorState;
+    setStorySceneDirectorState(resetStorySceneDirectorState);
+    setStorySceneLineIndex(0);
+    clearStorySceneDirectorState();
+    setStoryVoiceLineId(null);
+    setLastDialogueEventId(null);
+    setNeuraVoiceDirectorDebug('');
+    setActiveWindow('messenger');
+    setActiveHiddenWindow(null);
+    setSelectedPublishedId(null);
+    setNeuraDebugOverride(null);
+    setLastNeuraEventId('boot');
+    setNeuraEventLog([{ id: 'boot', at: new Date().toISOString() }]);
+  }, []);
+
+  const {
+    currentScreen: screen,
+    bootTargetScreen,
+    bootElapsedMs,
+    activeRun,
+    result,
+    startSession,
+    resetSession,
+    goToScreen,
+    completeBoot,
+    advanceBoot,
+    startRun,
+    finishRun,
+    returnToDesktop: clearSessionToDesktop,
+  } = useSessionController({
+    initialScreen: shouldStartInEditor ? 'editor' : 'desktop',
+    onBootCompleted: handleBootCompleted,
+    onRunStarted: handleRunStarted,
+    onRunFinished: handleRunFinished,
+    onReset: resetSessionDependencies,
+  });
+
   const advanceStoryScene = useCallback(() => {
     const scene = getActiveStoryScene(storySceneDirectorStateRef.current);
     if (!scene) return;
@@ -343,42 +390,6 @@ export default function App() {
     return () => window.clearInterval(id);
   }, []);
 
-  const completeBoot = useCallback(() => {
-    setBootElapsedMs(BOOT_DURATION_MS);
-    setScreen((current) => (current === 'boot' ? initialScreenRef.current : current));
-    queueStoryScene({ type: 'boot.firstCompleted' });
-  }, [queueStoryScene]);
-
-  const advanceBoot = useCallback((ms: number) => {
-    setBootElapsedMs((current) => {
-      const next = Math.min(BOOT_DURATION_MS, current + Math.max(0, ms));
-      if (next >= BOOT_DURATION_MS) window.setTimeout(completeBoot, 0);
-      return next;
-    });
-  }, [completeBoot]);
-
-  useEffect(() => {
-    if (screen !== 'boot') return;
-
-    const id = window.setInterval(() => advanceBoot(150), 150);
-    return () => window.clearInterval(id);
-  }, [advanceBoot, screen]);
-
-  useEffect(() => {
-    if (screen !== 'boot') return;
-
-    function skipBoot() {
-      if (bootElapsedMs >= BOOT_SKIP_AFTER_MS) completeBoot();
-    }
-
-    window.addEventListener('pointerdown', skipBoot);
-    window.addEventListener('keydown', skipBoot);
-    return () => {
-      window.removeEventListener('pointerdown', skipBoot);
-      window.removeEventListener('keydown', skipBoot);
-    };
-  }, [bootElapsedMs, completeBoot, screen]);
-
   useEffect(() => {
     function handleDebugKey(event: KeyboardEvent) {
       if (event.key !== 'F10') return;
@@ -406,11 +417,6 @@ export default function App() {
     };
   }, []);
 
-  const startBootFromTitle = useCallback(() => {
-    setBootElapsedMs(0);
-    setScreen('boot');
-  }, []);
-
   useEffect(() => {
     if (screen === 'title') {
       window.render_game_to_text = () =>
@@ -429,8 +435,8 @@ export default function App() {
           screen: 'boot',
           progress: bootProgress,
           visibleSteps: getVisibleBootSteps(bootProgress),
-          canSkip: bootElapsedMs >= BOOT_SKIP_AFTER_MS,
-          nextScreen: initialScreenRef.current,
+          canSkip: bootElapsedMs >= SESSION_BOOT_SKIP_AFTER_MS,
+          nextScreen: bootTargetScreen,
         });
       window.advanceTime = advanceBoot;
       return;
@@ -633,21 +639,6 @@ export default function App() {
     if (track && nextDifficulty) startRun(track, nextDifficulty, 'remix', draft.id);
   }
 
-  function startRun(track: Track, difficulty: Difficulty, mode: ActiveRun['mode'], draftId?: string) {
-    recordNeuraPresenceEvent('rhythmStarted');
-    setActiveRun({ track, difficulty, mode, draftId });
-    setResult(null);
-    setScreen('rhythm');
-  }
-
-  function finishRun(summary: RhythmSummary) {
-    if (!activeRun) return;
-    recordNeuraPresenceEvent('rhythmFinished');
-    setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty, summary));
-    queueStoryScene({ type: 'rhythm.firstFinished', trackId: activeRun.track.id });
-    setScreen('results');
-  }
-
   function saveInitialDraft(status: DraftTrack['status']) {
     if (!result) return;
     const draft = createDraftFromResult(result, status);
@@ -778,36 +769,8 @@ export default function App() {
   }
 
   function returnToDesktop(windowId: WindowId = activeWindow) {
-    setScreen('desktop');
-    setActiveRun(null);
-    setResult(null);
+    clearSessionToDesktop();
     setActiveWindow(windowId);
-  }
-
-  function resetPrototype() {
-    setGameState(defaultState);
-    const resetDirectorState = createDefaultNeuraVoiceDirectorState();
-    neuraVoiceDirectorStateRef.current = resetDirectorState;
-    setNeuraVoiceDirectorState(resetDirectorState);
-    const resetStorySceneDirectorState = createDefaultStorySceneDirectorState();
-    storySceneDirectorStateRef.current = resetStorySceneDirectorState;
-    setStorySceneDirectorState(resetStorySceneDirectorState);
-    setStorySceneLineIndex(0);
-    clearStorySceneDirectorState();
-    setStoryVoiceLineId(null);
-    setLastDialogueEventId(null);
-    setNeuraVoiceDirectorDebug('');
-    setActiveWindow('messenger');
-    setActiveHiddenWindow(null);
-    setBootElapsedMs(0);
-    initialScreenRef.current = 'desktop';
-    setScreen('title');
-    setActiveRun(null);
-    setResult(null);
-    setSelectedPublishedId(null);
-    setNeuraDebugOverride(null);
-    setLastNeuraEventId('boot');
-    setNeuraEventLog([{ id: 'boot', at: new Date().toISOString() }]);
   }
 
   const storySceneOverlay = activeStoryScene ? (
@@ -847,7 +810,7 @@ export default function App() {
   if (screen === 'title') {
     return (
       <>
-        <TitleScreen onStart={startBootFromTitle} />
+        <TitleScreen onStart={startSession} />
         {storySceneOverlay}
       </>
     );
@@ -868,7 +831,7 @@ export default function App() {
         <Suspense fallback={<SystemOverlayFallback label="Ładowanie edytora..." />}>
           <BeatmapEditor onExit={() => {
             window.history.replaceState(null, '', window.location.pathname);
-            setScreen('desktop');
+            goToScreen('desktop');
           }} />
         </Suspense>
         {storySceneOverlay}
@@ -911,7 +874,7 @@ export default function App() {
         <span>{appLabels.prototypeTitle}</span>
         <button onClick={() => {
           window.history.replaceState(null, '', '#editor');
-          setScreen('editor');
+          goToScreen('editor');
         }}>Strojenie rytmu</button>
         <button
           className={`audio-toggle ${soundscape.isMuted ? 'muted' : ''} ${soundscape.isUnlocked ? '' : 'waiting'}`}
@@ -920,7 +883,7 @@ export default function App() {
         >
           Dźwięk: {soundscape.isMuted ? 'wył.' : 'wł.'}
         </button>
-        <button onClick={resetPrototype}>{buttonLabels.resetSave}</button>
+        <button onClick={resetSession}>{buttonLabels.resetSave}</button>
       </header>
 
       <section className="icons" aria-label="Ikony pulpitu">
@@ -1120,7 +1083,7 @@ export default function App() {
         >
           <TitleHubWindow onReboot={() => {
             setActiveWindow(null);
-            setScreen('title');
+            goToScreen('title');
           }}
           />
         </Window>
@@ -1158,7 +1121,7 @@ function BootScreen({ elapsedMs, onSkip }: { elapsedMs: number; onSkip: () => vo
   const progress = getBootProgress(elapsedMs);
   const visibleSteps = getVisibleBootSteps(progress);
   const visibleLogs = getVisibleBootLogs(progress);
-  const canSkip = elapsedMs >= BOOT_SKIP_AFTER_MS;
+  const canSkip = elapsedMs >= SESSION_BOOT_SKIP_AFTER_MS;
 
   return (
     <main className="boot-screen" onClick={canSkip ? onSkip : undefined}>
