@@ -11,6 +11,7 @@ export const voicePackIds = [
   'earlyNeuraPack',
   'glitchLevel1Pack',
   'glitchLevel2Pack',
+  'dayCyclePack',
   'publicationPack',
   'loreExpansionPack',
   'lateGamePack',
@@ -24,7 +25,10 @@ export type NeuraPresenceEventId =
   | 'draft.sentToPawel'
   | 'track.published'
   | 'neura.glitchSpike'
-  | 'story.finalSceneUnlocked';
+  | 'story.finalSceneUnlocked'
+  | 'day.advanced'
+  | 'commitment.missed'
+  | 'draft.rejected';
 
 export type OperationalPowerLevel = 0 | 1 | 2 | 3;
 
@@ -60,6 +64,12 @@ export type DialogueConditions = {
   minResonanceLevel?: ResonanceLevel;
   bondWithNeura?: BondWithNeura;
   endingRoute?: EndingRoute;
+  minCurrentDay?: number;
+  minActiveCommitmentCount?: number;
+  minFulfilledCommitmentCount?: number;
+  minMissedCommitmentCount?: number;
+  minRejectedCount?: number;
+  minAgedDraftCount?: number;
 };
 
 export type DialogueEffects = {

@@ -471,6 +471,8 @@ Obietnica publikacji ma termin dwa dni do przodu. Jej niedowiezienie nie blokuje
 
 Pulpit pokazuje dzien sesji, strefy statystyk, aktywne zobowiazania oraz przewidywane delty komunikatow. Ukryty modyfikator rytmu jest deterministyczny i po probie komentuje go Neura; nie zmienia synchronizacji audio ani beatmap.
 
+Neura pamieta przebieg sesji, a nie tylko aktualne paski: inna kwestia moze wejsc po dotrzymanej obietnicy publikacji, inna po jej niedotrzymaniu, po drugim odrzuceniu szkicu albo po kilku dniach przechowywania szkicu w szufladzie. Te komentarze sa jednorazowe i wykorzystuja lokalne nagrania zgodne z tekstem.
+
 ## 7. Odkrywanie tytulow
 
 Tytuly utworow nie sa od razu w pelni czytelne. Gra pokazuje je jako mieszanke prawdziwych liter i uszkodzonych znakow. Wraz z postepem i dokladnoscia tytul odkrywa sie coraz bardziej.

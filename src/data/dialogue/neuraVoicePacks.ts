@@ -42,6 +42,16 @@ export const neuraVoicePacks: readonly NeuraVoicePack[] = [
     tags: ['glitch', 'phase2'],
   },
   {
+    id: 'dayCyclePack',
+    label: 'Day-cycle memory',
+    unlock: { minCurrentDay: 2 },
+    priority: 'lore',
+    ordering: 45,
+    cooldownMs: 15000,
+    maxPlaysPerSession: 4,
+    tags: ['history', 'day-cycle'],
+  },
+  {
     id: 'publicationPack',
     label: 'Publication checkpoints',
     unlock: { requiredPublishedCount: 1 },

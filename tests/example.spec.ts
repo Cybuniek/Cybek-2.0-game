@@ -273,13 +273,21 @@ test('pętla dnia: komunikat, odpoczynek i niespełniona obietnica przechodzą p
   for (let day = 0; day < 3; day += 1) {
     await openWorkPhase(page);
     await page.getByRole('button', { name: 'Odpocznij i zamknij dzień' }).click();
-    await advanceDaySummaryIfNeeded(page);
+    if (day < 2) await advanceDaySummaryIfNeeded(page);
   }
 
   state = await readGameState(page);
-  expect(state.dayCycle.currentDay).toBe(5);
+  expect(state.dayCycle).toMatchObject({ currentDay: 4, phase: 'daySummary' });
   expect(state.dayCycle.lastDaySummary).toMatchObject({ day: 4, missedCommitments: 1 });
   expect(state.dayCycle.commitments[0].status).toBe('missed');
+  expect(state.neuraVoiceDirector).toMatchObject({
+    lastDialogueEventId: 'commitment.missed',
+    activeStoryVoiceLineId: 'comment-mid-chat-waiting',
+  });
+
+  await advanceDaySummaryIfNeeded(page);
+  state = await readGameState(page);
+  expect(state.dayCycle).toMatchObject({ currentDay: 5, phase: 'communication' });
 });
 
 test('fabuła: pełny repertuar kończy Plan Występu bez cofania celu', async ({ page }) => {

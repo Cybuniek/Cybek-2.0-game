@@ -299,6 +299,13 @@ function matchesConditions(conditions: DialogueConditions | undefined, context: 
   if (!conditions) return true;
   const { gameState, presence } = context;
   const sentToPawelCount = gameState.drafts.filter((draft) => draft.status === 'sentToPawel').length;
+  const commitments = gameState.dayCycle.commitments;
+  const activeCommitmentCount = commitments.filter((commitment) => commitment.status === 'active').length;
+  const fulfilledCommitmentCount = commitments.filter((commitment) => commitment.status === 'fulfilled').length;
+  const missedCommitmentCount = commitments.filter((commitment) => commitment.status === 'missed').length;
+  const agedDraftCount = gameState.drafts.filter((draft) => (
+    gameState.dayCycle.currentDay - (draft.createdDay ?? 1) >= 5
+  )).length;
 
   if (conditions.minOperationalPowerLevel !== undefined && presence.operationalPowerLevel < conditions.minOperationalPowerLevel) return false;
   if (conditions.maxOperationalPowerLevel !== undefined && presence.operationalPowerLevel > conditions.maxOperationalPowerLevel) return false;
@@ -319,6 +326,12 @@ function matchesConditions(conditions: DialogueConditions | undefined, context: 
   if (conditions.minResonanceLevel !== undefined && resonanceRank(gameState.resonance?.level ?? 'silent') < resonanceRank(conditions.minResonanceLevel)) return false;
   if (conditions.bondWithNeura !== undefined && gameState.resonance?.bondWithNeura !== conditions.bondWithNeura) return false;
   if (conditions.endingRoute !== undefined && gameState.ending?.route !== conditions.endingRoute) return false;
+  if (conditions.minCurrentDay !== undefined && gameState.dayCycle.currentDay < conditions.minCurrentDay) return false;
+  if (conditions.minActiveCommitmentCount !== undefined && activeCommitmentCount < conditions.minActiveCommitmentCount) return false;
+  if (conditions.minFulfilledCommitmentCount !== undefined && fulfilledCommitmentCount < conditions.minFulfilledCommitmentCount) return false;
+  if (conditions.minMissedCommitmentCount !== undefined && missedCommitmentCount < conditions.minMissedCommitmentCount) return false;
+  if (conditions.minRejectedCount !== undefined && gameState.dayCycle.rejectedCount < conditions.minRejectedCount) return false;
+  if (conditions.minAgedDraftCount !== undefined && agedDraftCount < conditions.minAgedDraftCount) return false;
 
   return true;
 }

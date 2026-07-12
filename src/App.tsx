@@ -657,14 +657,38 @@ export default function App() {
   }
 
   function recordDayCycleEvents(previousState: GameState, nextState: GameState) {
-    if (nextState.dayCycle.currentDay !== previousState.dayCycle.currentDay || nextState.dayCycle.phase === 'complete') {
+    const previousCommitmentStatuses = new Map(
+      previousState.dayCycle.commitments.map((commitment) => [commitment.id, commitment.status]),
+    );
+    const missedCommitment = nextState.dayCycle.commitments.some((commitment) => (
+      commitment.status === 'missed' && previousCommitmentStatuses.get(commitment.id) !== 'missed'
+    ));
+    const fulfilledCommitment = nextState.dayCycle.commitments.some((commitment) => (
+      commitment.status === 'fulfilled' && previousCommitmentStatuses.get(commitment.id) !== 'fulfilled'
+    ));
+    const advancedToNewDay = nextState.dayCycle.currentDay > previousState.dayCycle.currentDay
+      && nextState.dayCycle.phase === 'communication';
+
+    if (advancedToNewDay || nextState.dayCycle.phase === 'complete') {
       recordNeuraPresenceEvent('dayAdvanced');
     }
     if (nextState.dayCycle.rejectedCount > previousState.dayCycle.rejectedCount) {
       recordNeuraPresenceEvent('draftRejected');
     }
-    if ((nextState.dayCycle.lastDaySummary?.missedCommitments ?? 0) > 0) {
+    if (missedCommitment) {
       recordNeuraPresenceEvent('promiseMissed');
+    }
+
+    if (missedCommitment) {
+      runStoryAction('commitment.missed', nextState);
+    } else if (nextState.dayCycle.rejectedCount > previousState.dayCycle.rejectedCount) {
+      runStoryAction('draft.rejected', nextState);
+    } else if (advancedToNewDay) {
+      runStoryAction('day.advanced', nextState);
+    }
+
+    if (fulfilledCommitment) {
+      showEnvironmentalEcho('Obietnica domknięta. Czat zapamięta termin lepiej niż ulgę.');
     }
   }
 

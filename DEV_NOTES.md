@@ -76,6 +76,8 @@ Mapowanie `audioIntent` mieszka w `src/neura/cutscene/expressionMapping.ts`: `ca
 
 Dialogi moga byc teraz warunkowane przez `minEchoCount`, `minResonanceLevel`, `bondWithNeura` i `endingRoute`. Echo po publikacji doklada do kolejki linie, w ktorych Neura powtarza fragment decyzji gracza, a rezonans pozwala odblokowac kwestie zalezne od aktualnej wiezi.
 
+Rezyser dialogow czyta tez historie petli dnia: numer dnia, aktywne/spelnione/niespelnione zobowiazania, licznik odrzucen oraz szkice starsze niz piec dni. Zdarzenia `commitment.missed`, `draft.rejected` i `day.advanced` wybieraja odpowiednie kwestie tylko wtedy, gdy historia faktycznie spelnia ich warunki. Linie korzystaja z juz dostepnych lokalnych nagran, dlatego ich tekst musi pozostac zgodny z `audio.id`.
+
 ## Echo, Resonance i EVENTS 2026-05-26
 
 Echo zapisuje sie w `GameState.echo`. Zawiera `echoCount`, ostatnia fraze decyzji, krotka liste `EchoMessage` i opcjonalne `activeCutsceneId`. Publikacja utworu przechodzi przez `triggerEchoAfterPublish()` w `src/gameFlow.ts`, ktore zwieksza echo i zapisuje fraze publikacji jako impuls fabularny.

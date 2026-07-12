@@ -57,6 +57,13 @@ function withStats(gameState: GameState, performance: number, cybart: number, ch
   };
 }
 
+function withDayCycle(gameState: GameState, update: Partial<GameState['dayCycle']>): GameState {
+  return {
+    ...gameState,
+    dayCycle: { ...gameState.dayCycle, ...update },
+  };
+}
+
 function getVoiceLine(lineId: string) {
   const line = neuraVoiceLinesV2.find((item) => item.id === lineId);
   assert(!!line, `linia dialogowa istnieje: ${lineId}`);
@@ -296,4 +303,75 @@ function getVoiceLine(lineId: string) {
   for (const fragment of disconnectedFragments) {
     assert(!firstSessionText.includes(fragment), `wczesny ambient nie zawiera odklejonego fragmentu: ${fragment}`);
   }
+}
+
+// 12) publikacja po spełnionej obietnicy wybiera linię opartą na historii dnia
+{
+  const gameState = withDayCycle(withPublishedCount(defaultState, 1), {
+    currentDay: 2,
+    commitments: [{
+      id: 'promise-kept',
+      kind: 'publication',
+      createdDay: 1,
+      dueDay: 3,
+      trackId: 'track-0',
+      status: 'fulfilled',
+    }],
+  });
+  const context = createContext(gameState, 'track.published');
+  const state = createVoiceQueueItemsFromEvent(createDefaultNeuraVoiceDirectorState(), { eventId: 'track.published', context }).state;
+  assert(state.queue.some((item) => item.lineId === 'history-001-kept-promise'), 'spełniona obietnica odblokowuje własną linię publikacji');
+}
+
+// 13) niedotrzymana obietnica, stary szkic i odrzucenia mają odrębne warunki historii
+{
+  const missedState = withDayCycle(defaultState, {
+    currentDay: 3,
+    commitments: [{
+      id: 'promise-missed',
+      kind: 'publication',
+      createdDay: 1,
+      dueDay: 3,
+      trackId: 'track-a',
+      status: 'missed',
+    }],
+  });
+  const missedContext = createContext(missedState, 'commitment.missed');
+  const missedQueue = createVoiceQueueItemsFromEvent(createDefaultNeuraVoiceDirectorState(), {
+    eventId: 'commitment.missed',
+    context: missedContext,
+  }).state.queue;
+  assert(missedQueue.some((item) => item.lineId === 'history-002-missed-promise'), 'niespełniona obietnica odblokowuje własną linię');
+
+  const agedDraftState = withDayCycle({
+    ...defaultState,
+    drafts: [{
+      id: 'aged-draft',
+      trackId: 'track-a',
+      trackTitle: 'Stary szkic',
+      difficulty: 'Łatwy',
+      bestAccuracy: 52,
+      bestGrade: 'C',
+      qualityProgress: 52,
+      status: 'inDrawer',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+      createdDay: 1,
+      lastWorkedDay: 1,
+      attemptCount: 1,
+    }],
+  }, { currentDay: 6 });
+  const agedContext = createContext(agedDraftState, 'day.advanced');
+  const agedQueue = createVoiceQueueItemsFromEvent(createDefaultNeuraVoiceDirectorState(), {
+    eventId: 'day.advanced',
+    context: agedContext,
+  }).state.queue;
+  assert(agedQueue.some((item) => item.lineId === 'history-003-aged-draft'), 'wiek szkicu odblokowuje linię po przejściu dnia');
+
+  const rejectedState = withDayCycle(defaultState, { currentDay: 4, rejectedCount: 2 });
+  const rejectedContext = createContext(rejectedState, 'draft.rejected');
+  const rejectedQueue = createVoiceQueueItemsFromEvent(createDefaultNeuraVoiceDirectorState(), {
+    eventId: 'draft.rejected',
+    context: rejectedContext,
+  }).state.queue;
+  assert(rejectedQueue.some((item) => item.lineId === 'history-004-rejection-loop'), 'powtarzalne odrzucenia odblokowują osobną linię');
 }
