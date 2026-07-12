@@ -142,12 +142,16 @@ function getVoiceLines(options: Options): VoiceLineForGeneration[] {
 
 function getSourceVoiceLines(source: VoiceSource): VoiceLineForGeneration[] {
   if (source === 'story-scenes') {
-    return storyScenes.flatMap((scene) => scene.lines.map((line) => ({
-      id: line.audioId,
-      text: line.text,
-      styleTag: styleTagFromStoryLine(line.speaker, line.audioIntent),
-      speaker: line.speaker,
-    })));
+    return storyScenes.flatMap((scene) => scene.lines.flatMap((line) => (
+      line.audioId
+        ? [{
+            id: line.audioId,
+            text: line.text,
+            styleTag: styleTagFromStoryLine(line.speaker, line.audioIntent),
+            speaker: line.speaker,
+          }]
+        : []
+    )));
   }
 
   if (source === 'dialogue-v2') {

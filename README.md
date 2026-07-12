@@ -216,7 +216,7 @@ Czaty są zebrane pod jedną ikoną komunikatora. Po otwarciu okna gracz widzi d
 - prywatny czat z Pawciem;
 - czat grupowy „Sztuka za Sztukę — Występy Cybarta”.
 
-Prywatny czat z Pawciem służy do wysyłania wersji roboczych, półproduktów i testów, żeby zmniejszać jego zniecierpliwienie oraz buforować presję przed publikacją główną. Czat grupowy jest miejscem oficjalnego Występu i mocniejszych reakcji społecznych.
+Prywatny czat z Pawciem służy do wysyłania szkiców i niedomkniętych wersji, żeby zmniejszać jego zniecierpliwienie oraz buforować presję przed publikacją główną. Czat grupowy jest miejscem oficjalnego Występu i mocniejszych reakcji społecznych.
 
 ### Ustno.ai Create: generator numerów
 
@@ -228,11 +228,11 @@ To tutaj gracz wybiera / uruchamia dostępne utwory, podejmuje próbę rytmiczn�
 
 Lepszy wynik i wyższy poziom trudności oznaczają lepszą wersję numeru do potencjalnego udostępnienia. To pozwala fabularnie połączyć skill gracza z jakością „wygenerowanego” Występu.
 
-### Ustno.ai Me: szuflada z demami
+### Ustno.ai Szkice: szuflada szkiców
 
-Szuflada z demami jest listą ukończonych etapów gry rytmicznej, które nie zostały jeszcze udostępnione. Roboczy adres:
+Szuflada szkiców jest listą ukończonych etapów gry rytmicznej, które nie zostały jeszcze udostępnione. Adres w świecie gry:
 
-`anh://www.ustno.ai/me`
+`anh://www.ustno.ai/szkice`
 
 Jeśli gracz zawali utwór i nie udostępni go, numer trafia do szuflady jako wersja do poprawienia. Brak publikacji działa fabularnie jako cisza, brak Występu, przeciąganie sprawy i odkładanie reakcji społecznej. To może odpowiednio wpływać na statystyki: Presję Czatu, zniecierpliwienie Pawcia i tempo postępu Występu.
 
@@ -305,50 +305,37 @@ Finał gry nie powinien zależeć od jednej wartości, tylko od układu kilku na
 Najlepszy efekt da system, w którym gracz nie widzi dokładnego równania zakończenia. Ma czuć konsekwencje swoich działań, ale nie farmić finału jak excela z demonami.
 
 
-## Zakres pierwszego szkieletu prototypu dla Codexa
+## Aktualny pionowy wycinek gry
 
-Pierwszy prototyp nie powinien jeszcze próbować być pełną grą. Celem jest postawienie lekkiego, działającego szkieletu, który pozwoli zobaczyć ogólny kształt doświadczenia i dalej myśleć nad projektem bez wchodzenia od razu w produkcyjne bagno.
+Obecny webowy build nie jest już pustym szkieletem ani zestawem tymczasowych makiet. To mały, stabilny pionowy wycinek w React + TypeScript + Vite: title.sys, boot Cybek OS, pulpit, Messenger, Ustno.ai Utwórz, Ustno.ai Szkice, sekcja rytmiczna, raport próby, publikacja, player, sceny VN Cybek/Neura oraz finalny overlay EVENTS po domknięciu repertuaru.
 
-### Cel techniczny
+Aktualny zakres grywalny:
 
-Codex ma stworzyć prosty webowy szkielet gry w React + TypeScript + Vite, bez backendu i bez prawdziwej synchronizacji audio. Projekt ma być czytelny, łatwy do dalszej rozbudowy i oparty o dane trzymane w prostych plikach / strukturach.
+- wejście przez `title.sys` i boot systemu;
+- pulpit Cybka z ikonami, Planem Występu, webcamem i obecnością Neury;
+- komunikator z Pawłem oraz czatem „Sztuka za Sztukę — Występy Cybarta”;
+- tworzenie pierwszego szkicu utworu w `anh://www.ustno.ai/create`;
+- poprawianie szkicu w `anh://www.ustno.ai/szkice`;
+- decyzje po próbie: szuflada, Paweł, publikacja albo powrót bez zapisu;
+- jednorazowa publikacja każdego tytułu;
+- publikacja jako wiadomość i reakcje czatu zależne od jakości;
+- opublikowany plik jako ikona `MP3` i odsłuch w `Annihilation player.exe`;
+- główny tor fabularny od bootu do domkniętego Występu;
+- responsywne ścieżki desktop/mobile objęte testami Playwright.
 
-### Zakres minimalny
+Cel aktualnych prac nie polega na rozszerzaniu zakresu, tylko na tym, żeby ten pionowy wycinek sprawiał wrażenie gotowej, spójnej opowieści: bez widocznych oznaczen pracy w toku, bez surowych etykiet narzędziowych i bez ekranów, które wyglądają jak makiety w trakcie pracy.
 
-Szkielet powinien zawierać:
-
-- ekran pulpitu Cybka;
-- stały avatar Neury jako Desktop Pet;
-- kilka ikon na pulpicie;
-- komunikator z dwiema zakładkami: Paweł oraz „Sztuka za Sztukę — Występy Cybarta”;
-- okno `anh://www.ustno.ai/create` z listą placeholderowych utworów;
-- okno `anh://www.ustno.ai/me` jako szufladę z demami;
-- ekran placeholderowy gry rytmicznej, który jeszcze nie musi być pełną mechaniką;
-- prosty ekran wyniku po utworze;
-- decyzję po utworze: do szuflady, wyślij Pawciowi, opublikuj na czacie głównym;
-- podstawowe statystyki: Występ, Cybart.exe, Presja Czatu;
-- zasadę, że każdy tytuł można opublikować na czacie głównym tylko raz;
-- prosty zapis stanu w localStorage.
-
-### Czego NIE robić w pierwszym szkielecie
-
-Na tym etapie nie robimy pełnej gry rytmicznej, prawdziwego audio syncu, finalnych grafik, pełnego systemu zakończeń, wszystkich utworów, rozbudowanych animacji ani ciężkiej symulacji psychiki. To ma być prototyp-namiot, nie cyberkatedra.
-
-### Sens szkieletu
-
-Ten etap ma odpowiedzieć na pytanie: czy pulpitowy flow, Neura jako Desktop Pet, czaty, Ustno.ai, szuflada dem i decyzje po utworach tworzą czytelny, przyjemny rdzeń gry. Dopiero po sprawdzeniu tego szkieletu warto decydować, które mechaniki pogłębiać.
-
-## Doprecyzowanie logiki generowania, szuflady, remixów i odsłuchu
+## Doprecyzowanie logiki generowania, szuflady, poprawy szkiców i odsłuchu
 
 Generator `anh://www.ustno.ai/create` nie służy do wybierania wielu poziomów trudności od razu. Jego rola jest prostsza: pozwala stworzyć pierwszą wersję utworu wyłącznie na najniższym poziomie. To jest pierwotny wygenerowany kawałek, pierwszy strzał, surowiec do dalszego losu.
 
 Po zapisaniu pierwszej wersji do szuflady albo po wysłaniu jej do Pawcia / opublikowaniu, dany tytuł znika z listy dostępnej w generatorze. Nie można generować tego samego utworu od nowa w nieskończoność. Od tego momentu jego dalszy los odbywa się poza ekranem `create`.
 
-### Szuflada i opcja Remix
+### Szuflada i poprawa szkicu
 
-Jeżeli utwór został zapisany do szuflady, pojawia się w `anh://www.ustno.ai/me`. Dopiero tam dostępna jest opcja `(Remix)`, która uruchamia ponowne podejście na poziomie o +1 wyższym niż obecnie zapisany wariant.
+Jeżeli utwór został zapisany do szuflady, pojawia się w `anh://www.ustno.ai/szkice`. Dopiero tam dostępna jest opcja poprawy szkicu, która uruchamia ponowne podejście na poziomie o +1 wyższym niż obecnie zapisany wariant.
 
-Po ukończeniu remiksu gracz decyduje, czy nadpisać wynik w szufladzie. Następny wzrost poziomu jest możliwy dopiero po zaakceptowaniu / nadpisaniu wyniku. Dzięki temu progres trudności jest związany z pracą nad konkretnym plikiem, a nie z dowolnym wyborem poziomu w generatorze.
+Po ukończeniu poprawy gracz decyduje, czy nadpisać wynik w szufladzie. Następny wzrost poziomu jest możliwy dopiero po zaakceptowaniu / nadpisaniu wyniku. Dzięki temu progres trudności jest związany z pracą nad konkretnym plikiem, a nie z dowolnym wyborem poziomu w generatorze.
 
 Szuflada działa więc jak miejsce iteracji: tu leży niedokończony numer, tu można go poprawiać, tu rośnie jego jakość, ale każda poprawa wymaga świadomej decyzji, czy nowa wersja zastępuje starą.
 
@@ -358,15 +345,17 @@ Jeżeli utwór zostanie udostępniony grupie, nie wraca już do szuflady jako rz
 
 Kliknięcie tej ikony otwiera osobne okno `Annihilation player.exe`, które pozwala odsłuchać opublikowany numer. To okno pełni rolę prostego odtwarzacza / archiwum Występu.
 
-### Wersje audio zależne od poziomu publikacji
+### Jakość publikacji
 
-Każdy utwór może mieć kilka wariantów jakościowych zależnych od poziomu, na którym został ostatecznie opublikowany. Przykładowo:
+Aktualny build nie przełącza jeszcze wariantów audio zależnie od wyniku. Decyzja gracza wpływa na jakość opisu, reakcje czatu, statystyki i ton narracji, a `Annihilation player.exe` odtwarza scalony plik danego utworu.
 
-* poziom niski: słaba / krzywa / robocza wersja;
-* poziom średni: lepsza, bardziej zdatna do Występu;
-* poziom wysoki: cudeńko, pełnoprawny banger albo najlepsza dostępna wersja.
+Widoczne jakości publikacji to:
 
-Ostatecznie odtwarzana wersja w `Annihilation player.exe` zależy od poziomu, na którym gracz zdecydował się opublikować kawałek. To wzmacnia decyzję: publikować szybko i ryzykować słabszą wersję, czy trzymać w szufladzie, remiksować i ryzykować ciszę oraz presję.
+* `szkic publiczny` dla ocen `F/E/D`;
+* `lepsza wersja` dla ocen `C/B`;
+* `cudeńko` dla ocen `A/S`.
+
+To wzmacnia decyzję: publikować szybko i zostawić publiczny ślad, czy trzymać w szufladzie, poprawiać szkic i ryzykować ciszę oraz presję.
 
 ## Struktura słowników i danych edytowalnych
 
@@ -381,7 +370,7 @@ Warto utworzyć osobny słownik na etykiety UI, roboczo np. `src/data/uiLabels.j
 * nazwy statystyk;
 * komunikaty systemowe;
 * podpisy ikon;
-* teksty placeholderów;
+* teksty fallbackowe;
 * statusy typu „Odtwarzanie...”, „Do szuflady”, „Remix”, „Opublikowano”.
 
 To nie musi od razu być pełny system tłumaczeń. Na początku wystarczy jeden centralny słownik po polsku, który pozwala szybko przepisać klimat interfejsu bez przekopywania kodu.
@@ -402,4 +391,4 @@ Poza etykietami UI warto trzymać oddzielnie inne typy danych:
 
 Nie należy wrzucać wszystkiego do jednego ogromnego pliku JSON. Lepiej podzielić dane według funkcji: osobno etykiety UI, osobno utwory, osobno dialogi, osobno reakcje czatu. Dzięki temu projekt pozostanie czytelny, a późniejsza rozbudowa nie zamieni się w szukanie jednego przecinka w beczce tekstu.
 
-Na etapie prototypu można używać plików `.ts`, bo dają typowanie i łatwiej złapać błędy. Jeśli później pojawi się potrzeba edycji treści poza kodem, te struktury można przenieść do `.json`.
+Na tym etapie można używać plików `.ts`, bo dają typowanie i łatwiej złapać błędy. Jeśli później pojawi się potrzeba edycji treści poza kodem, te struktury można przenieść do `.json`.

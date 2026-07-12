@@ -7,7 +7,7 @@ import { NeuraPortrait } from './NeuraPortrait.tsx';
 import { cybekEventForIntent, neuraExpressionForIntent } from './expressionMapping.ts';
 import { useTypewriter } from './useTypewriter.ts';
 
-type AudioStatus = 'loading' | 'playing' | 'ended' | 'error';
+type AudioStatus = 'loading' | 'playing' | 'ended' | 'error' | 'textOnly';
 
 const STORY_SCENE_AUDIO_BASE_PATH = assetPath('audio/story-scenes');
 const TEXT_FALLBACK_DELAY_MS = 900;
@@ -41,11 +41,15 @@ export function CutsceneStage({
   const typewriter = useTypewriter(line.text, { speedMs: typewriterSpeedMs });
   const progressLabel = `${lineIndex + 1}/${scene.lines.length}`;
   const statusLabel = getAudioStatusLabel(audioStatus);
+  const intentLabel = getCutsceneIntentLabel(line.audioIntent);
 
-  const sources = useMemo(() => ({
-    primary: `${STORY_SCENE_AUDIO_BASE_PATH}/${line.audioId}.ogg`,
-    fallback: `${STORY_SCENE_AUDIO_BASE_PATH}/${line.audioId}.mp3`,
-  }), [line.audioId]);
+  const sources = useMemo(() => {
+    if (!line.audioId) return null;
+    return {
+      primary: `${STORY_SCENE_AUDIO_BASE_PATH}/${line.audioId}.ogg`,
+      fallback: `${STORY_SCENE_AUDIO_BASE_PATH}/${line.audioId}.mp3`,
+    };
+  }, [line.audioId]);
 
   const requestAdvance = useCallback(() => {
     if (!typewriter.isComplete) {
@@ -71,7 +75,16 @@ export function CutsceneStage({
     let triedFallback = false;
     const playbackToken = playbackTokenRef.current + 1;
     playbackTokenRef.current = playbackToken;
-    const audio = new Audio(sources.primary);
+    if (!sources) {
+      stopCurrentAudio(audioRef);
+      setAudioStatus('textOnly');
+      setTypewriterSpeedMs(fallbackTypewriterSpeedMs);
+      return () => {
+        cancelled = true;
+      };
+    }
+    const activeSources = sources;
+    const audio = new Audio(activeSources.primary);
     audioRef.current = audio;
     setAudioStatus('loading');
     setTypewriterSpeedMs(fallbackTypewriterSpeedMs);
@@ -92,7 +105,7 @@ export function CutsceneStage({
         return;
       }
       triedFallback = true;
-      const fallbackAudio = new Audio(sources.fallback);
+      const fallbackAudio = new Audio(activeSources.fallback);
       audioRef.current = fallbackAudio;
       playCurrent(fallbackAudio);
     }
@@ -124,7 +137,7 @@ export function CutsceneStage({
       window.clearTimeout(fallbackTimer);
       if (playbackTokenRef.current === playbackToken) stopCurrentAudio(audioRef);
     };
-  }, [fallbackTypewriterSpeedMs, line.text, sources.fallback, sources.primary]);
+  }, [fallbackTypewriterSpeedMs, line.text, sources]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -178,7 +191,7 @@ export function CutsceneStage({
           </header>
           <div className="cutscene-speaker-row">
             <span className="cutscene-speaker-name">{line.speaker}</span>
-            <span className="cutscene-intent">{line.audioIntent ?? 'calm'}</span>
+            <span className="cutscene-intent">{intentLabel}</span>
           </div>
           <p className="cutscene-text">
             {typewriter.visibleText}
@@ -218,8 +231,16 @@ export function resolveAudioSyncedTypewriterSpeedMs(
 }
 
 function getAudioStatusLabel(status: AudioStatus) {
-  if (status === 'error') return 'Audio niedostępne';
+  if (status === 'textOnly' || status === 'error') return 'Cisza w kadrze';
   if (status === 'ended') return 'Gotowe';
   if (status === 'playing') return 'Odtwarzanie...';
   return 'Ładowanie...';
+}
+
+function getCutsceneIntentLabel(intent: StoryScene['lines'][number]['audioIntent']) {
+  if (intent === 'tired') return 'zmęczony głos';
+  if (intent === 'dry') return 'suchy ton';
+  if (intent === 'curious') return 'pytanie w kadrze';
+  if (intent === 'glitch') return 'zakłócony sygnał';
+  return 'spokojny sygnał';
 }

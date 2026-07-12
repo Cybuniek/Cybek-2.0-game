@@ -32,6 +32,7 @@ import {
 } from './neura/StorySceneDirector';
 import type { StorySceneTrigger } from './data/dialogue/storyScenes';
 import type { NeuraPresenceEventId as DialoguePresenceEventId } from './data/dialogue/dialogueTypes';
+import { deriveMainStoryProgress } from './data/dialogue/mainStory';
 import {
   addUnique,
   createRemixComparison,
@@ -209,6 +210,10 @@ export default function App() {
     () => getActiveStoryScene(storySceneDirectorState),
     [storySceneDirectorState],
   );
+  const mainStoryProgress = useMemo(
+    () => deriveMainStoryProgress(gameState, storySceneDirectorState),
+    [gameState, storySceneDirectorState],
+  );
   const isStorySceneActive = activeStoryScene !== null;
   const [windowPositions, setWindowPositions] = useState<Record<Exclude<WindowId, null>, Point>>({
     messenger: { x: 170, y: 92 },
@@ -222,7 +227,7 @@ export default function App() {
   const [overlayPositions, setOverlayPositions] = useState<Record<OverlayId, Point>>({
     webcam: getDefaultWebcamPosition(),
     stats: { x: 1000, y: 280 },
-    todo: { x: 1000, y: 458 },
+    todo: { x: 180, y: 574 },
     identity: { x: 1000, y: 116 },
     neuraDebug: { x: 24, y: 96 },
     neuraEcho: { x: 820, y: 42 },
@@ -320,6 +325,9 @@ export default function App() {
   useEffect(() => {
     setStorySceneLineIndex(0);
   }, [activeStoryScene?.id]);
+  useEffect(() => {
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
+  }, [screen]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -488,6 +496,17 @@ export default function App() {
               completedSceneIds: storySceneDirectorState.completedSceneIds,
               completedCheckpointIds: storySceneDirectorState.completedCheckpointIds,
             },
+        mainStory: {
+          currentBeatId: mainStoryProgress.currentBeat.id,
+          actId: mainStoryProgress.currentBeat.actId,
+          actLabel: mainStoryProgress.currentBeat.actLabel,
+          title: mainStoryProgress.currentBeat.title,
+          objective: mainStoryProgress.currentBeat.objective,
+          completedBeatIds: mainStoryProgress.completedBeatIds,
+          completedCount: mainStoryProgress.completedCount,
+          totalCount: mainStoryProgress.totalCount,
+          isComplete: mainStoryProgress.isComplete,
+        },
       });
     window.advanceTime = () => undefined;
   }, [
@@ -498,6 +517,7 @@ export default function App() {
     bootElapsedMs,
     gameState,
     lastDialogueEventId,
+    mainStoryProgress,
     neuraPresence,
     neuraVoiceDirectorDebug,
     neuraVoiceDirectorState.queue,
@@ -741,6 +761,10 @@ export default function App() {
     setGameState(nextState);
     runStoryAction('track.published', nextState);
     queueStoryScene({ type: 'share', channel: 'chat', trackId: draft.trackId });
+    if (gameState.publishedTrackIds.length < tracks.length && nextState.publishedTrackIds.length >= tracks.length) {
+      queueStoryScene({ type: 'final.ready' });
+      runStoryAction('story.finalSceneUnlocked', nextState);
+    }
     if (nextState.stats.chatPressure >= 35) runStoryAction('neura.glitchSpike', nextState);
     showEnvironmentalEcho(nextState.echo.lastPhrase ? `Echo: ${nextState.echo.lastPhrase}` : 'Echo publikacji wraca przez EVENTS');
     recordNeuraPresenceEvent('published');
@@ -787,7 +811,7 @@ export default function App() {
   }
 
   const storySceneOverlay = activeStoryScene ? (
-    <Suspense fallback={<SystemOverlayFallback label="Ładowanie cutscenki..." />}>
+    <Suspense fallback={<SystemOverlayFallback label="Ładowanie cutscenki..." overlay />}>
       <CutsceneStage
         scene={activeStoryScene}
         lineIndex={storySceneLineIndex}
@@ -888,7 +912,7 @@ export default function App() {
         <button onClick={() => {
           window.history.replaceState(null, '', '#editor');
           setScreen('editor');
-        }}>Beatmap Editor</button>
+        }}>Strojenie rytmu</button>
         <button
           className={`audio-toggle ${soundscape.isMuted ? 'muted' : ''} ${soundscape.isUnlocked ? '' : 'waiting'}`}
           onClick={soundscape.toggleMuted}
@@ -963,6 +987,7 @@ export default function App() {
           resonance={gameState.resonance}
           ending={gameState.ending}
           stats={gameState.stats}
+          mainStoryComplete={mainStoryProgress.isComplete}
           onClose={clearActiveCutscene}
         />
       )}
@@ -990,22 +1015,21 @@ export default function App() {
           onMove={(position) => setOverlayPositions((state) => ({ ...state, todo: position }))}
           dragEnabled={isDebugOverlayDragEnabled}
         >
-          <strong>{placeholderLabels.todoTitle}</strong>
-          {placeholderLabels.todoItems.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
+          <strong>Plan Występu</strong>
+          <span>{mainStoryProgress.currentBeat.actLabel}: {mainStoryProgress.currentBeat.title}</span>
+          <span>{mainStoryProgress.currentBeat.objective}</span>
         </DraggableOverlay>
       )}
 
-      <section className="core-loop-strip" aria-label="Core loop">
-        <strong>Core loop:</strong>
+      <section className="core-loop-strip" aria-label="Ścieżka Występu">
+        <strong>Ścieżka Występu:</strong>
         <span>twórz utwór</span>
         <i aria-hidden="true" />
         <span>test rytmiczny</span>
         <i aria-hidden="true" />
         <span>decyzja</span>
         <i aria-hidden="true" />
-        <span>szuflada / publikacja / nieudany song</span>
+        <span>szuflada / publikacja / wersja do poprawy</span>
       </section>
 
       {activeWindow === 'messenger' && (
@@ -1083,7 +1107,7 @@ export default function App() {
           onMove={(position) => setWindowPositions((state) => ({ ...state, ustniki: position }))}
           onClose={() => setActiveWindow(null)}
         >
-          <UstnikiWindow />
+          <UstnikiWindow gameState={gameState} />
         </Window>
       )}
 
@@ -1121,9 +1145,9 @@ export default function App() {
   );
 }
 
-function SystemOverlayFallback({ label }: { label: string }) {
+function SystemOverlayFallback({ label, overlay = false }: { label: string; overlay?: boolean }) {
   return (
-    <main className="system-fallback" aria-live="polite">
+    <main className={overlay ? 'system-fallback system-fallback-overlay' : 'system-fallback'} aria-live="polite">
       <strong>Cybek OS</strong>
       <span>{label}</span>
     </main>
@@ -1231,7 +1255,7 @@ function TitleScreen({ onStart }: { onStart: () => void }) {
         <p className="boot-subtitle">{placeholderLabels.titleScreenSubtitle}</p>
         <div className="boot-log">
           <p><span>&gt; [SYS]</span> {placeholderLabels.titleScreenStatus}</p>
-          <p><span>&gt; [SYS]</span> build: placeholder-window-pass</p>
+          <p><span>&gt; [SYS]</span> stan: repertuar, czat i Neura spięte w jedną sesję</p>
         </div>
         <footer className="boot-footer">
           <strong>Warstwa tytułowa aktywna.</strong>
@@ -1748,7 +1772,7 @@ function RhythmScreen({
     const feedback: HitFeedback = {
       id: Date.now() + Math.random(),
       lane,
-      label: activeHold && judgement === 'good' ? 'Hold' : judgementLabel(judgement),
+      label: activeHold && judgement === 'good' ? 'Trzymaj' : judgementLabel(judgement),
       judgement: judgement as HitFeedback['judgement'],
     };
 
@@ -1915,7 +1939,6 @@ function RhythmScreen({
         <span>{placeholderLabels.level}: {activeRun.difficulty}</span>
         <span>{beatmap.bpm} BPM</span>
         <span>{placeholderLabels.density}: {densityConfig.densityMultiplier}</span>
-        <button onClick={() => setDebugMode((current) => (current === 'window' ? null : 'window'))}>Rhythm debug</button>
       </div>
 
       {debugMode === 'panel' && <RhythmDebugPanel payload={debugPayload} compact />}
@@ -2089,14 +2112,14 @@ function RhythmDebugPanel({
   compact?: boolean;
 }) {
   return (
-    <aside className={compact ? 'rhythm-debug compact' : 'rhythm-debug'} aria-label="Rhythm debug">
-      <strong>Rhythm debug</strong>
+    <aside className={compact ? 'rhythm-debug compact' : 'rhythm-debug'} aria-label="Pomiary rytmu">
+      <strong>Pomiary rytmu</strong>
       <span>audio: {formatDebugTime(payload.audioDurationMs)}</span>
       <span>start: {formatDebugTime(payload.sourceStartMs)}</span>
       <span>koniec: {formatDebugTime(payload.sourceEndMs)}</span>
       <span>poziom: {formatDebugTime(payload.beatmapDurationMs)}</span>
-      <span>mapa: {payload.beatmapSource}</span>
-      <span>nuty: {payload.notes}</span>
+      <span>źródło: {payload.beatmapSource}</span>
+      <span>sygnały: {payload.notes}</span>
       <em>F8 panel / F9 okno</em>
     </aside>
   );
@@ -2115,12 +2138,12 @@ function keyToLane(key: string): RhythmLane | null {
 }
 
 function judgementLabel(judgement: RhythmJudgement | null) {
-  if (judgement === 'perfect') return 'Perfect';
-  if (judgement === 'great') return 'Great';
-  if (judgement === 'good') return 'Good';
-  if (judgement === 'too_fast') return 'Too fast';
-  if (judgement === 'too_late') return 'Too late';
-  if (judgement === 'miss') return 'Miss';
+  if (judgement === 'perfect') return 'Czysto';
+  if (judgement === 'great') return 'Pewnie';
+  if (judgement === 'good') return 'Złapane';
+  if (judgement === 'too_fast') return 'Za wcześnie';
+  if (judgement === 'too_late') return 'Za późno';
+  if (judgement === 'miss') return 'Rozjazd';
   if (judgement === 'empty') return 'Klik';
   return 'Złap rytm';
 }
@@ -2294,16 +2317,26 @@ function EventCutsceneStage({
   resonance,
   ending,
   stats,
+  mainStoryComplete,
   onClose,
 }: {
   echo: GameState['echo'];
   resonance: GameState['resonance'];
   ending: GameState['ending'];
   stats: GameState['stats'];
+  mainStoryComplete: boolean;
   onClose: () => void;
 }) {
   const latestMessages = echo.messages.slice(0, 3);
-  const phrase = echo.lastPhrase ?? 'Puste miejsce po decyzji wraca jako szum.';
+  const phrase = mainStoryComplete
+    ? 'Ostatni plik wrócił jako echo. Pulpit nie prosi już o publikację, tylko pamięta trasę.'
+    : echo.lastPhrase ?? 'Puste miejsce po decyzji wraca jako szum.';
+  const mainLabel = mainStoryComplete ? 'Występ domknięty' : 'Neura powtarza decyzję';
+  const choiceLabel = mainStoryComplete ? 'Co zostaje po Występie' : 'Decyzja podświetlona przez echo';
+  const channelLabel = getEventCutsceneChannelLabel(echo.activeCutsceneId);
+  const choiceButtons = mainStoryComplete
+    ? ['Odsłuchaj ślady', 'Zostaw pulpit', 'Zamknij zakłócenie']
+    : ['Publikuj dalej', 'Schowaj do szuflady', 'Wyślij Pawłowi'];
   const resonanceLabel = {
     silent: 'cisza',
     low: 'niski',
@@ -2318,13 +2351,17 @@ function EventCutsceneStage({
     merged: 'zlanie',
   }[resonance.bondWithNeura];
 
+  const stageClassName = mainStoryComplete
+    ? 'event-cutscene-stage event-cutscene-final'
+    : 'event-cutscene-stage';
+
   return (
-    <section className="event-cutscene-stage" aria-label="EVENTS">
+    <section className={stageClassName} aria-label="EVENTS">
       <div className="event-cutscene-glitch" />
       <div className="event-cutscene-desktop">
         <header className="event-cutscene-topbar">
           <strong>EVENTS</strong>
-          <span>{echo.activeCutsceneId ?? 'events.idle'}</span>
+          <span>{channelLabel}</span>
           <button type="button" onClick={onClose}>Zamknij zakłócenie</button>
         </header>
 
@@ -2335,7 +2372,7 @@ function EventCutsceneStage({
         </div>
 
         <article className="event-cutscene-window event-cutscene-window-main">
-          <strong>Neura powtarza decyzję</strong>
+          <strong>{mainLabel}</strong>
           <p className="event-cutscene-phrase">{phrase}</p>
           <div className="event-cutscene-thread">
             {latestMessages.length > 0 ? latestMessages.map((message) => (
@@ -2349,10 +2386,17 @@ function EventCutsceneStage({
         </article>
 
         <article className="event-cutscene-window event-cutscene-window-choice">
-          <strong>Decyzja podświetlona przez echo</strong>
-          <button className="event-decision highlighted" type="button">Publikuj dalej</button>
-          <button className="event-decision" type="button">Schowaj do szuflady</button>
-          <button className="event-decision" type="button">Wyślij Pawłowi</button>
+          <strong>{choiceLabel}</strong>
+          {choiceButtons.map((label, index) => (
+            <button
+              className={index === 0 ? 'event-decision highlighted' : 'event-decision'}
+              key={label}
+              onClick={mainStoryComplete && label === 'Zamknij zakłócenie' ? onClose : undefined}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
         </article>
 
         <article className="event-cutscene-window event-cutscene-window-neura">
@@ -2360,30 +2404,105 @@ function EventCutsceneStage({
           <span>echo: {echo.echoCount}</span>
           <span>rezonans: {resonanceLabel} / {resonance.score}</span>
           <span>więź: {bondLabel}</span>
-          <span>ending: {ending.label}</span>
+          <span>zakończenie: {ending.label}</span>
         </article>
 
         <article className="event-cutscene-window event-cutscene-window-stats">
           <strong>Impuls końcowy</strong>
-          <span>performance {stats.performance}</span>
-          <span>chat {stats.chatPressure}</span>
-          <span>cybart {stats.cybart}</span>
-          <span>trasa {ending.route}</span>
+          <span>{statLabels.performance}: {stats.performance}</span>
+          <span>{statLabels.chatPressure}: {stats.chatPressure}</span>
+          <span>{statLabels.cybart}: {stats.cybart}</span>
+          <span>trasa: {ending.label}</span>
         </article>
       </div>
     </section>
   );
 }
 
-function UstnikiWindow() {
+function getEventCutsceneChannelLabel(activeCutsceneId: string | null) {
+  if (activeCutsceneId === 'events.echo.after-publish') return 'publikacja';
+  if (!activeCutsceneId) return 'kanał spoczynku';
+  return 'kanał echa';
+}
+
+function UstnikiWindow({ gameState }: { gameState: GameState }) {
+  const challenges = getUstnikiChallenges(gameState);
+
   return (
-    <div className="window-list">
+    <div className="window-list ustniki-ledger">
       <strong>{placeholderLabels.ustnikiWindowStatus}</strong>
-      {placeholderLabels.ustnikiChallenges.map((challenge) => (
-        <p key={challenge}>{challenge} / wkrótce</p>
+      <p>
+        To nie są poboczne achievementy. To zapis tego, jak Cybek uczy się występować
+        bez oddawania całego steru Neurze.
+      </p>
+      {challenges.map((challenge) => (
+        <article className="ustnik-challenge" key={challenge.id} data-complete={challenge.isComplete}>
+          <div>
+            <strong>{challenge.title}</strong>
+            <span>{challenge.description}</span>
+          </div>
+          <meter min="0" max={challenge.target} value={challenge.value} />
+          <em>{challenge.valueLabel}</em>
+        </article>
       ))}
     </div>
   );
+}
+
+type UstnikChallenge = {
+  id: string;
+  title: string;
+  description: string;
+  value: number;
+  target: number;
+  valueLabel: string;
+  isComplete: boolean;
+};
+
+function getUstnikiChallenges(gameState: GameState): UstnikChallenge[] {
+  const sentToPawelCount = gameState.drafts.filter((draft) => draft.status === 'sentToPawel').length;
+  const publishedCount = gameState.publishedTracks.length;
+  const bestPublishedAccuracy = Math.max(0, ...gameState.publishedTracks.map((track) => track.accuracy));
+  const stablePressure = Math.max(0, 40 - gameState.stats.chatPressure);
+
+  return [
+    {
+      id: 'first-buffer',
+      title: 'Bufor przed tłumem',
+      description: 'Wyślij szkic Pawłowi, zanim grupa dostanie oficjalny plik.',
+      value: Math.min(1, sentToPawelCount),
+      target: 1,
+      valueLabel: sentToPawelCount > 0 ? 'Paweł ma szkic' : 'czeka prywatny bufor',
+      isComplete: sentToPawelCount > 0,
+    },
+    {
+      id: 'first-publication',
+      title: 'Pierwszy ślad publiczny',
+      description: 'Opublikuj numer na czacie głównym i pozwól reakcji wrócić do pulpitu.',
+      value: Math.min(1, publishedCount),
+      target: 1,
+      valueLabel: publishedCount > 0 ? 'czat dostał plik' : 'brak publicznego Występu',
+      isComplete: publishedCount > 0,
+    },
+    {
+      id: 'clean-take',
+      title: 'Wersja bez rozpadu',
+      description: 'Dowiezienie jednego numeru na co najmniej 80% dokładności.',
+      value: Math.min(80, bestPublishedAccuracy),
+      target: 80,
+      valueLabel: `${bestPublishedAccuracy}% najlepszej publikacji`,
+      isComplete: bestPublishedAccuracy >= 80,
+    },
+    {
+      id: 'low-pressure',
+      title: 'Nie karm presji',
+      description: 'Utrzymaj Presję Czatu poniżej 40 mimo postępu Występu.',
+      value: stablePressure,
+      target: 40,
+      valueLabel: gameState.stats.chatPressure < 40 ? 'presja pod kontrolą' : `presja ${gameState.stats.chatPressure}/100`,
+      isComplete: gameState.stats.chatPressure < 40,
+    },
+  ];
 }
 
 function TitleHubWindow({ onReboot }: { onReboot: () => void }) {
@@ -2468,7 +2587,7 @@ function NeuraDebugPanel({
   return (
     <>
       <div>
-        <strong>Neura debug</strong>
+        <strong>Panel Neury</strong>
         <button onClick={() => onSetOverride(null)}>Auto</button>
       </div>
       <span>poziom: {presenceState.powerLevel} / {presenceState.narrativeTag}</span>
@@ -2477,7 +2596,7 @@ function NeuraDebugPanel({
       <span>avatar: {formatPresenceValue(presenceState.avatarInstability)}</span>
       <span>UI: {formatPresenceValue(presenceState.uiAutonomy)}</span>
       <span>aktywne glitche: {activeGlitchCount}</span>
-      <span>ostatni event: {presenceState.lastEventId}</span>
+      <span>ostatni impuls: {presenceState.lastEventId}</span>
       <div className="neura-debug-levels">
         {levels.map((level) => (
           <button

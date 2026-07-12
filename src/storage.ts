@@ -287,9 +287,9 @@ export function getNextDifficulty(trackId: string, difficulty: Difficulty): Diff
 }
 
 export function getPublishedQuality(tier: QualityTier): PublishedTrack['quality'] {
-  if (tier === 'S' || tier === 'A') return 'cudenko';
+  if (tier === 'S' || tier === 'A') return 'cudeńko';
   if (tier === 'B' || tier === 'C') return 'lepsza wersja';
-  return 'slaba wersja';
+  return 'szkic publiczny';
 }
 
 export function createPublishedTrack(draft: DraftTrack): PublishedTrack {
@@ -360,7 +360,7 @@ function migrateState(
       ...item,
       grade,
       qualityProgress: item.qualityProgress ?? estimateLegacyProgress(item.accuracy),
-      quality: item.quality ?? getPublishedQuality(grade),
+      quality: normalizePublishedQuality(item.quality, grade),
     };
   });
   const publishedTrackIds = saved.publishedTrackIds ?? publishedTracks.map((item) => item.trackId);
@@ -403,6 +403,15 @@ function stableRandom(source: string) {
 
 function estimateLegacyProgress(accuracy: number) {
   return Math.round(Math.max(0, Math.min(100, accuracy)));
+}
+
+function normalizePublishedQuality(value: unknown, grade: QualityTier): PublishedTrack['quality'] {
+  if (value === 'cudeńko' || value === 'cudenko') return 'cudeńko';
+  if (value === 'lepsza wersja') return 'lepsza wersja';
+  if (value === 'szkic publiczny' || value === 'słaba wersja' || value === 'slaba wersja') {
+    return 'szkic publiczny';
+  }
+  return getPublishedQuality(grade);
 }
 
 function normalizeTier(value: string): QualityTier {

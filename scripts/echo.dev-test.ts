@@ -45,7 +45,7 @@ const published: PublishedTrack = {
   accuracy: draft.bestAccuracy,
   grade: draft.bestGrade,
   qualityProgress: draft.qualityProgress,
-  quality: 'cudenko',
+  quality: 'cudeńko',
   publishedAt: '2026-05-26T12:02:00.000Z',
 };
 

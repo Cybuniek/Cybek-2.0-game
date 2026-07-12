@@ -1,5 +1,6 @@
 import { defaultState } from '../src/storage.ts';
 import { neuraVoiceLinesV2 } from '../src/data/dialogue/neuraVoiceLines.ts';
+import { neuraVoiceLines as legacyNeuraVoiceLines } from '../src/data/neuraVoiceLines.ts';
 import type { DialogueContext, GameState, NeuraPresenceEventId, NeuraVoiceDirectorState } from '../src/data/dialogue/dialogueTypes.ts';
 import {
   createDefaultNeuraVoiceDirectorState,
@@ -54,6 +55,12 @@ function withStats(gameState: GameState, performance: number, cybart: number, ch
     ...gameState,
     stats: { performance, cybart, chatPressure },
   };
+}
+
+function getVoiceLine(lineId: string) {
+  const line = neuraVoiceLinesV2.find((item) => item.id === lineId);
+  assert(!!line, `linia dialogowa istnieje: ${lineId}`);
+  return line;
 }
 
 // 1) critical wygrywa z ambient
@@ -239,4 +246,54 @@ function withStats(gameState: GameState, performance: number, cybart: number, ch
   const state = createVoiceQueueItemsFromEvent(createDefaultNeuraVoiceDirectorState(), { eventId: 'track.published', context }).state;
   const queuedLineIds = state.queue.map((item) => item.lineId);
   assert(queuedLineIds.includes('ending-001-neura-bond'), 'neuraBond ending route queues the ending-specific Neura line');
+}
+
+// 11) wczesna warstwa ambientu jest spięta z istniejącym audio i nie wraca do luźnych technicznych żartów
+{
+  const legacyTextByAudioId = new Map(legacyNeuraVoiceLines.map((line) => [line.id, line.text]));
+  const firstSessionLineIds = [
+    'prologue-001-widget',
+    'prologue-002-normal',
+    'prologue-003-cache',
+    'prologue-004-pawciu',
+    'prologue-005-cybart-exe',
+    'prologue-006-localstorage',
+    'prologue-007-ustno-ai',
+    'prologue-008-szuflada',
+    'prologue-009-nie-klikaj',
+    'prologue-010-czat',
+    'prologue-011-okno',
+    'prologue-012-fallback',
+    'prologue-013-raport',
+    'prologue-014-normalnosc',
+    'middle-001-breathe',
+    'middle-002-mainline',
+    'late-001-publish',
+    'late-002-pressure',
+    'late-003-drawer',
+    'final-001-window',
+    'final-002-incident',
+    'final-003-quiet',
+  ];
+
+  for (const lineId of firstSessionLineIds) {
+    const line = getVoiceLine(lineId);
+    const legacyText = legacyTextByAudioId.get(line.audio.id);
+    assert(!!legacyText, `linia ${lineId} korzysta z istniejącego audio ${line.audio.id}`);
+    assertEqual(line.text, legacyText, `tekst ${lineId} zgadza się ze statycznym audio`);
+  }
+
+  const disconnectedFragments = [
+    'Nie sprzątaj cache',
+    'opcjonalny',
+    'nie jest wirusem',
+    'Lokalny nie znaczy prywatny',
+    'stabilne serwery',
+    'ustawienia prywatności',
+    'tania licencja',
+  ];
+  const firstSessionText = firstSessionLineIds.map((lineId) => getVoiceLine(lineId).text).join('\n');
+  for (const fragment of disconnectedFragments) {
+    assert(!firstSessionText.includes(fragment), `wczesny ambient nie zawiera odklejonego fragmentu: ${fragment}`);
+  }
 }
