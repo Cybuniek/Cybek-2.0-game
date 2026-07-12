@@ -1,4 +1,4 @@
-import type { ChatMessage, DraftTrack, PerformanceResult, PublishedTrack } from '../types';
+import type { ChatMessage, CommunicationAction, DraftTrack, PerformanceResult, PublishedTrack } from '../types';
 
 export const chatAuthors = {
   cybek: 'Cybek',
@@ -22,6 +22,29 @@ export function groupPublishMessages(published: PublishedTrack): ChatMessage[] {
     { author: chatAuthors.cybek, text: groupPublishMessage(published) },
     ...publishReactionMessages(published),
   ];
+}
+
+export function communicationMessage(
+  action: CommunicationAction,
+  day: number,
+  displayTitle?: string,
+): ChatMessage {
+  const target = displayTitle ? `: ${displayTitle}` : '';
+  const text = {
+    silence: 'Nie wysyłam nic. Czat dostaje ciszę bez opakowania.',
+    status: 'Krótki status: pracuję nad Występem, ale nie obiecuję terminu.',
+    teaser: `Pokazuję fragment${target}. To jeszcze nie jest publikacja, tylko ślad z pracowni.`,
+    promise: `Zapowiadam publikację${target} w ciągu dwóch dni. Czat może zacząć odliczać.`,
+    break: 'Ogłaszam przerwę. Dzisiaj silnik ma nie udawać, że jest transmisją.',
+    live: 'Włączam live. Nie mam gotowego numeru, ale mam otwarty pulpit i kilka ryzykownych minut.',
+  }[action];
+
+  return {
+    author: chatAuthors.cybek,
+    text: `[Dzień ${day}] ${text}`,
+    day,
+    kind: action,
+  };
 }
 
 function publishReactionMessages(published: PublishedTrack): ChatMessage[] {

@@ -12,6 +12,9 @@ const EVENT_SCORE_BONUS: Record<NeuraPresenceEventId, number> = {
   draftSaved: 3,
   sentToPawel: 7,
   published: 12,
+  dayAdvanced: 2,
+  promiseMissed: 9,
+  draftRejected: 5,
   rhythmStarted: 2,
   rhythmFinished: 5,
   manualReaction: 4,
@@ -87,6 +90,9 @@ export function calculatePresenceScore(gameState: GameState, lastEventId: NeuraP
     (sum, reveal) => sum + reveal,
     0,
   ) * 3));
+  const dayCycleScore = Math.min(18, (gameState.dayCycle?.currentDay ?? 1) * 0.8);
+  const commitmentScore = Math.min(12, (gameState.dayCycle?.commitments?.filter((item) => item.status === 'active').length ?? 0) * 4);
+  const rejectionScore = Math.min(10, (gameState.dayCycle?.rejectedCount ?? 0) * 2);
 
   return clamp(
     publishedScore
@@ -97,6 +103,9 @@ export function calculatePresenceScore(gameState: GameState, lastEventId: NeuraP
       + echoScore
       + resonanceScore
       + titleRevealScore
+      + dayCycleScore
+      + commitmentScore
+      + rejectionScore
       + EVENT_SCORE_BONUS[lastEventId],
     0,
     120,

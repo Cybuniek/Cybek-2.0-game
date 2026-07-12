@@ -7,6 +7,7 @@ import type {
   RhythmLane,
   RhythmNote,
   RhythmNoteKind,
+  RhythmStatModifier,
   RhythmSummary,
   Track,
 } from './types';
@@ -107,6 +108,15 @@ export type RhythmSession = {
   isFinished: boolean;
   lastJudgement: RhythmJudgement | null;
   lastLane: RhythmLane | null;
+  statModifier: RhythmStatModifier;
+};
+
+const DEFAULT_RHYTHM_STAT_MODIFIER: RhythmStatModifier = {
+  cybartBand: 'rising',
+  pressureBand: 'rising',
+  comboBonus: 0,
+  timingPenaltyMs: 0,
+  neuraHint: 'czysty kanał',
 };
 
 const defaultManualBeatmaps = manualBeatmaps as ManualBeatmapCatalog;
@@ -173,7 +183,11 @@ export function buildRhythmBeatmap(
   };
 }
 
-export function createRhythmSession(beatmap: RhythmBeatmap, difficulty: Difficulty): RhythmSession {
+export function createRhythmSession(
+  beatmap: RhythmBeatmap,
+  difficulty: Difficulty,
+  statModifier: RhythmStatModifier = DEFAULT_RHYTHM_STAT_MODIFIER,
+): RhythmSession {
   const baseTravelMs = difficultyConfig[difficulty].travelMs;
   const scaledTravelMs = Math.max(320, Math.round(baseTravelMs / RHYTHM_NOTE_FALL_SPEED_SCALE));
   return {
@@ -194,6 +208,7 @@ export function createRhythmSession(beatmap: RhythmBeatmap, difficulty: Difficul
     isFinished: false,
     lastJudgement: null,
     lastLane: null,
+    statModifier,
   };
 }
 
@@ -228,7 +243,7 @@ export function hitRhythmLane(session: RhythmSession, lane: RhythmLane): RhythmS
 
   const note = session.notes[candidateIndex];
   const signedOffsetMs = getInputAdjustedElapsedMs(session) - note.timeMs;
-  const judgement = judgementFromOffset(signedOffsetMs);
+  const judgement = judgementFromOffset(signedOffsetMs, session.statModifier.timingPenaltyMs);
 
   if (judgement === 'too_fast' || judgement === 'too_late') {
     return {
@@ -271,7 +286,10 @@ export function holdRhythmLane(session: RhythmSession, lane: RhythmLane): Rhythm
   if (candidateIndex === -1) return session;
 
   const note = session.notes[candidateIndex];
-  const judgement = judgementFromOffset(getInputAdjustedElapsedMs(session) - note.timeMs);
+  const judgement = judgementFromOffset(
+    getInputAdjustedElapsedMs(session) - note.timeMs,
+    session.statModifier.timingPenaltyMs,
+  );
   if (judgement === 'too_fast' || judgement === 'too_late') return session;
 
   const notes = session.notes.map((item, index) =>
@@ -327,7 +345,16 @@ export function getRhythmSummary(
     ? 0
     : ((session.perfectHits + session.greatHits * 0.85 + session.goodHits * 0.65) / totalNotes) * 100;
   const comboRatio = totalNotes === 0 ? 0 : session.maxCombo / totalNotes;
-  const comboMultiplier = roundTo(1 + Math.min(0.5, comboRatio * 0.5) + Math.max(0, resonance?.comboBonus ?? 0), 2);
+  const comboMultiplier = roundTo(
+    1
+      + Math.min(
+        0.5,
+        comboRatio * 0.5
+          + Math.max(0, resonance?.comboBonus ?? 0)
+          + Math.max(0, session.statModifier.comboBonus),
+      ),
+    2,
+  );
   const difficultyMultiplier = difficultyConfig[session.difficulty].qualityMultiplier;
   const qualityProgress = Math.round(rawAccuracy * difficultyMultiplier * comboMultiplier);
   const accuracy = totalNotes === 0
@@ -346,6 +373,7 @@ export function getRhythmSummary(
     emptyPresses: session.emptyPresses,
     maxCombo: session.maxCombo,
     totalNotes,
+    rhythmStatModifier: session.statModifier,
   };
 }
 
@@ -593,7 +621,11 @@ function markMissedNotes(session: RhythmSession): RhythmSession {
 
   for (let index = 0; index < nextSession.notes.length; index += 1) {
     const note = nextSession.notes[index];
-    if (note.judged || note.startedAtMs !== undefined || nextSession.elapsedMs - note.timeMs <= MISS_WINDOW_MS + LATE_HIT_GRACE_MS) continue;
+    if (
+      note.judged
+      || note.startedAtMs !== undefined
+      || nextSession.elapsedMs - note.timeMs <= getMissWindow(nextSession) + LATE_HIT_GRACE_MS
+    ) continue;
     nextSession = settleNote(nextSession, index, 'miss', note.lane);
   }
 
@@ -671,8 +703,8 @@ function findBestStartCandidate(session: RhythmSession, lane: RhythmLane) {
     if (note.judged || note.startedAtMs !== undefined || note.lane !== lane) return;
 
     const signedOffset = getInputAdjustedElapsedMs(session) - note.timeMs;
-    const lowerBound = -MISS_WINDOW_MS;
-    const upperBound = MISS_WINDOW_MS + LATE_HIT_GRACE_MS;
+    const lowerBound = -getMissWindow(session);
+    const upperBound = getMissWindow(session) + LATE_HIT_GRACE_MS;
     const offset = Math.abs(signedOffset);
     if (signedOffset >= lowerBound && signedOffset <= upperBound && offset < candidateOffset) {
       candidateIndex = index;
@@ -698,8 +730,8 @@ function findBestHoldStartCandidate(session: RhythmSession, lane: RhythmLane) {
     }
 
     const signedOffset = getInputAdjustedElapsedMs(session) - note.timeMs;
-    const lowerBound = -MISS_WINDOW_MS;
-    const upperBound = MISS_WINDOW_MS + LATE_HIT_GRACE_MS;
+    const lowerBound = -getMissWindow(session);
+    const upperBound = getMissWindow(session) + LATE_HIT_GRACE_MS;
     const offset = Math.abs(signedOffset);
     if (signedOffset >= lowerBound && signedOffset <= upperBound && offset < candidateOffset) {
       candidateIndex = index;
@@ -734,13 +766,27 @@ function recordHoldPress(session: RhythmSession, noteIndex: number, lane: Rhythm
   };
 }
 
-function judgementFromOffset(signedOffsetMs: number): Exclude<RhythmJudgement, 'empty' | 'miss'> {
+function judgementFromOffset(
+  signedOffsetMs: number,
+  timingPenaltyMs = 0,
+): Exclude<RhythmJudgement, 'empty' | 'miss'> {
   const offsetMs = Math.abs(signedOffsetMs);
-  if (offsetMs <= PERFECT_WINDOW_MS) return 'perfect';
-  if (offsetMs <= GREAT_WINDOW_MS) return 'great';
-  if (offsetMs <= GOOD_WINDOW_MS) return 'good';
-  if (signedOffsetMs > GOOD_WINDOW_MS && signedOffsetMs <= GOOD_WINDOW_MS + LATE_HIT_GRACE_MS) return 'good';
+  const perfectWindow = getTimingWindow(PERFECT_WINDOW_MS, timingPenaltyMs);
+  const greatWindow = getTimingWindow(GREAT_WINDOW_MS, timingPenaltyMs);
+  const goodWindow = getTimingWindow(GOOD_WINDOW_MS, timingPenaltyMs);
+  if (offsetMs <= perfectWindow) return 'perfect';
+  if (offsetMs <= greatWindow) return 'great';
+  if (offsetMs <= goodWindow) return 'good';
+  if (signedOffsetMs > goodWindow && signedOffsetMs <= goodWindow + LATE_HIT_GRACE_MS) return 'good';
   return signedOffsetMs < 0 ? 'too_fast' : 'too_late';
+}
+
+function getTimingWindow(baseWindow: number, timingPenaltyMs: number) {
+  return Math.max(20, baseWindow - Math.max(0, timingPenaltyMs));
+}
+
+function getMissWindow(session: RhythmSession) {
+  return getTimingWindow(MISS_WINDOW_MS, session.statModifier.timingPenaltyMs);
 }
 
 function getInputAdjustedElapsedMs(session: RhythmSession): number {

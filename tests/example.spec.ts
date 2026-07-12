@@ -38,6 +38,26 @@ async function finishCurrentRhythmRun(page: Page) {
   await expect.poll(async () => (await readGameState(page)).screen).toBe('results');
 }
 
+async function advanceDaySummaryIfNeeded(page: Page) {
+  if ((await readGameState(page)).dayCycle.phase !== 'daySummary') return;
+  const continueButton = page.getByRole('button', { name: /Rozpocznij dzień|Zamknij 14-dniową sesję/ });
+  if (!(await continueButton.isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: /Messenger/ }).first().click();
+  }
+  await continueButton.click();
+  await expect.poll(async () => (await readGameState(page)).dayCycle.phase).not.toBe('daySummary');
+}
+
+async function openWorkPhase(page: Page) {
+  await advanceDaySummaryIfNeeded(page);
+  if ((await readGameState(page)).dayCycle.phase !== 'communication') return;
+  const statusButton = page.getByRole('button', { name: 'Status', exact: true });
+  if (!(await statusButton.isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: /Messenger/ }).first().click();
+  }
+  await statusButton.click();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.removeItem('ustnik-2-state');
@@ -66,6 +86,7 @@ test('smoke: tytuł, boot, pulpit i generator działają lokalnie', async ({ pag
   await expect.poll(async () => (await readGameState(page)).screen).toBe('desktop');
   await expect(page.getByText('Cybek OS', { exact: true }).first()).toBeVisible();
 
+  await openWorkPhase(page);
   await page.getByRole('button', { name: 'Ustno.ai Utwórz' }).click();
   const desktopState = await readGameState(page);
   expect(desktopState.activeWindow).toBe('create');
@@ -178,6 +199,7 @@ test('responsive: mobile prowadzi próbę i wynik od góry ekranu bez overflow',
   await page.evaluate(() => window.advanceTime?.(5000));
   await expect.poll(async () => (await readGameState(page)).screen).toBe('desktop');
 
+  await openWorkPhase(page);
   await page.getByRole('button', { name: 'Ustno.ai Utwórz' }).click();
   await expect.poll(async () => (await readGameState(page)).activeWindow).toBe('create');
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
@@ -219,6 +241,47 @@ test('responsive: mobile prowadzi próbę i wynik od góry ekranu bez overflow',
   expect(resultsLayout.bodyText).toContain('ślad jakości');
 });
 
+test('pętla dnia: komunikat, odpoczynek i niespełniona obietnica przechodzą przez zapis', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.render_game_to_text === 'function');
+
+  await page.getByRole('button', { name: 'Przejdź do bootowania' }).click();
+  await page.evaluate(() => window.advanceTime?.(5000));
+  await expect.poll(async () => (await readGameState(page)).screen).toBe('desktop');
+
+  let state = await readGameState(page);
+  expect(state.dayCycle).toMatchObject({ currentDay: 1, phase: 'communication' });
+
+  await page.getByRole('button', { name: 'Status', exact: true }).click();
+  state = await readGameState(page);
+  expect(state.dayCycle.phase).toBe('work');
+  expect(state.stats.chatPressure).toBe(12);
+
+  await page.getByRole('button', { name: 'Odpocznij i zamknij dzień' }).click();
+  state = await readGameState(page);
+  expect(state.dayCycle).toMatchObject({ currentDay: 1, phase: 'daySummary' });
+  await advanceDaySummaryIfNeeded(page);
+  state = await readGameState(page);
+  expect(state.dayCycle).toMatchObject({ currentDay: 2, phase: 'communication' });
+
+  await page.getByRole('button', { name: 'Obietnica publikacji' }).click();
+  state = await readGameState(page);
+  expect(state.dayCycle).toMatchObject({ currentDay: 2, phase: 'work' });
+  expect(state.dayCycle.commitments).toHaveLength(1);
+  expect(state.dayCycle.commitments[0]).toMatchObject({ dueDay: 4, status: 'active' });
+
+  for (let day = 0; day < 3; day += 1) {
+    await openWorkPhase(page);
+    await page.getByRole('button', { name: 'Odpocznij i zamknij dzień' }).click();
+    await advanceDaySummaryIfNeeded(page);
+  }
+
+  state = await readGameState(page);
+  expect(state.dayCycle.currentDay).toBe(5);
+  expect(state.dayCycle.lastDaySummary).toMatchObject({ day: 4, missedCommitments: 1 });
+  expect(state.dayCycle.commitments[0].status).toBe('missed');
+});
+
 test('fabuła: pełny repertuar kończy Plan Występu bez cofania celu', async ({ page }) => {
   test.setTimeout(60000);
 
@@ -229,6 +292,7 @@ test('fabuła: pełny repertuar kończy Plan Występu bez cofania celu', async (
   await page.evaluate(() => window.advanceTime?.(5000));
   await expect.poll(async () => (await readGameState(page)).screen).toBe('desktop');
 
+  await openWorkPhase(page);
   await page.getByRole('button', { name: 'Ustno.ai Utwórz' }).click();
   await page.getByRole('button', { name: 'Stwórz pierwszą wersję' }).first().click();
   await finishCurrentRhythmRun(page);
@@ -236,6 +300,7 @@ test('fabuła: pełny repertuar kończy Plan Występu bez cofania celu', async (
   await page.getByRole('button', { name: 'Zapisz szkic do szuflady' }).click();
   await expect.poll(async () => (await readGameState(page)).screen).toBe('desktop');
 
+  await openWorkPhase(page);
   await page.getByRole('button', { name: 'Ustno.ai Szkice' }).click();
   await page.getByRole('button', { name: /Popraw szkic/ }).first().click();
   await finishCurrentRhythmRun(page);
@@ -245,17 +310,20 @@ test('fabuła: pełny repertuar kończy Plan Występu bez cofania celu', async (
   await expect(page.getByText(/Audio niedostępne|Tekst sceny/i)).toHaveCount(0);
   await clearActiveStoryScene(page);
 
+  await openWorkPhase(page);
   await page.getByRole('button', { name: 'Ustno.ai Szkice' }).click();
   await page.getByRole('button', { name: 'Wyślij szkic do Pawła' }).first().click();
   await expect.poll(async () => (await readGameState(page)).screen).toBe('desktop');
   await clearActiveStoryScene(page);
 
+  await openWorkPhase(page);
   await page.getByRole('button', { name: 'Ustno.ai Szkice' }).click();
   await page.getByRole('button', { name: 'Opublikuj na czacie głównym' }).first().click();
   await expect.poll(async () => (await readGameState(page)).screen).toBe('desktop');
   await clearActiveStoryScene(page);
 
   for (let remainingTrack = 0; remainingTrack < 2; remainingTrack += 1) {
+    await openWorkPhase(page);
     await page.getByRole('button', { name: 'Ustno.ai Utwórz' }).click();
     await page.getByRole('button', { name: 'Stwórz pierwszą wersję' }).first().click();
     await finishCurrentRhythmRun(page);

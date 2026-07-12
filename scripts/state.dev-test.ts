@@ -46,7 +46,9 @@ const legacyState = migrateSavedState({
   ],
 } as unknown) as GameState;
 
-assertEqual(legacyState.saveVersion, 1, 'migration keeps current save version');
+assertEqual(legacyState.saveVersion, 2, 'migration upgrades the save version');
+assertEqual(legacyState.dayCycle.currentDay, 1, 'legacy save starts at day one of the new cycle');
+assertEqual(legacyState.dayCycle.expectedCadenceDays, 4, 'legacy save receives the default audience cadence');
 assertEqual(legacyState.drafts.length, 1, 'legacy drawer item migrates into drafts');
 assertEqual(legacyState.drafts[0].status, 'inDrawer', 'legacy drawer status becomes inDrawer');
 assertEqual(legacyState.drafts[0].bestGrade, 'A', 'legacy draft grade is preserved when valid');

@@ -1,8 +1,15 @@
 import { initialGroupMessages, initialPawelMessages } from './data/messages.ts';
 import { tracks } from './data/tracks.ts';
+import {
+  defaultDayCycle,
+  isDayPhase,
+  normalizeCommitments,
+  TOTAL_DAYS,
+} from './dayCycle.ts';
 import { tierFromQualityProgress } from './rhythm.ts';
 import type {
   ChatMessage,
+  DayCycleState,
   Difficulty,
   DraftTrack,
   EchoMessage,
@@ -78,8 +85,9 @@ const INITIAL_TITLE_REVEAL = 0.05;
 const CORRUPTED_CHARACTERS = ['#', '%', '&', '?', '@', 'X', '+', '=', '*', '~'];
 
 export const defaultState: GameState = {
-  saveVersion: 1,
+  saveVersion: 2,
   stats: initialStats,
+  dayCycle: { ...defaultDayCycle },
   echo: defaultEchoState,
   resonance: defaultResonanceState,
   ending: defaultEndingState,
@@ -248,7 +256,7 @@ export function createResult(
   };
 }
 
-export function createDraftFromResult(result: PerformanceResult, status: DraftTrack['status']): DraftTrack {
+export function createDraftFromResult(result: PerformanceResult, status: DraftTrack['status'], currentDay = 1): DraftTrack {
   return {
     id: result.trackId,
     trackId: result.trackId,
@@ -259,11 +267,16 @@ export function createDraftFromResult(result: PerformanceResult, status: DraftTr
     qualityProgress: result.qualityProgress,
     status,
     updatedAt: new Date().toISOString(),
+    createdDay: currentDay,
+    lastWorkedDay: currentDay,
+    attemptCount: 1,
   };
 }
 
-export function improveDraftWithResult(draft: DraftTrack, result: PerformanceResult): DraftTrack {
-  const qualityProgress = draft.qualityProgress + result.qualityProgress;
+export function improveDraftWithResult(draft: DraftTrack, result: PerformanceResult, currentDay = draft.lastWorkedDay ?? draft.createdDay ?? 1): DraftTrack {
+  const attemptCount = (draft.attemptCount ?? 1) + 1;
+  const diminishingFactor = Math.max(0.25, 1 - Math.max(0, attemptCount - 2) * 0.15);
+  const qualityProgress = draft.qualityProgress + Math.round(result.qualityProgress * diminishingFactor);
 
   return {
     ...draft,
@@ -273,6 +286,9 @@ export function improveDraftWithResult(draft: DraftTrack, result: PerformanceRes
     qualityProgress,
     status: 'inDrawer',
     updatedAt: new Date().toISOString(),
+    createdDay: draft.createdDay ?? currentDay,
+    lastWorkedDay: currentDay,
+    attemptCount,
   };
 }
 
@@ -292,7 +308,7 @@ export function getPublishedQuality(tier: QualityTier): PublishedTrack['quality'
   return 'szkic publiczny';
 }
 
-export function createPublishedTrack(draft: DraftTrack): PublishedTrack {
+export function createPublishedTrack(draft: DraftTrack, publishedDay = 1, previousPublicationDay: number | null = null): PublishedTrack {
   return {
     id: draft.trackId,
     trackId: draft.trackId,
@@ -303,6 +319,8 @@ export function createPublishedTrack(draft: DraftTrack): PublishedTrack {
     qualityProgress: draft.qualityProgress,
     quality: getPublishedQuality(draft.bestGrade),
     publishedAt: new Date().toISOString(),
+    publishedDay,
+    previousPublicationDay,
   };
 }
 
@@ -312,6 +330,7 @@ export function migrateSavedState(saved: unknown): GameState {
     drafts?: SavedDraft[];
     drawer?: LegacyPerformanceResult[];
     publishedTracks?: PublishedTrack[];
+    dayCycle?: Partial<DayCycleState>;
   });
 }
 
@@ -320,6 +339,7 @@ function migrateState(
     drafts?: SavedDraft[];
     drawer?: LegacyPerformanceResult[];
     publishedTracks?: PublishedTrack[];
+    dayCycle?: Partial<DayCycleState>;
   },
 ): GameState {
   const legacyDrafts = saved.drafts ?? saved.drawer ?? [];
@@ -332,6 +352,9 @@ function migrateState(
           status: item.status === 'sentToPawel' ? 'sentToPawel' : 'inDrawer',
           bestGrade: normalizeTier(item.bestGrade),
           qualityProgress: item.qualityProgress ?? estimateLegacyProgress(item.bestAccuracy),
+          createdDay: item.createdDay ?? 1,
+          lastWorkedDay: item.lastWorkedDay ?? item.createdDay ?? 1,
+          attemptCount: item.attemptCount ?? 1,
         };
       }
 
@@ -361,6 +384,8 @@ function migrateState(
       grade,
       qualityProgress: item.qualityProgress ?? estimateLegacyProgress(item.accuracy),
       quality: normalizePublishedQuality(item.quality, grade),
+      publishedDay: item.publishedDay ?? undefined,
+      previousPublicationDay: item.previousPublicationDay ?? null,
     };
   });
   const publishedTrackIds = saved.publishedTrackIds ?? publishedTracks.map((item) => item.trackId);
@@ -371,11 +396,13 @@ function migrateState(
   const createdTrackIds = Array.from(
     new Set([...(saved.createdTrackIds ?? []), ...drafts.map((item) => item.trackId), ...publishedTrackIds]),
   );
+  const dayCycle = normalizeDayCycle(saved.dayCycle, publishedTracks.length);
 
   return {
     ...defaultState,
     ...saved,
-    saveVersion: 1,
+    saveVersion: 2,
+    dayCycle,
     echo: normalizeEchoState(saved.echo),
     resonance: normalizeResonanceState(saved.resonance),
     ending: normalizeEndingState(saved.ending),
@@ -385,6 +412,47 @@ function migrateState(
     publishedTracks,
     publishedTrackIds,
   };
+}
+
+function normalizeDayCycle(value: unknown, publishedCount: number): DayCycleState {
+  if (!value || typeof value !== 'object') {
+    return {
+      ...defaultDayCycle,
+      lastPublicationDay: publishedCount > 0 ? publishedCount : null,
+      publicationDays: Array.from({ length: publishedCount }, (_, index) => index + 1),
+    };
+  }
+
+  const dayCycle = value as Partial<DayCycleState>;
+  const phase = isDayPhase(dayCycle.phase) ? dayCycle.phase : defaultDayCycle.phase;
+  const publicationDays = Array.isArray(dayCycle.publicationDays)
+    ? dayCycle.publicationDays.filter((day): day is number => typeof day === 'number' && Number.isFinite(day))
+    : [];
+  const normalizedPublicationDays = publicationDays.length > 0
+    ? publicationDays
+    : Array.from({ length: publishedCount }, (_, index) => index + 1);
+
+  return {
+    ...defaultDayCycle,
+    ...dayCycle,
+    currentDay: clampDay(dayCycle.currentDay, 1, TOTAL_DAYS),
+    totalDays: TOTAL_DAYS,
+    phase,
+    communicationUsed: Boolean(dayCycle.communicationUsed),
+    lastPublicationDay: typeof dayCycle.lastPublicationDay === 'number'
+      ? dayCycle.lastPublicationDay
+      : normalizedPublicationDays.at(-1) ?? null,
+    expectedCadenceDays: clampDay(dayCycle.expectedCadenceDays, 2, 7),
+    publicationDays: normalizedPublicationDays,
+    commitments: normalizeCommitments(dayCycle.commitments),
+    rejectedCount: Math.max(0, Math.round(typeof dayCycle.rejectedCount === 'number' ? dayCycle.rejectedCount : 0)),
+    lastDaySummary: dayCycle.lastDaySummary ?? null,
+  };
+}
+
+function clampDay(value: unknown, min: number, max: number) {
+  const number = typeof value === 'number' && Number.isFinite(value) ? value : min;
+  return Math.max(min, Math.min(max, Math.round(number)));
 }
 
 function corruptedCharacter(seed: string, index: number, corruptionTick: number) {

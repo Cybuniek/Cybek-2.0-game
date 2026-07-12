@@ -450,9 +450,10 @@ Stan poczatkowy:
 
 Akcje zmieniaja statystyki:
 
-- zapis szkicu lekko podnosi presje,
-- wyslanie do Pawla podnosi presje bardziej,
-- publikacja podnosi Wystep, Cybart.exe i Presje Czatu.
+- komunikat w Messengerze moze obnizyc Presje Czatu kosztem Wystepu lub Cybart.exe,
+- praca nad szkicem podnosi Cybart.exe, a zapis i wyslanie do Pawla dokladaja slad presji,
+- publikacja podnosi Wystep i Cybart.exe, a jej wplyw na Presje zalezy od jakosci i odstepu od poprzedniej publikacji,
+- odrzucenie usuwa szkic i zapisuje ukryty slad zwatpienia.
 
 Modyfikator zalezy od:
 
@@ -461,6 +462,14 @@ Modyfikator zalezy od:
 - rodzaju akcji.
 
 Stan jest zapisywany lokalnie. Reset zapisu przywraca domyslny stan gry.
+
+### 6.1 Petla dni
+
+Jedna sesja obejmuje 14 dni. Dzien zaczyna sie od jednego komunikatu w Messengerze, nastepnie gracz wybiera prace nad nowym lub istniejacym szkicem albo odpoczynek. Po probie rytmicznej wybiera zapis do szuflady, wyslanie Pawlowi, publikacje albo odrzucenie. Zamkniecie dnia aktualizuje presje, wiek szkicow, zobowiazania i tempo oczekiwanej publikacji, a faza podsumowania pokazuje delty przed rozpoczeciem kolejnego dnia. Czternasty dzien pozostaje w podsumowaniu do jawnego domkniecia sesji.
+
+Obietnica publikacji ma termin dwa dni do przodu. Jej niedowiezienie nie blokuje gry, ale zwieksza Presje Czatu i obniza Wystep. Poziom `Cybart.exe` od 90 wymusza odpoczynek przed kolejna praca, a Presja Czatu od 90 wymaga najpierw komunikacyjnego rozladowania.
+
+Pulpit pokazuje dzien sesji, strefy statystyk, aktywne zobowiazania oraz przewidywane delty komunikatow. Ukryty modyfikator rytmu jest deterministyczny i po probie komentuje go Neura; nie zmienia synchronizacji audio ani beatmap.
 
 ## 7. Odkrywanie tytulow
 

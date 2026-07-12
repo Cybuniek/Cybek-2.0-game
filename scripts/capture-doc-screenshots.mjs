@@ -115,6 +115,7 @@ try {
   await page.evaluate(() => window.advanceTime?.(5000));
   await waitForScreen('desktop');
 
+  await page.getByRole('button', { name: 'Status', exact: true }).click();
   await page.getByRole('button', { name: 'Ustno.ai Utwórz' }).click();
   await expect.poll(async () => (await readGameState()).activeWindow).toBe('create');
   await capture('04-generator-masked-tracks.png');
@@ -129,6 +130,9 @@ try {
 
   await page.getByRole('button', { name: 'Zapisz szkic do szuflady' }).click();
   await waitForScreen('desktop');
+  await page.getByRole('button', { name: 'Messenger' }).click();
+  await page.getByRole('button', { name: /Rozpocznij dzień/ }).click();
+  await page.getByRole('button', { name: 'Status', exact: true }).click();
   await page.getByRole('button', { name: 'Ustno.ai Szkice' }).click();
   await expect.poll(async () => (await readGameState()).activeWindow).toBe('me');
   await capture('07-drawer-sketch.png');

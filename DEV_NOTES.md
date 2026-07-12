@@ -204,7 +204,7 @@ Jakosc jest widoczna w playerze i w wiadomosci publikacji na czacie glownym. Po 
 
 ## Zapis stanu
 
-Stan jest zapisywany w localStorage pod kluczem `ustnik-2-state`. Save ma `saveVersion: 1`.
+Stan jest zapisywany w localStorage pod kluczem `ustnik-2-state`. Save ma `saveVersion: 2`; starsze dane sa uzupelniane przez migracje w `storage.ts`.
 
 Zapisywane sa:
 
@@ -225,13 +225,26 @@ Migracja w `storage.ts` probuje zachowac starsze save'y z poprzedniego modelu `d
 
 ## Statystyki
 
-Zmiany statystyk sa liczone przez `getStatDelta` w `src/storage.ts` i zaleza od dokladnosci oraz poziomu trudnosci.
+Legacyjne delty wyniku pozostaja w `getStatDelta` w `src/storage.ts`, ale aktywna petla dni korzysta z czystych funkcji w `src/dayCycle.ts` i laczy wynik rytmu z decyzja dnia.
 
 - Zapis szkicu lekko podnosi `Presja Czatu`.
 - Wyslanie szkicu do Pawla podnosi `Presja Czatu`.
 - Publikacja podnosi `Wystep`, `Cybart.exe` i `Presja Czatu`.
 
 Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
+
+## Petla 14 dni i statystyki v2
+
+Nowa petla domenowa miesci sie w `src/dayCycle.ts`. Po migracji save'a do `saveVersion: 2` `GameState.dayCycle` prowadzi czternastodniowa sesje przez fazy komunikacji, pracy, wyniku i podsumowania dnia. Podsumowanie zatrzymuje kalendarz na zakonczonym dniu; przycisk w Messengerze otwiera dopiero kolejny dzien albo domyka czternasta dobe.
+
+- Komunikat jest wybierany przed praca; `status`, teaser, obietnica, przerwa, live i cisza maja jawne delty.
+- Obietnica publikacji zapisuje termin dwa dni do przodu. Niedowieziona obietnica podnosi presje i zostawia zdarzenie dla Neury.
+- Brak publikacji wykonuje dzienny tick presji i po dluzszej ciszy obniza Wystep. Tempo publikacji uczy sie interwalu ograniczonego do 2-7 dni.
+- Szkice maja `createdDay`, `lastWorkedDay` i licznik prob. Wiek szkicu jest narracyjny i presyjny, ale nie zmienia automatycznie jakosci.
+- `Cybart.exe >= 90` blokuje nowa prace, a `Presja Czatu >= 90` blokuje publikacje do czasu komunikacyjnego rozladowania.
+- `getRhythmStatModifier()` dostarcza deterministyczny, ukryty modyfikator okien rytmu i combo. Raport wyniku przekazuje Neurze tylko opisowy hint.
+
+Pelna petla nie dodaje nowych endingow ani synchronizacji audio. Po opublikowaniu calego repertuaru nadal uruchamiany jest jedynie most `story.final.ready`.
 
 ## Aktualne ograniczenia wersji gry
 

@@ -832,6 +832,60 @@ button:disabled {
   gap: 8px;
 }
 
+.day-cycle-panel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 223, 110, 0.42);
+  border-radius: var(--radius-panel);
+  background: linear-gradient(90deg, rgba(255, 223, 110, 0.08), rgba(0, 215, 239, 0.04));
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.day-cycle-panel > strong {
+  color: #fff9d7;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.day-cycle-panel em {
+  color: var(--accent-warn);
+  font-size: 11px;
+}
+
+.day-actions {
+  display: grid;
+  gap: 7px;
+  padding-top: 4px;
+}
+
+.day-actions strong {
+  color: var(--line-cyan);
+}
+
+.day-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.day-cycle-panel label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.day-cycle-panel select {
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid rgba(0, 215, 239, 0.48);
+  background: rgba(2, 6, 13, 0.92);
+  color: var(--text-main);
+}
+
 .chat-log {
   margin-top: 12px;
   height: 330px;
@@ -1005,6 +1059,33 @@ button:disabled {
 .stat meter {
   width: 100%;
   accent-color: var(--line-cyan);
+}
+
+.stat strong {
+  display: grid;
+  gap: 2px;
+}
+
+.stat strong em {
+  color: var(--text-soft);
+  font-size: 9px;
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.stats-panel-content {
+  display: grid;
+  gap: 5px;
+}
+
+.stats-panel-content > strong {
+  margin-bottom: 5px;
+  color: var(--accent-pink);
+}
+
+.stats-panel-content > small {
+  color: var(--text-soft);
+  font-size: 10px;
 }
 
 .todo-widget {
@@ -2290,6 +2371,33 @@ button:disabled {
   opacity: 0.82;
 }
 
+.result-neura-hint {
+  margin: 14px 0 0;
+  padding: 9px 11px;
+  border-left: 2px solid var(--accent-warn);
+  background: rgba(255, 223, 110, 0.06);
+  color: #fff9d7;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.result-stat-previews {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px dashed rgba(0, 215, 239, 0.32);
+  color: var(--text-soft);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+}
+
+.result-stat-previews strong {
+  color: var(--line-cyan);
+  font-family: inherit;
+  font-size: 12px;
+}
+
 @keyframes fall {
   from {
     top: 10%;
@@ -3168,6 +3276,16 @@ button:disabled {
 
   .window-body {
     padding: 10px;
+  }
+
+  .day-cycle-panel label {
+    grid-template-columns: 1fr;
+  }
+
+  .day-action-row button,
+  .day-cycle-panel > button {
+    flex: 1 1 100px;
+    min-width: 0;
   }
 
   .track-row,

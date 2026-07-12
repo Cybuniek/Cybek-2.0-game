@@ -1,6 +1,9 @@
 Original prompt: Stworz minimalny, grywalny szkielet dla prototypu webowego o nazwie "Ustnik 2.0 The Show - The Game".
 
 Postep:
+- Dodano wersje 2 stanu gry z czternastodniowa petla: komunikacja przed praca, podsumowanie dnia, wiek szkicow, zobowiazania publikacji, dzienny tick presji, krytyczne blokady statystyk i odrzucenia ze sladem.
+- Dodano `src/dayCycle.ts`, deterministyczne modyfikatory rytmu zalezne od Cybart.exe/Presji oraz podglad skutkow decyzji w Messengerze i raporcie proby.
+- Rozszerzono testy o `npm run test:day-cycle` i zaktualizowano smoke E2E pod obowiazkowy komunikat przed praca.
 - Utworzono szkielet React + TypeScript + Vite.
 - Dodano pulpit Cybek OS, Neure, okna Messenger/Ustno.ai, placeholder rytmiczny, wyniki, localStorage i DEV_NOTES.md.
 - Zaimplementowano grywalną sekcję rytmiczną: tory `S/D/K/L`, czas próby zależny od długości bazowego audio lub metadanych ładowanego utworu, BPM pobierany z pełnej wersji utworu, poziomy trudności sterujące gęstością nut przez mnożniki `Łatwy=0.5`, `Normalny=0.7`, `Cybart=1.0`, feedback `Too fast/Good/Great/Perfect/Too late/Miss`, combo z mnożnikiem jakości i wynik w tierach `F/E/D/C/B/A/S`.

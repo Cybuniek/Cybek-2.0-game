@@ -13,6 +13,9 @@ export type NeuraPresenceEventId =
   | 'draftSaved'
   | 'sentToPawel'
   | 'published'
+  | 'dayAdvanced'
+  | 'promiseMissed'
+  | 'draftRejected'
   | 'rhythmStarted'
   | 'rhythmFinished'
   | 'manualReaction'
@@ -144,6 +147,15 @@ export type RhythmSummary = {
   emptyPresses: number;
   maxCombo: number;
   totalNotes: number;
+  rhythmStatModifier?: RhythmStatModifier;
+};
+
+export type RhythmStatModifier = {
+  cybartBand: StatBand;
+  pressureBand: StatBand;
+  comboBonus: number;
+  timingPenaltyMs: number;
+  neuraHint: 'zimny silnik' | 'stabilny silnik' | 'przegrzanie' | 'szum publiczności' | 'czysty kanał';
 };
 
 export type Track = {
@@ -168,6 +180,8 @@ export type Track = {
 export type ChatMessage = {
   author: string;
   text: string;
+  day?: number;
+  kind?: CommunicationAction;
 };
 
 export type PerformanceResult = RhythmSummary & {
@@ -189,6 +203,9 @@ export type DraftTrack = {
   qualityProgress: number;
   status: 'inDrawer' | 'sentToPawel';
   updatedAt: string;
+  createdDay?: number;
+  lastWorkedDay?: number;
+  attemptCount?: number;
 };
 
 export type PublishedTrack = {
@@ -201,6 +218,8 @@ export type PublishedTrack = {
   qualityProgress: number;
   quality: 'szkic publiczny' | 'lepsza wersja' | 'cudeńko';
   publishedAt: string;
+  publishedDay?: number;
+  previousPublicationDay?: number | null;
 };
 
 export type Stats = {
@@ -209,9 +228,50 @@ export type Stats = {
   chatPressure: number;
 };
 
+export type StatBand = 'low' | 'rising' | 'stable' | 'tense' | 'critical';
+
+export type DayPhase = 'communication' | 'work' | 'result' | 'daySummary' | 'complete';
+
+export type CommunicationAction = 'silence' | 'status' | 'teaser' | 'promise' | 'break' | 'live';
+
+export type CommitmentStatus = 'active' | 'fulfilled' | 'missed';
+
+export type Commitment = {
+  id: string;
+  kind: 'publication';
+  createdDay: number;
+  dueDay: number;
+  trackId: string;
+  status: CommitmentStatus;
+};
+
+export type DaySummary = {
+  day: number;
+  published: boolean;
+  pressureDelta: number;
+  performanceDelta: number;
+  cybartDelta: number;
+  missedCommitments: number;
+  expiredDraftCount: number;
+};
+
+export type DayCycleState = {
+  currentDay: number;
+  totalDays: 14;
+  phase: DayPhase;
+  communicationUsed: boolean;
+  lastPublicationDay: number | null;
+  expectedCadenceDays: number;
+  publicationDays: number[];
+  commitments: Commitment[];
+  rejectedCount: number;
+  lastDaySummary: DaySummary | null;
+};
+
 export type GameState = {
-  saveVersion: 1;
+  saveVersion: 2;
   stats: Stats;
+  dayCycle: DayCycleState;
   echo: EchoState;
   resonance: ResonanceState;
   ending: EndingState;

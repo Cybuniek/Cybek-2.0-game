@@ -54,6 +54,7 @@ export const buttonLabels = {
   sendToPawel: 'Wyślij szkic do Pawła',
   saveDraft: 'Zapisz szkic do szuflady',
   overwriteDraft: 'Nadpisz szkic w szufladzie',
+  discardDraft: 'Odrzuć szkic',
   backToDesktop: 'Wyjdź do pulpitu',
   finishTrial: 'Zakończ próbny występ',
   backWithoutSave: 'Wróć bez zapisu',

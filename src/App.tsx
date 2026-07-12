@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 import { neuraComments } from './data/messages';
 import type { NeuraVoiceLine } from './data/neuraVoiceLines';
-import { chatAuthors, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
+import { chatAuthors, communicationMessage, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
 import { useSoundscape } from './audio/useSoundscape';
 import { useRhythmSfx } from './audio/useRhythmSfx';
@@ -48,15 +48,29 @@ import {
   upsertPublished,
   type RemixComparison,
 } from './gameFlow';
+import {
+  applyCommunicationAction,
+  applyStatsDelta,
+  advanceDaySummary,
+  beginWork,
+  canPublish,
+  canStartWork,
+  cancelWork,
+  finishDay,
+  getActionPreview,
+  getDraftAge,
+  getRhythmStatModifier,
+  getStatBand,
+  getDecisionDelta,
+  type DayDecision,
+} from './dayCycle';
 import { updateEndingState } from './ending';
 import { applyResonanceEffects, updateResonanceState } from './resonance';
 import {
-  applyStatDelta,
   createDraftFromResult,
   createPublishedTrack,
   defaultState,
   getNextDifficulty,
-  getStatDelta,
   getTitleReveal,
   improveDraftWithResult,
   loadState,
@@ -100,6 +114,7 @@ import {
 } from './rhythm';
 import type {
   Difficulty,
+  CommunicationAction,
   DraftTrack,
   GameState,
   NeuraPresenceEventId,
@@ -108,6 +123,7 @@ import type {
   PerformanceResult,
   PublishedTrack,
   ResonanceVisualEffects,
+  RhythmStatModifier,
   RhythmLane,
   RhythmSummary,
   Track,
@@ -455,10 +471,17 @@ export default function App() {
           ? { track: result.trackTitle, accuracy: result.accuracy, grade: result.grade }
           : null,
         stats: gameState.stats,
+        statBands: {
+          performance: getStatBand(gameState.stats.performance),
+          cybart: getStatBand(gameState.stats.cybart),
+          chatPressure: getStatBand(gameState.stats.chatPressure),
+        },
+        dayCycle: gameState.dayCycle,
         drafts: gameState.drafts.map((draft) => ({
           track: draft.trackTitle,
           difficulty: draft.difficulty,
           status: draft.status,
+          ageDays: getDraftAge(gameState.dayCycle.currentDay, draft),
         })),
         published: gameState.publishedTracks.map((track) => ({
           title: track.trackTitle,
@@ -609,6 +632,10 @@ export default function App() {
     ? gameState.drafts.find((draft) => draft.id === activeRun.draftId) ?? null
     : null;
   const resonanceEffects = gameState.resonance.effects;
+  const rhythmStatModifier = useMemo(
+    () => getRhythmStatModifier(gameState.stats),
+    [gameState.stats.cybart, gameState.stats.chatPressure, gameState.stats.performance],
+  );
   const desktopClassName = [
     'desktop',
     `resonance-${gameState.resonance.level}`,
@@ -629,50 +656,111 @@ export default function App() {
     return maskTrackTitle(title, getTitleReveal(gameState.titleRevealByTrackId, trackId, isPublished), trackId, corruptionTick);
   }
 
+  function recordDayCycleEvents(previousState: GameState, nextState: GameState) {
+    if (nextState.dayCycle.currentDay !== previousState.dayCycle.currentDay || nextState.dayCycle.phase === 'complete') {
+      recordNeuraPresenceEvent('dayAdvanced');
+    }
+    if (nextState.dayCycle.rejectedCount > previousState.dayCycle.rejectedCount) {
+      recordNeuraPresenceEvent('draftRejected');
+    }
+    if ((nextState.dayCycle.lastDaySummary?.missedCommitments ?? 0) > 0) {
+      recordNeuraPresenceEvent('promiseMissed');
+    }
+  }
+
+  function commitDay(previousState: GameState, nextState: GameState, windowId: WindowId) {
+    setGameState(nextState);
+    recordDayCycleEvents(previousState, nextState);
+    returnToDesktop(windowId);
+  }
+
+  function sendCommunication(action: CommunicationAction, trackId?: string) {
+    if (gameState.dayCycle.phase !== 'communication') return;
+    const nextDayState = applyCommunicationAction(gameState, action, trackId);
+    if (nextDayState === gameState) return;
+
+    const target = trackId
+      ? gameState.drafts.find((draft) => draft.trackId === trackId)?.trackTitle
+        ?? tracks.find((track) => track.id === trackId)?.title
+      : undefined;
+    const message = communicationMessage(action, gameState.dayCycle.currentDay, target);
+    const nextState: GameState = {
+      ...nextDayState,
+      groupMessages: [...nextDayState.groupMessages, message],
+    };
+    setGameState(nextState);
+    setMessengerTab('group');
+    showEnvironmentalEcho(action === 'silence' ? 'Cisza też jest komunikatem.' : message.text);
+  }
+
+  function restForDay() {
+    if (gameState.dayCycle.phase !== 'work') return;
+    const withRest = {
+      ...gameState,
+      stats: applyStatsDelta(gameState.stats, getDecisionDelta('rest')),
+    };
+    const nextState = finishDay(withRest);
+    commitDay(gameState, nextState, 'messenger');
+  }
+
+  function continueAfterDaySummary() {
+    if (gameState.dayCycle.phase !== 'daySummary') return;
+    const nextState = advanceDaySummary(gameState);
+    setGameState(nextState);
+    recordDayCycleEvents(gameState, nextState);
+  }
+
   function startCreate(track: Track) {
+    if (gameState.dayCycle.phase !== 'work' || !canStartWork(gameState.stats)) return;
+    setGameState(beginWork(gameState));
     startRun(track, track.difficulties[0], 'create');
   }
 
   function startRemix(draft: DraftTrack) {
     const track = tracks.find((item) => item.id === draft.trackId);
-    const nextDifficulty = getNextDifficulty(draft.trackId, draft.difficulty);
-    if (track && nextDifficulty) startRun(track, nextDifficulty, 'remix', draft.id);
+    const nextDifficulty = getNextDifficulty(draft.trackId, draft.difficulty) ?? draft.difficulty;
+    if (gameState.dayCycle.phase !== 'work' || !canStartWork(gameState.stats)) return;
+    if (track) {
+      setGameState(beginWork(gameState));
+      startRun(track, nextDifficulty, 'remix', draft.id);
+    }
   }
 
   function saveInitialDraft(status: DraftTrack['status']) {
     if (!result) return;
-    const draft = createDraftFromResult(result, status);
-    const nextState = {
+    const action: DayDecision = status === 'sentToPawel' ? 'sendToPawel' : 'saveDraft';
+    const draft = createDraftFromResult(result, status, gameState.dayCycle.currentDay);
+    const pawelMessages = status === 'sentToPawel'
+      ? addMessage(
+          gameState.pawelMessages,
+          chatAuthors.cybek,
+          pawelDraftMessage(
+            result,
+            maskTrackTitle(
+              result.trackTitle,
+              getTitleReveal(gameState.titleRevealByTrackId, result.trackId, gameState.publishedTrackIds.includes(result.trackId)),
+              result.trackId,
+              corruptionTick,
+            ),
+          ),
+        )
+      : gameState.pawelMessages;
+    let nextState: GameState = {
       ...gameState,
       createdTrackIds: addUnique(gameState.createdTrackIds, result.trackId),
       titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, result.trackId, result.accuracy),
       drafts: upsertDraft(gameState.drafts, draft),
-      pawelMessages:
-        status === 'sentToPawel'
-          ? addMessage(
-              gameState.pawelMessages,
-              chatAuthors.cybek,
-              pawelDraftMessage(
-                result,
-                maskTrackTitle(
-                  result.trackTitle,
-                  getTitleReveal(gameState.titleRevealByTrackId, result.trackId, gameState.publishedTrackIds.includes(result.trackId)),
-                  result.trackId,
-                  corruptionTick,
-                ),
-              ),
-            )
-          : gameState.pawelMessages,
-      stats: applyStatDelta(gameState.stats, getStatDelta(result, status === 'sentToPawel' ? 'sendToPawel' : 'saveDraft')),
+      pawelMessages,
+      stats: applyStatsDelta(gameState.stats, getDecisionDelta(action, result.grade, true)),
     };
+    nextState = finishDay(nextState);
 
-    setGameState(nextState);
     runStoryAction(status === 'sentToPawel' ? 'draft.sentToPawel' : 'draft.saved', nextState);
     if (status === 'sentToPawel') {
       queueStoryScene({ type: 'share', channel: 'pawel', trackId: draft.trackId });
     }
 
-    returnToDesktop(status === 'sentToPawel' ? 'messenger' : 'me');
+    commitDay(gameState, nextState, status === 'sentToPawel' ? 'messenger' : 'me');
     recordNeuraPresenceEvent(status === 'sentToPawel' ? 'sentToPawel' : 'draftSaved');
     if (status === 'sentToPawel') setMessengerTab('pawel');
   }
@@ -681,23 +769,24 @@ export default function App() {
     if (!result || !activeRun?.draftId) return;
     const current = gameState.drafts.find((draft) => draft.id === activeRun.draftId);
     if (!current) return;
-    const nextState = {
+    let nextState: GameState = {
       ...gameState,
-      drafts: upsertDraft(gameState.drafts, improveDraftWithResult(current, result)),
+      drafts: upsertDraft(gameState.drafts, improveDraftWithResult(current, result, gameState.dayCycle.currentDay)),
       titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, result.trackId, result.accuracy),
-      stats: applyStatDelta(gameState.stats, getStatDelta(result, 'saveDraft')),
+      stats: applyStatsDelta(gameState.stats, getDecisionDelta('saveDraft', result.grade, true)),
     };
+    nextState = finishDay(nextState);
 
-    setGameState(nextState);
     runStoryAction('draft.saved', nextState);
     queueStoryScene({ type: 'remix.firstOverwritten', trackId: result.trackId });
+    commitDay(gameState, nextState, 'me');
     recordNeuraPresenceEvent('draftSaved');
-    returnToDesktop('me');
   }
 
   function sendDraftToPawel(draft: DraftTrack) {
+    if (gameState.dayCycle.phase !== 'work') return;
     const resultLike = resultFromDraft(draft);
-    const nextState = {
+    let nextState: GameState = {
       ...gameState,
       drafts: upsertDraft(gameState.drafts, { ...draft, status: 'sentToPawel', updatedAt: new Date().toISOString() }),
       titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, draft.trackId, draft.bestAccuracy),
@@ -714,26 +803,29 @@ export default function App() {
           ),
         ),
       ),
-      stats: applyStatDelta(gameState.stats, getStatDelta(resultLike, 'sendToPawel')),
+      stats: applyStatsDelta(gameState.stats, getDecisionDelta('sendToPawel', resultLike.grade, false)),
     };
-    setGameState(nextState);
+    nextState = finishDay(nextState);
+    commitDay(gameState, nextState, 'messenger');
     runStoryAction('draft.sentToPawel', nextState);
     queueStoryScene({ type: 'share', channel: 'pawel', trackId: draft.trackId });
     recordNeuraPresenceEvent('sentToPawel');
-    setActiveWindow('messenger');
     setMessengerTab('pawel');
   }
 
   function publishInitialResult() {
     if (!result || gameState.publishedTrackIds.includes(result.trackId)) return;
-    publishDraft(createDraftFromResult(result, 'inDrawer'));
+    publishDraft(createDraftFromResult(result, 'inDrawer', gameState.dayCycle.currentDay), true);
   }
 
-  function publishDraft(draft: DraftTrack) {
-    if (gameState.publishedTrackIds.includes(draft.trackId)) return;
+  function publishDraft(draft: DraftTrack, includeWork = false) {
+    if (gameState.publishedTrackIds.includes(draft.trackId) || !canPublish(gameState.stats)) return;
 
-    const published = createPublishedTrack(draft);
-    const resultLike = resultFromDraft(draft);
+    const published = createPublishedTrack(
+      draft,
+      gameState.dayCycle.currentDay,
+      gameState.dayCycle.lastPublicationDay,
+    );
     let nextState: GameState = {
       ...gameState,
       createdTrackIds: addUnique(gameState.createdTrackIds, draft.trackId),
@@ -742,14 +834,17 @@ export default function App() {
       publishedTracks: upsertPublished(gameState.publishedTracks, published),
       publishedTrackIds: addUnique(gameState.publishedTrackIds, draft.trackId),
       groupMessages: [...gameState.groupMessages, ...groupPublishMessages(published)],
-      stats: applyStatDelta(gameState.stats, getStatDelta(resultLike, 'publish')),
+      stats: applyStatsDelta(gameState.stats, getDecisionDelta('publish', draft.bestGrade, includeWork)),
     };
+    nextState = finishDay(nextState, {
+      publishedTrackId: draft.trackId,
+      publishedQuality: draft.bestGrade,
+    });
     nextState = triggerEchoAfterPublish(nextState, published);
     nextState = updateResonanceState(nextState, draft.bestAccuracy);
     nextState = applyResonanceEffects(nextState);
     nextState = updateEndingState(nextState);
 
-    setGameState(nextState);
     runStoryAction('track.published', nextState);
     queueStoryScene({ type: 'share', channel: 'chat', trackId: draft.trackId });
     if (gameState.publishedTrackIds.length < tracks.length && nextState.publishedTrackIds.length >= tracks.length) {
@@ -758,9 +853,43 @@ export default function App() {
     }
     if (nextState.stats.chatPressure >= 35) runStoryAction('neura.glitchSpike', nextState);
     showEnvironmentalEcho(nextState.echo.lastPhrase ? `Echo: ${nextState.echo.lastPhrase}` : 'Echo publikacji wraca przez EVENTS');
+    commitDay(gameState, nextState, 'messenger');
     recordNeuraPresenceEvent('published');
-    returnToDesktop('messenger');
     setMessengerTab('group');
+  }
+
+  function discardInitialResult() {
+    if (!result) return;
+    let nextState: GameState = {
+      ...gameState,
+      stats: applyStatsDelta(gameState.stats, getDecisionDelta('discard', result.grade, true)),
+      dayCycle: {
+        ...gameState.dayCycle,
+        rejectedCount: gameState.dayCycle.rejectedCount + 1,
+      },
+    };
+    nextState = finishDay(nextState);
+    commitDay(gameState, nextState, 'messenger');
+  }
+
+  function discardDraft(draft: DraftTrack) {
+    if (gameState.dayCycle.phase !== 'work') return;
+    let nextState: GameState = {
+      ...gameState,
+      drafts: gameState.drafts.filter((item) => item.id !== draft.id),
+      stats: applyStatsDelta(gameState.stats, getDecisionDelta('discard', draft.bestGrade, false)),
+      dayCycle: {
+        ...gameState.dayCycle,
+        rejectedCount: gameState.dayCycle.rejectedCount + 1,
+      },
+    };
+    nextState = finishDay(nextState);
+    commitDay(gameState, nextState, 'me');
+  }
+
+  function cancelPendingWork(windowId: WindowId) {
+    setGameState(cancelWork(gameState));
+    returnToDesktop(windowId);
   }
 
   function openPlayer(published: PublishedTrack) {
@@ -794,6 +923,8 @@ export default function App() {
           neuraComment={neuraComments[neuraIndex]}
           neuraPresence={neuraPresence}
           resonanceEffects={gameState.resonance.effects}
+          statModifier={rhythmStatModifier}
+          dayCycle={gameState.dayCycle}
           overlayDragEnabled={isDebugOverlayDragEnabled}
           overlayPositions={overlayPositions}
           onOverlayMove={(overlayId, position) => setOverlayPositions((state) => ({ ...state, [overlayId]: position }))}
@@ -845,9 +976,13 @@ export default function App() {
         <ResultsScreen
           result={result}
           displayTitle={getDisplayTitle(result.trackId, result.trackTitle)}
+          rhythmHint={result.rhythmStatModifier?.neuraHint ?? 'czysty kanał'}
+          stats={gameState.stats}
+          dayCycle={gameState.dayCycle}
           runMode={activeRun.mode}
           remixComparison={activeRemixDraft ? createRemixComparison(activeRemixDraft, result) : null}
           alreadyPublished={gameState.publishedTrackIds.includes(result.trackId)}
+          canPublish={canPublish(gameState.stats)}
           neuraComment={neuraComments[neuraIndex]}
           neuraPresence={neuraPresence}
           overlayDragEnabled={isDebugOverlayDragEnabled}
@@ -857,8 +992,9 @@ export default function App() {
           onSave={() => saveInitialDraft('inDrawer')}
           onSendToPawel={() => saveInitialDraft('sentToPawel')}
           onPublish={publishInitialResult}
+          onDiscard={discardInitialResult}
           onOverwrite={overwriteDraft}
-          onBack={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
+          onBack={() => cancelPendingWork(activeRun.mode === 'create' ? 'create' : 'me')}
           storySceneActive={isStorySceneActive}
         />
         {storySceneOverlay}
@@ -921,7 +1057,7 @@ export default function App() {
         onMove={(position) => setOverlayPositions((state) => ({ ...state, stats: position }))}
         dragEnabled={isDebugOverlayDragEnabled}
       >
-        <StatsPanel stats={gameState.stats} />
+        <StatsPanel stats={gameState.stats} dayCycle={gameState.dayCycle} />
       </DraggableOverlay>
       <PersistentOverlays
         comment={neuraComments[neuraIndex]}
@@ -1007,6 +1143,13 @@ export default function App() {
             onTabChange={setMessengerTab}
             pawelMessages={gameState.pawelMessages}
             groupMessages={gameState.groupMessages}
+            dayCycle={gameState.dayCycle}
+            stats={gameState.stats}
+            drafts={gameState.drafts}
+            availableTracks={availableCreateTracks}
+            onCommunication={sendCommunication}
+            onRest={restForDay}
+            onAdvanceDay={continueAfterDaySummary}
           />
         </Window>
       )}
@@ -1025,6 +1168,7 @@ export default function App() {
             publishedTrackIds={gameState.publishedTrackIds}
             corruptionTick={corruptionTick}
             onCreate={startCreate}
+            canStart={gameState.dayCycle.phase === 'work' && canStartWork(gameState.stats)}
           />
         </Window>
       )}
@@ -1039,12 +1183,16 @@ export default function App() {
         >
           <MeWindow
             drafts={gameState.drafts}
+            currentDay={gameState.dayCycle.currentDay}
             titleRevealByTrackId={gameState.titleRevealByTrackId}
             publishedTrackIds={gameState.publishedTrackIds}
             corruptionTick={corruptionTick}
             onRemix={startRemix}
             onSendToPawel={sendDraftToPawel}
             onPublish={publishDraft}
+            onDiscard={discardDraft}
+            canAct={gameState.dayCycle.phase === 'work'}
+            canPublish={canPublish(gameState.stats)}
           />
         </Window>
       )}
@@ -1355,16 +1503,117 @@ function MessengerWindow({
   onTabChange,
   pawelMessages,
   groupMessages,
+  dayCycle,
+  stats,
+  drafts,
+  availableTracks,
+  onCommunication,
+  onRest,
+  onAdvanceDay,
 }: {
   tab: 'pawel' | 'group';
   onTabChange: (tab: 'pawel' | 'group') => void;
   pawelMessages: GameState['pawelMessages'];
   groupMessages: GameState['groupMessages'];
+  dayCycle: GameState['dayCycle'];
+  stats: GameState['stats'];
+  drafts: DraftTrack[];
+  availableTracks: Track[];
+  onCommunication: (action: CommunicationAction, trackId?: string) => void;
+  onRest: () => void;
+  onAdvanceDay: () => void;
 }) {
   const messages = tab === 'pawel' ? pawelMessages : groupMessages;
+  const targetOptions = [
+    ...drafts.map((draft) => ({ id: draft.trackId, title: draft.trackTitle })),
+    ...availableTracks.map((track) => ({ id: track.id, title: track.title })),
+  ].filter((item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index);
+  const [selectedTargetId, setSelectedTargetId] = useState('');
+  const promiseTargetId = targetOptions.some((item) => item.id === selectedTargetId)
+    ? selectedTargetId
+    : targetOptions[0]?.id;
+  const phaseLabel = {
+    communication: 'komunikacja',
+    work: 'praca',
+    result: 'raport z próby',
+    daySummary: 'podsumowanie dnia',
+    complete: 'sesja domknięta',
+  }[dayCycle.phase];
+  const actionTitle = (action: CommunicationAction) => {
+    const preview = getActionPreview({ stats, dayCycle }, action);
+    return `${formatStatDelta(preview.delta)}${preview.warnings.length > 0 ? ` / ${preview.warnings[0]}` : ''}`;
+  };
 
   return (
     <>
+      <section className="day-cycle-panel" aria-label="Pętla dnia">
+        <strong>Dzień {dayCycle.currentDay}/{dayCycle.totalDays}</strong>
+        <span>faza: {phaseLabel}</span>
+        {dayCycle.lastDaySummary && (
+          <em>
+            ostatni dzień: presja {formatSigned(dayCycle.lastDaySummary.pressureDelta)},
+            Występ {formatSigned(dayCycle.lastDaySummary.performanceDelta)}
+          </em>
+        )}
+        {dayCycle.commitments.filter((commitment) => commitment.status === 'active').map((commitment) => (
+          <em key={commitment.id}>
+            zobowiązanie: publikacja do dnia {commitment.dueDay}
+          </em>
+        ))}
+        {dayCycle.phase === 'communication' && (
+          <div className="day-actions">
+            <strong>Wyślij jeden komunikat</strong>
+            <div className="day-action-row">
+              <button title={actionTitle('silence')} onClick={() => onCommunication('silence')}>Cisza</button>
+              <button title={actionTitle('status')} onClick={() => onCommunication('status')}>Status</button>
+              <button title={actionTitle('teaser')} onClick={() => onCommunication('teaser')}>Teaser</button>
+              <button title={actionTitle('break')} onClick={() => onCommunication('break')}>Przerwa</button>
+              <button title={actionTitle('live')} onClick={() => onCommunication('live')}>Live</button>
+            </div>
+            <label>
+              Cel obietnicy
+              <select value={promiseTargetId ?? ''} onChange={(event) => setSelectedTargetId(event.target.value)}>
+                {targetOptions.length === 0 && <option value="">brak utworu</option>}
+                {targetOptions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+              </select>
+            </label>
+            <button
+              title={actionTitle('promise')}
+              disabled={!promiseTargetId}
+              onClick={() => promiseTargetId && onCommunication('promise', promiseTargetId)}
+            >
+              Obietnica publikacji
+            </button>
+          </div>
+        )}
+        {dayCycle.phase === 'work' && (
+          <div className="day-actions">
+            <strong>Wybierz pracę w tym dniu albo odpocznij.</strong>
+            <button onClick={onRest}>Odpocznij i zamknij dzień</button>
+          </div>
+        )}
+        {dayCycle.phase === 'daySummary' && (
+          <div className="day-actions">
+            <strong>Podsumowanie dnia {dayCycle.lastDaySummary?.day ?? dayCycle.currentDay}</strong>
+            {dayCycle.lastDaySummary && (
+              <em>
+                Występ {formatSigned(dayCycle.lastDaySummary.performanceDelta)},
+                Cybart.exe {formatSigned(dayCycle.lastDaySummary.cybartDelta)},
+                Presja {formatSigned(dayCycle.lastDaySummary.pressureDelta)}.
+                {dayCycle.lastDaySummary.missedCommitments > 0
+                  ? ` Niespełnione zobowiązania: ${dayCycle.lastDaySummary.missedCommitments}.`
+                  : ''}
+              </em>
+            )}
+            <button onClick={onAdvanceDay}>
+              {dayCycle.currentDay >= dayCycle.totalDays
+                ? 'Zamknij 14-dniową sesję'
+                : `Rozpocznij dzień ${dayCycle.currentDay + 1}`}
+            </button>
+          </div>
+        )}
+        {dayCycle.phase === 'complete' && <strong>14 dni zapisane w archiwum.</strong>}
+      </section>
       <div className="tabs">
         <button className={tab === 'pawel' ? 'active' : ''} onClick={() => onTabChange('pawel')}>
           {messengerTabs.pawel}
@@ -1390,12 +1639,14 @@ function CreateWindow({
   publishedTrackIds,
   corruptionTick,
   onCreate,
+  canStart,
 }: {
   tracks: Track[];
   titleRevealByTrackId: GameState['titleRevealByTrackId'];
   publishedTrackIds: string[];
   corruptionTick: number;
   onCreate: (track: Track) => void;
+  canStart: boolean;
 }) {
   if (createTracks.length === 0) return <p className="empty">{placeholderLabels.noCreateTracks}</p>;
 
@@ -1415,7 +1666,9 @@ function CreateWindow({
               <span>{track.artist} / {track.bpm} BPM / {track.mood}</span>
               <em>{placeholderLabels.level}: {track.difficulties[0]}</em>
             </div>
-            <button onClick={() => onCreate(track)}>{buttonLabels.createFirstVersion}</button>
+            <button disabled={!canStart} onClick={() => onCreate(track)}>
+              {canStart ? buttonLabels.createFirstVersion : 'Najpierw komunikacja / odpoczynek'}
+            </button>
           </article>
         );
       })}
@@ -1425,20 +1678,28 @@ function CreateWindow({
 
 function MeWindow({
   drafts,
+  currentDay,
   titleRevealByTrackId,
   publishedTrackIds,
   corruptionTick,
   onRemix,
   onSendToPawel,
   onPublish,
+  onDiscard,
+  canAct,
+  canPublish: canPublishAction,
 }: {
   drafts: DraftTrack[];
+  currentDay: number;
   titleRevealByTrackId: GameState['titleRevealByTrackId'];
   publishedTrackIds: string[];
   corruptionTick: number;
   onRemix: (draft: DraftTrack) => void;
   onSendToPawel: (draft: DraftTrack) => void;
   onPublish: (draft: DraftTrack) => void;
+  onDiscard: (draft: DraftTrack) => void;
+  canAct: boolean;
+  canPublish: boolean;
 }) {
   if (drafts.length === 0) return <p className="empty">{placeholderLabels.noDrafts}</p>;
 
@@ -1456,20 +1717,21 @@ function MeWindow({
           <article className="track-row" key={draft.id}>
             <div>
               <strong className="masked-title">{displayTitle}</strong>
-              <span>{draft.difficulty} / {draft.bestAccuracy}% / {placeholderLabels.grade} {draft.bestGrade} / {draft.qualityProgress} pkt</span>
+              <span>{draft.difficulty} / {draft.bestAccuracy}% / {placeholderLabels.grade} {draft.bestGrade} / {draft.qualityProgress} pkt / wiek {getDraftAge(currentDay, draft)} dni</span>
               <em>Status: {statusLabels[draft.status]}</em>
-              {!nextDifficulty && <em>{statusLabels.noRemix}</em>}
+              {!nextDifficulty && <em>Powtarzanie poziomu Cybart z malejącym zyskiem</em>}
             </div>
             <div className="difficulty-row">
-              <button disabled={!nextDifficulty} onClick={() => onRemix(draft)}>
-                {nextDifficulty ? `${buttonLabels.remix}: ${nextDifficulty}` : buttonLabels.remix}
+              <button disabled={!canAct} onClick={() => onRemix(draft)}>
+                {nextDifficulty ? `${buttonLabels.remix}: ${nextDifficulty}` : `${buttonLabels.remix}: Cybart`}
               </button>
               {draft.status === 'inDrawer' && (
-                <button onClick={() => onSendToPawel(draft)}>{buttonLabels.sendToPawel}</button>
+                <button disabled={!canAct} onClick={() => onSendToPawel(draft)}>{buttonLabels.sendToPawel}</button>
               )}
-              <button disabled={publishedTrackIds.includes(draft.trackId)} onClick={() => onPublish(draft)}>
+              <button disabled={!canAct || !canPublishAction || publishedTrackIds.includes(draft.trackId)} onClick={() => onPublish(draft)}>
                 {publishedTrackIds.includes(draft.trackId) ? placeholderLabels.publishedLocked : buttonLabels.publish}
               </button>
+              <button disabled={!canAct} onClick={() => onDiscard(draft)}>{buttonLabels.discardDraft}</button>
             </div>
           </article>
         );
@@ -1516,6 +1778,8 @@ function RhythmScreen({
   neuraComment,
   neuraPresence,
   resonanceEffects,
+  statModifier,
+  dayCycle,
   overlayDragEnabled,
   overlayPositions,
   onOverlayMove,
@@ -1529,6 +1793,8 @@ function RhythmScreen({
   neuraComment: NeuraVoiceLine;
   neuraPresence: ReturnType<typeof createNeuraPresenceState>;
   resonanceEffects: ResonanceVisualEffects;
+  statModifier: RhythmStatModifier;
+  dayCycle: GameState['dayCycle'];
   overlayDragEnabled: boolean;
   overlayPositions: Record<OverlayId, Point>;
   onOverlayMove: (overlayId: OverlayId, position: Point) => void;
@@ -1546,7 +1812,7 @@ function RhythmScreen({
     () => resolveRhythmBeatmap(activeRun.track, activeRun.difficulty, audioDurationMs),
     [activeRun.difficulty, activeRun.track, audioDurationMs],
   );
-  const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty));
+  const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty, statModifier));
   const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(beatmap.bpm));
   const [hitFeedbacks, setHitFeedbacks] = useState<HitFeedback[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -1578,7 +1844,7 @@ function RhythmScreen({
   }, [countdownMs]);
 
   useEffect(() => {
-    const nextSession = createRhythmSession(beatmap, activeRun.difficulty);
+    const nextSession = createRhythmSession(beatmap, activeRun.difficulty, statModifier);
     sessionRef.current = nextSession;
     finishedRef.current = false;
     setSession(nextSession);
@@ -1587,7 +1853,7 @@ function RhythmScreen({
     heldLanesRef.current.clear();
     rhythmSfx.stopAllHolds();
     gameClockFallbackMsRef.current = 0;
-  }, [activeRun.difficulty, beatmap, rhythmSfx]);
+  }, [activeRun.difficulty, beatmap, rhythmSfx, statModifier]);
 
   useEffect(() => {
     setAudioDurationMs(estimateRhythmDurationMs(activeRun.track));
@@ -1851,6 +2117,7 @@ function RhythmScreen({
           difficulty: activeRun.difficulty,
           mode: activeRun.mode,
         },
+        dayCycle,
         bpm: currentSession.beatmap.bpm,
         phase: phaseRef.current,
         countdownMs: Math.round(countdownRef.current),
@@ -2114,9 +2381,13 @@ function judgementLabel(judgement: RhythmJudgement | null) {
 function ResultsScreen({
   result,
   displayTitle,
+  rhythmHint,
+  stats,
+  dayCycle,
   runMode,
   remixComparison,
   alreadyPublished,
+  canPublish: canPublishResult,
   neuraComment,
   neuraPresence,
   overlayDragEnabled,
@@ -2126,15 +2397,20 @@ function ResultsScreen({
   onSave,
   onSendToPawel,
   onPublish,
+  onDiscard,
   onOverwrite,
   onBack,
   storySceneActive,
 }: {
   result: PerformanceResult;
   displayTitle: string;
+  rhythmHint: string;
+  stats: GameState['stats'];
+  dayCycle: GameState['dayCycle'];
   runMode: ActiveRun['mode'];
   remixComparison: RemixComparison | null;
   alreadyPublished: boolean;
+  canPublish: boolean;
   neuraComment: NeuraVoiceLine;
   neuraPresence: ReturnType<typeof createNeuraPresenceState>;
   overlayDragEnabled: boolean;
@@ -2144,10 +2420,19 @@ function ResultsScreen({
   onSave: () => void;
   onSendToPawel: () => void;
   onPublish: () => void;
+  onDiscard: () => void;
   onOverwrite: () => void;
   onBack: () => void;
   storySceneActive: boolean;
 }) {
+  const actionPreview = (action: DayDecision) => getActionPreview({ stats, dayCycle }, action, result.grade, true);
+  const previews = [
+    ['szuflada', actionPreview('saveDraft')],
+    ['Paweł', actionPreview('sendToPawel')],
+    ['publikacja', actionPreview('publish')],
+    ['odrzucenie', actionPreview('discard')],
+  ] as const;
+
   return (
     <main className="results-screen">
       <section className="results-panel">
@@ -2170,6 +2455,23 @@ function ResultsScreen({
           <span>{placeholderLabels.qualityProgress}: {result.qualityProgress}</span>
           <span>{placeholderLabels.notes}: {result.totalNotes}</span>
         </div>
+        <p className="result-neura-hint">Neura: {rhythmHint === 'zimny silnik'
+          ? 'Silnik jeszcze śpi. Nie każ mu udawać transmisji.'
+          : rhythmHint === 'przegrzanie'
+            ? 'To nie był brak pomysłu. To był silnik, który pracował bez przerwy.'
+            : rhythmHint === 'szum publiczności'
+              ? 'Czat wszedł do środka rytmu. Słyszałam go między wejściami.'
+              : rhythmHint === 'stabilny silnik'
+                ? 'Cybart.exe trzymał tempo. To rzadki, użyteczny rodzaj ciszy.'
+                : 'Kanał był czysty. Tym razem decyzja należała do ciebie.'}</p>
+        <div className="result-stat-previews" aria-label="Przewidywane zmiany statystyk">
+          <strong>Przewidywany ślad decyzji</strong>
+          {previews.map(([label, preview]) => (
+            <span key={label}>
+              {label}: {formatStatDelta(preview.delta)}{preview.blockedReason ? ` / ${preview.blockedReason}` : ''}
+            </span>
+          ))}
+        </div>
         {runMode === 'remix' && remixComparison && (
           <RemixComparisonPanel comparison={remixComparison} />
         )}
@@ -2178,12 +2480,16 @@ function ResultsScreen({
             <>
               <button onClick={onSave}>{buttonLabels.saveDraft}</button>
               <button onClick={onSendToPawel}>{buttonLabels.sendToPawel}</button>
-              <button className="result-primary" onClick={onPublish} disabled={alreadyPublished}>
-                {alreadyPublished ? placeholderLabels.publishedLocked : buttonLabels.publish}
+              <button className="result-primary" onClick={onPublish} disabled={alreadyPublished || !canPublishResult}>
+                {alreadyPublished ? placeholderLabels.publishedLocked : canPublishResult ? buttonLabels.publish : 'Presja blokuje publikację'}
               </button>
+              <button className="result-secondary" onClick={onDiscard}>{buttonLabels.discardDraft}</button>
             </>
           ) : (
-            <button className="result-primary" onClick={onOverwrite}>{buttonLabels.overwriteDraft}</button>
+            <>
+              <button className="result-primary" onClick={onOverwrite}>{buttonLabels.overwriteDraft}</button>
+              <button className="result-secondary" onClick={onDiscard}>{buttonLabels.discardDraft}</button>
+            </>
           )}
           <button className="result-secondary" onClick={onBack}>{buttonLabels.backWithoutSave}</button>
         </div>
@@ -2265,13 +2571,55 @@ function createFallbackPeaks(bpm: number, bins = 64) {
   });
 }
 
-function StatsPanel({ stats }: { stats: GameState['stats'] }) {
+function formatSigned(value: number) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function formatStatDelta(delta: Partial<GameState['stats']>) {
+  const entries = [
+    ['W', delta.performance ?? 0],
+    ['C', delta.cybart ?? 0],
+    ['P', delta.chatPressure ?? 0],
+  ].filter(([, value]) => value !== 0);
+  return entries.length > 0
+    ? entries.map(([label, value]) => `${label} ${formatSigned(Number(value))}`).join(' / ')
+    : 'bez zmiany';
+}
+
+function statBandLabel(value: number) {
+  return {
+    low: 'niski',
+    rising: 'rozruch',
+    stable: 'stabilny',
+    tense: 'napięcie',
+    critical: 'krytyczny',
+  }[getStatBand(value)];
+}
+
+function StatsPanel({ stats, dayCycle }: { stats: GameState['stats']; dayCycle: GameState['dayCycle'] }) {
+  const activeCommitments = dayCycle.commitments.filter((commitment) => commitment.status === 'active');
+  const phaseLabel = {
+    communication: 'komunikacja',
+    work: 'praca',
+    result: 'raport z próby',
+    daySummary: 'podsumowanie dnia',
+    complete: 'sesja domknięta',
+  }[dayCycle.phase];
+
   return (
-    <>
+    <section className="stats-panel-content">
+      <strong>Dzień {dayCycle.currentDay}/{dayCycle.totalDays}</strong>
+      <small>faza: {phaseLabel}</small>
       <Stat label={statLabels.performance} value={stats.performance} />
       <Stat label={statLabels.cybart} value={stats.cybart} />
       <Stat label={statLabels.chatPressure} value={stats.chatPressure} />
-    </>
+      <small>strefy: stabilna 40–69 / krytyczna 90+</small>
+      <small>
+        zobowiązania: {activeCommitments.length > 0
+          ? activeCommitments.map((commitment) => `dzień ${commitment.dueDay}`).join(', ')
+          : 'brak'}
+      </small>
+    </section>
   );
 }
 
@@ -2492,7 +2840,7 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="stat">
       <span>{label}</span>
       <meter min="0" max="100" value={value} />
-      <strong>{value}</strong>
+      <strong>{value} <em>{statBandLabel(value)}</em></strong>
     </div>
   );
 }
