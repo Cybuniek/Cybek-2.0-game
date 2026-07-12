@@ -58,8 +58,8 @@ import {
   revealTitleByAccuracy,
   revealTitleFully,
   saveState,
+  addMessage,
 } from './storage';
-import { addMessage } from './storage';
 import {
   addresses,
   appLabels,
@@ -191,6 +191,7 @@ export default function App() {
   const [neuraVoiceDirectorState, setNeuraVoiceDirectorState] = useState(() => loadNeuraVoiceDirectorState());
   const [neuraVoiceDirectorDebug, setNeuraVoiceDirectorDebug] = useState('');
   const neuraVoiceDirectorStateRef = useRef(neuraVoiceDirectorState);
+  const didStartNeuraSessionRef = useRef(false);
   const [storySceneDirectorState, setStorySceneDirectorState] = useState(() => loadStorySceneDirectorState());
   const [storySceneLineIndex, setStorySceneLineIndex] = useState(0);
   const storySceneDirectorStateRef = useRef(storySceneDirectorState);
@@ -513,19 +514,21 @@ export default function App() {
     storyVoiceLineId,
   ]);
 
-  const runStoryAction = useCallback((eventId: DialoguePresenceEventId, nextGameState: GameState) => {
+  const advanceNeuraVoiceDirector = useCallback((nextGameState: GameState, eventId?: DialoguePresenceEventId) => {
     const now = Date.now();
     const context = {
       gameState: nextGameState,
       presence: createPresenceStateFromGameState(nextGameState, {
         activeWindow,
         screen,
-        lastPresenceEventId: eventId,
+        lastPresenceEventId: eventId ?? lastDialogueEventId,
       }),
       now,
     };
-    const queued = createVoiceQueueItemsFromEvent(neuraVoiceDirectorStateRef.current, { eventId, context, now });
-    const next = getNextNeuraVoiceLine(queued.state, context);
+    const queuedState = eventId
+      ? createVoiceQueueItemsFromEvent(neuraVoiceDirectorStateRef.current, { eventId, context, now }).state
+      : neuraVoiceDirectorStateRef.current;
+    const next = getNextNeuraVoiceLine(queuedState, context);
     let nextDirectorState = next.state;
 
     if (next.line) {
@@ -534,42 +537,25 @@ export default function App() {
       if (next.line.effects?.triggerGlitch) soundscape.triggerGlitch({ reason: 'story', intensity: next.line.glitchIntensity });
     }
 
-    setLastDialogueEventId(eventId);
-    setNeuraVoiceDirectorDebug(renderNeuraVoiceDirectorDebug(nextDirectorState, context, next.rejections));
-    neuraVoiceDirectorStateRef.current = nextDirectorState;
-    setNeuraVoiceDirectorState(nextDirectorState);
-  }, [activeWindow, screen, soundscape]);
-
-  const runAmbientStoryBeat = useCallback((nextGameState: GameState) => {
-    const now = Date.now();
-    const context = {
-      gameState: nextGameState,
-      presence: createPresenceStateFromGameState(nextGameState, {
-        activeWindow,
-        screen,
-        lastPresenceEventId: lastDialogueEventId,
-      }),
-      now,
-    };
-    const next = getNextNeuraVoiceLine(neuraVoiceDirectorStateRef.current, context);
-    let nextDirectorState = next.state;
-
-    if (next.line) {
-      nextDirectorState = markVoiceLinePlayed(nextDirectorState, { lineId: next.line.id, playedAt: now });
-      setStoryVoiceLineId(next.line.audio.id);
-      if (next.line.effects?.triggerGlitch) soundscape.triggerGlitch({ reason: 'story', intensity: next.line.glitchIntensity });
-    }
-
+    if (eventId) setLastDialogueEventId(eventId);
     setNeuraVoiceDirectorDebug(renderNeuraVoiceDirectorDebug(nextDirectorState, context, next.rejections));
     neuraVoiceDirectorStateRef.current = nextDirectorState;
     setNeuraVoiceDirectorState(nextDirectorState);
   }, [activeWindow, lastDialogueEventId, screen, soundscape]);
 
+  const runStoryAction = useCallback((eventId: DialoguePresenceEventId, nextGameState: GameState) => {
+    advanceNeuraVoiceDirector(nextGameState, eventId);
+  }, [advanceNeuraVoiceDirector]);
+
+  const runAmbientStoryBeat = useCallback((nextGameState: GameState) => {
+    advanceNeuraVoiceDirector(nextGameState);
+  }, [advanceNeuraVoiceDirector]);
+
   useEffect(() => {
+    if (didStartNeuraSessionRef.current) return;
+    didStartNeuraSessionRef.current = true;
     runStoryAction('session.start', gameState);
-    // Start sesji ma wejść tylko raz po montażu aplikacji.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gameState, runStoryAction]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
