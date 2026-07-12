@@ -2963,7 +2963,7 @@ button:disabled {
   }
 
   .event-cutscene-final .event-cutscene-window-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .event-cutscene-final .event-cutscene-window-main,
@@ -2976,10 +2976,6 @@ button:disabled {
   .event-cutscene-final .event-cutscene-window-stats {
     grid-column: auto;
     grid-row: auto;
-  }
-
-  .event-cutscene-final .event-cutscene-window-stats {
-    grid-template-columns: 1fr;
   }
 
   .cutscene-letterbox {
