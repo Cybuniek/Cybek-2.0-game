@@ -1,37 +1,81 @@
-// src/resonance.ts - Neura Resonance System
-// Tworzy dynamiczne połączenie między graczem a Neurą na podstawie rytmu i echo
+import type {
+  BondWithNeura,
+  GameState,
+  ResonanceLevel,
+  ResonanceState,
+  ResonanceVisualEffects,
+} from './types';
 
-import type { RhythmSummary, ResonanceState, NeuraResonanceEffect, NeuraPresenceState } from './types';
-
-export const calculateResonance = (summary: RhythmSummary, currentEchoCount: number): number => {
-  const base = summary.accuracy * 0.8 + (summary.perfectHits / summary.totalNotes) * 20;
-  const echoBonus = Math.min(currentEchoCount * 8, 40);
-  return Math.min(Math.max(Math.floor(base + echoBonus), 0), 100);
+const resonanceEffectsByLevel: Record<ResonanceLevel, ResonanceVisualEffects> = {
+  silent: { bloom: 0, glitchIntensity: 0, uiHighlight: 0, timerScale: 1, comboBonus: 0 },
+  low: { bloom: 0.08, glitchIntensity: 0.12, uiHighlight: 0.08, timerScale: 0.94, comboBonus: 0.03 },
+  medium: { bloom: 0.24, glitchIntensity: 0.28, uiHighlight: 0.22, timerScale: 0.84, comboBonus: 0.07 },
+  high: { bloom: 0.55, glitchIntensity: 0.68, uiHighlight: 0.52, timerScale: 0.7, comboBonus: 0.12 },
+  overload: { bloom: 0.72, glitchIntensity: 0.86, uiHighlight: 0.7, timerScale: 0.55, comboBonus: 0.18 },
 };
 
-export const applyResonanceEffects = (resonance: number): NeuraResonanceEffect => {
+export function calculateResonance(accuracy: number, echoCount: number): ResonanceLevel {
+  const score = calculateResonanceScore(accuracy, echoCount);
+  if (score >= 125) return 'overload';
+  if (score >= 85) return 'high';
+  if (score >= 55) return 'medium';
+  if (score >= 35) return 'low';
+  return 'silent';
+}
+
+export function updateResonanceState(state: GameState, accuracy = inferLastAccuracy(state)): GameState {
+  const echoCount = state.echo?.echoCount ?? 0;
+  const score = calculateResonanceScore(accuracy, echoCount);
+  const level = calculateResonance(accuracy, echoCount);
   return {
-    multiplier: 1 + (resonance / 200), // bonus do combo
-    visualBloom: resonance > 70,
-    voiceIntensity: Math.floor(resonance / 25),
-    specialDialogueChance: resonance > 60 ? 0.35 : 0.1,
+    ...state,
+    resonance: {
+      level,
+      score,
+      lastAccuracy: Math.round(clamp(accuracy, 0, 100)),
+      bondWithNeura: bondFromLevel(level),
+      effects: getResonanceEffects(level),
+    },
   };
-};
+}
 
-export const updateResonanceState = (state: ResonanceState, newResonance: number, neuraState: NeuraPresenceState): ResonanceState => {
-  const updated = { ...state };
-  updated.current = newResonance;
-  if (newResonance > updated.peak) updated.peak = newResonance;
-  updated.bondWithNeura = Math.min(100, updated.bondWithNeura + (newResonance > 65 ? 5 : 1));
-  updated.lastResonanceEvent = new Date().toISOString();
-  return updated;
-};
+export function applyResonanceEffects(state: GameState): GameState {
+  const effects = getResonanceEffects(state.resonance);
+  const cybartLift = state.resonance.level === 'high' || state.resonance.level === 'overload' ? 2 : 0;
+  return {
+    ...state,
+    stats: {
+      ...state.stats,
+      cybart: clampStat(state.stats.cybart + cybartLift),
+      chatPressure: clampStat(state.stats.chatPressure + Math.round(effects.glitchIntensity * 2)),
+    },
+  };
+}
 
-export const getResonanceOverlayClass = (resonance: number): string => {
-  if (resonance > 80) return 'resonance-high';
-  if (resonance > 50) return 'resonance-medium';
-  return 'resonance-low';
-};
+export function getResonanceEffects(source: ResonanceLevel | ResonanceState = 'silent'): ResonanceVisualEffects {
+  const level = typeof source === 'string' ? source : source.level;
+  return resonanceEffectsByLevel[level] ?? resonanceEffectsByLevel.silent;
+}
 
-// TODO: Integracja w rhythm.ts i App.tsx - wywołanie po zakończeniu rytmu
-console.log('Neura Resonance System loaded - gotowe do integracji z echo i rhythm');
+function calculateResonanceScore(accuracy: number, echoCount: number) {
+  return Math.round(clamp(accuracy, 0, 100) * 0.8 + Math.max(0, echoCount) * 9);
+}
+
+function bondFromLevel(level: ResonanceLevel): BondWithNeura {
+  if (level === 'overload') return 'merged';
+  if (level === 'high') return 'attuned';
+  if (level === 'medium') return 'curious';
+  return 'distant';
+}
+
+function inferLastAccuracy(state: GameState) {
+  return state.publishedTracks[0]?.accuracy ?? state.drafts[0]?.bestAccuracy ?? state.resonance?.lastAccuracy ?? 0;
+}
+
+function clampStat(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
