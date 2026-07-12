@@ -40,6 +40,7 @@ const legacyState = migrateSavedState({
       accuracy: 66,
       grade: 'nieznany',
       qualityProgress: 66,
+      quality: 'slaba wersja',
       publishedAt: '2026-05-01T11:00:00.000Z',
     },
   ],
@@ -55,7 +56,7 @@ assert(legacyState.createdTrackIds.includes('wenezuelski-wystep-mashup'), 'creat
 assert(legacyState.publishedTrackIds.includes('wenezuelski-wystep-mashup'), 'publishedTrackIds is rebuilt from published tracks');
 assertEqual(legacyState.titleRevealByTrackId['wenezuelski-wystep-mashup'], 1, 'published track titles are fully revealed');
 assertEqual(legacyState.publishedTracks[0].grade, 'C', 'invalid published tier falls back to C');
-assertEqual(legacyState.publishedTracks[0].quality, getPublishedQuality('C'), 'published quality follows normalized tier');
+assertEqual(legacyState.publishedTracks[0].quality, 'szkic publiczny', 'legacy weak quality label becomes story-safe');
 assertEqual(legacyState.echo.echoCount, 0, 'legacy state receives default echo count');
 assertEqual(legacyState.echo.activeCutsceneId, null, 'legacy state receives no active cutscene');
 assertEqual(legacyState.resonance.level, 'silent', 'legacy state receives default resonance level');
@@ -72,6 +73,9 @@ assertEqual(
   1,
   'explicit published ids fully reveal titles even without published track records',
 );
+
+assertEqual(getPublishedQuality('A'), 'cudeńko', 'high-tier publication receives the story-safe highlight label');
+assertEqual(getPublishedQuality('F'), 'szkic publiczny', 'low-tier publication stays framed as an intentional public sketch');
 
 const restoredEchoState = migrateSavedState({
   echo: {

@@ -409,6 +409,19 @@ button:disabled {
   overflow: hidden;
 }
 
+.event-cutscene-final {
+  inset: 66px 18px 0 138px;
+  z-index: 17;
+  border-color: rgba(255, 223, 110, 0.72);
+  background:
+    repeating-linear-gradient(to bottom, rgba(255, 223, 110, 0.035) 0 1px, transparent 1px 6px),
+    linear-gradient(135deg, rgb(5, 2, 14), rgb(4, 18, 22));
+  box-shadow:
+    0 0 0 1px rgba(255, 223, 110, 0.22),
+    0 0 48px rgba(255, 33, 200, 0.34),
+    0 0 92px rgba(57, 255, 224, 0.16);
+}
+
 .event-cutscene-glitch {
   pointer-events: none;
   position: absolute;
@@ -430,6 +443,11 @@ button:disabled {
   gap: 14px;
   min-width: 0;
   padding: 14px;
+}
+
+.event-cutscene-final .event-cutscene-desktop {
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  grid-template-rows: 42px minmax(0, 1fr) auto;
 }
 
 .event-cutscene-topbar {
@@ -481,6 +499,10 @@ button:disabled {
   box-shadow: inset 0 0 14px rgba(57, 255, 224, 0.08);
 }
 
+.event-cutscene-final .event-cutscene-icons {
+  display: none;
+}
+
 .event-cutscene-window {
   position: relative;
   z-index: 1;
@@ -493,6 +515,12 @@ button:disabled {
     linear-gradient(180deg, rgba(255, 33, 200, 0.08), rgba(57, 255, 224, 0.04)),
     rgba(4, 5, 14, 0.9);
   box-shadow: 0 0 20px rgba(255, 33, 200, 0.14);
+}
+
+.event-cutscene-final .event-cutscene-window {
+  background:
+    linear-gradient(180deg, rgba(255, 223, 110, 0.08), rgba(57, 255, 224, 0.05)),
+    rgba(4, 5, 14, 0.94);
 }
 
 .event-cutscene-window strong {
@@ -509,6 +537,11 @@ button:disabled {
 
 .event-cutscene-window-main {
   align-self: stretch;
+}
+
+.event-cutscene-final .event-cutscene-window-main {
+  grid-column: 1;
+  grid-row: 2;
 }
 
 .event-cutscene-phrase {
@@ -534,6 +567,11 @@ button:disabled {
   align-self: start;
 }
 
+.event-cutscene-final .event-cutscene-window-choice {
+  grid-column: 2;
+  grid-row: 2;
+}
+
 .event-decision {
   width: 100%;
   text-align: left;
@@ -550,6 +588,11 @@ button:disabled {
 
 .event-cutscene-window-neura {
   align-self: stretch;
+}
+
+.event-cutscene-final .event-cutscene-window-neura {
+  grid-column: 1;
+  grid-row: 3;
 }
 
 .event-cutscene-window-stats {
@@ -738,7 +781,7 @@ button:disabled {
   position: absolute;
   width: min(760px, calc(100vw - 460px));
   min-height: 460px;
-  z-index: 8;
+  z-index: 16;
   border: 1px solid var(--accent-pink);
   border-radius: var(--radius-panel);
   background:
@@ -846,6 +889,72 @@ button:disabled {
   font-size: 13px;
 }
 
+.event-cutscene-final .event-cutscene-window-stats {
+  grid-column: 2;
+  grid-row: 3;
+  grid-template-columns: 1fr;
+}
+
+.window-list {
+  display: grid;
+  gap: 12px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.window-list > strong {
+  color: var(--accent-pink);
+  text-transform: uppercase;
+}
+
+.window-list p {
+  margin: 0;
+}
+
+.ustniki-ledger {
+  max-width: 620px;
+}
+
+.ustnik-challenge {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 160px) minmax(110px, 150px);
+  gap: 12px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid rgba(57, 255, 224, 0.26);
+  border-radius: var(--radius-panel);
+  background:
+    linear-gradient(90deg, rgba(57, 255, 224, 0.08), rgba(255, 46, 136, 0.04)),
+    rgba(4, 7, 18, 0.9);
+}
+
+.ustnik-challenge[data-complete="true"] {
+  border-color: rgba(57, 255, 224, 0.7);
+  box-shadow: 0 0 18px rgba(57, 255, 224, 0.12);
+}
+
+.ustnik-challenge div {
+  display: grid;
+  gap: 4px;
+}
+
+.ustnik-challenge strong {
+  color: var(--text-main);
+}
+
+.ustnik-challenge meter {
+  width: 100%;
+  accent-color: var(--line-cyan);
+}
+
+.ustnik-challenge em {
+  color: var(--accent-warn);
+  font-size: 12px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
 .stats-panel,
 .todo-widget,
 .neura {
@@ -900,7 +1009,7 @@ button:disabled {
 
 .todo-widget {
   top: 458px;
-  width: 320px;
+  width: min(720px, calc(100vw - 220px));
   display: grid;
   gap: 7px;
   padding: 12px;
@@ -1067,6 +1176,13 @@ button:disabled {
   background: #020006;
   color: var(--text-cyan);
   font-family: Consolas, "Courier New", monospace;
+}
+
+.system-fallback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  min-height: 100dvh;
 }
 
 .system-fallback strong {
@@ -2622,6 +2738,10 @@ button:disabled {
     grid-column: 1 / -1;
   }
 
+  .event-cutscene-final {
+    inset: 62px 18px 18px;
+  }
+
   .icons {
     grid-template-columns: repeat(3, 82px);
     width: 270px;
@@ -2725,6 +2845,30 @@ button:disabled {
 
   .topbar {
     position: absolute;
+    height: auto;
+    min-height: 44px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    padding-block: 8px;
+  }
+
+  .topbar strong {
+    min-width: 100px;
+    line-height: 1.25;
+  }
+
+  .topbar span {
+    flex: 1 1 180px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+
+  .topbar button {
+    flex: 1 1 112px;
+    min-width: 0;
+    padding-inline: 8px;
   }
 
   .neura,
@@ -2740,8 +2884,8 @@ button:disabled {
 
   .desktop {
     border-radius: 28px;
-    padding-top: 62px;
-    padding-bottom: 214px;
+    padding-top: 104px;
+    padding-bottom: 42px;
   }
 
   .event-cutscene-stage {
@@ -2751,9 +2895,19 @@ button:disabled {
     margin-top: 18px;
   }
 
+  .event-cutscene-final {
+    position: fixed;
+    inset: 108px 12px 10px;
+    min-height: 0;
+    margin-top: 0;
+    overflow: auto;
+  }
+
   .event-cutscene-desktop {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
+    gap: 8px;
+    padding: 8px;
     overflow: auto;
   }
 
@@ -2763,8 +2917,69 @@ button:disabled {
     padding-block: 8px;
   }
 
+  .event-cutscene-final .event-cutscene-topbar {
+    min-height: 34px;
+    padding-block: 5px;
+  }
+
   .event-cutscene-window-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .event-cutscene-final .event-cutscene-desktop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+    gap: 8px;
+  }
+
+  .event-cutscene-final .event-cutscene-window {
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .event-cutscene-final .event-cutscene-phrase {
+    padding: 9px;
+    font-size: 16px;
+    line-height: 1.28;
+  }
+
+  .event-cutscene-final .event-cutscene-thread {
+    gap: 3px;
+    min-height: 0;
+    padding: 7px;
+  }
+
+  .event-cutscene-final .event-decision {
+    min-height: 30px;
+    padding-block: 5px;
+  }
+
+  .event-cutscene-final .event-cutscene-window-neura {
+    grid-template-columns: 1fr;
+  }
+
+  .event-cutscene-final .event-cutscene-window-neura strong {
+    grid-column: auto;
+  }
+
+  .event-cutscene-final .event-cutscene-window-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .event-cutscene-final .event-cutscene-window-main,
+  .event-cutscene-final .event-cutscene-window-choice {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .event-cutscene-final .event-cutscene-window-neura,
+  .event-cutscene-final .event-cutscene-window-stats {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .event-cutscene-final .event-cutscene-window-stats {
+    grid-template-columns: 1fr;
   }
 
   .cutscene-letterbox {
@@ -2823,15 +3038,24 @@ button:disabled {
     width: 100%;
     min-height: 420px;
     margin-top: 18px;
+    max-height: none;
+    overflow: visible;
   }
 
   .webcam-window {
-    right: auto;
-    min-height: 422px;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: min(100%, 360px);
+    min-height: auto;
+    margin-top: 16px;
+    z-index: 3;
   }
 
   .webcam-window .cybek-webcam-panel {
-    height: 360px;
+    height: min(360px, calc(100vw - 48px));
   }
 
   .core-loop-strip {
@@ -2875,6 +3099,177 @@ button:disabled {
   .beatmap-editor .editor-panel:last-child {
     grid-column: auto;
     max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .desktop {
+    border-width: 6px;
+    border-radius: 18px;
+    padding: 118px 14px 32px;
+  }
+
+  .desktop::before,
+  .desktop::after {
+    display: none;
+  }
+
+  .topbar {
+    inset: 8px 8px auto;
+  }
+
+  .topbar strong {
+    font-size: 16px;
+  }
+
+  .topbar span {
+    flex-basis: 100%;
+    font-size: 12px;
+  }
+
+  .topbar button {
+    flex-basis: calc(33.333% - 6px);
+    font-size: 10px;
+  }
+
+  .audio-toggle {
+    min-width: 0;
+  }
+
+  .icons {
+    grid-template-columns: repeat(3, minmax(72px, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+
+  .desktop-icon {
+    width: 100%;
+    min-height: 74px;
+    padding: 7px 4px;
+    font-size: 10px;
+  }
+
+  .desktop-icon span {
+    width: 38px;
+    height: 38px;
+  }
+
+  .window {
+    min-height: 0;
+    margin-top: 14px;
+  }
+
+  .window-title {
+    min-height: 36px;
+    height: auto;
+    gap: 8px;
+  }
+
+  .window-title strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .window-body {
+    padding: 10px;
+  }
+
+  .track-row,
+  .ustnik-challenge {
+    grid-template-columns: 1fr;
+  }
+
+  .ustniki-ledger {
+    max-width: none;
+  }
+
+  .ustnik-challenge meter {
+    min-height: 12px;
+  }
+
+  .ustnik-challenge em {
+    text-align: left;
+  }
+
+  .core-loop-strip {
+    gap: 8px;
+    padding: 10px;
+    font-size: 11px;
+  }
+
+  .core-loop-strip i {
+    width: 28px;
+  }
+
+  .stage-screen,
+  .results-screen {
+    padding: 18px 14px 38px;
+  }
+
+  .stage-header {
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 9px;
+  }
+
+  .stage-header strong {
+    font-size: 20px;
+    line-height: 1.15;
+  }
+
+  .vocal-map {
+    height: 74px;
+    padding: 10px;
+  }
+
+  .rhythm-hud,
+  .rhythm-counters,
+  .score-details,
+  .remix-comparison div {
+    gap: 8px;
+  }
+
+  .rhythm-hud strong {
+    font-size: 22px;
+  }
+
+  .lanes,
+  .beatmap-editor-lanes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: min(420px, 52vh);
+    min-height: 340px;
+  }
+
+  .lane kbd,
+  .lane-key {
+    min-width: 38px;
+    padding: 7px;
+    font-size: 16px;
+  }
+
+  .primary-action {
+    width: min(100%, 280px);
+    min-width: 0;
+  }
+
+  .results-panel {
+    width: 100%;
+    padding: 18px;
+  }
+
+  .score-grid strong {
+    font-size: 38px;
+  }
+
+  .result-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .result-actions button {
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
   }
 }
 

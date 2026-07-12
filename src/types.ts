@@ -199,7 +199,7 @@ export type PublishedTrack = {
   accuracy: number;
   grade: QualityTier;
   qualityProgress: number;
-  quality: 'slaba wersja' | 'lepsza wersja' | 'cudenko';
+  quality: 'szkic publiczny' | 'lepsza wersja' | 'cudeńko';
   publishedAt: string;
 };
 
