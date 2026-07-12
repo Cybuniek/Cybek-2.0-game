@@ -27,8 +27,8 @@ export const neuraVoiceLines = [
     trigger: 'comment',
   },
   {
-    id: 'comment-wersja-dla-pawla',
-    text: 'Wersja robocza dla Pawła zmniejsza chaos tylko pozornie.',
+    id: 'comment-szkic-dla-pawla',
+    text: 'Szkic dla Pawła zmniejsza chaos tylko pozornie.',
     styleTag: '[dry]',
     trigger: 'comment',
   },
@@ -75,8 +75,8 @@ export const neuraVoiceLines = [
   // Early game
 
   {
-    id: 'comment-early-draft-contained',
-    text: 'Zapisałam wersję roboczą. Nic nie wyszło na zewnątrz. Jeszcze.',
+    id: 'comment-early-sketch-contained',
+    text: 'Zapisałam szkic. Nic nie wyszło na zewnątrz. Jeszcze.',
     styleTag: '[calm]',
     trigger: 'comment',
   },
@@ -315,16 +315,16 @@ export const neuraVoiceLineMeta = {
     debugNotes: 'Na początku żarcik. Później instrukcja obsługi gracza.',
   },
 
-  'comment-early-draft-contained': {
+  'comment-early-sketch-contained': {
     packId: 'earlyNeuraPack',
-    sceneId: 'first-draft-saved',
+    sceneId: 'first-sketch-saved',
     phase: 'early',
     timelineDirection: 'backwardExpansion',
     eventTrigger: { event: 'draftSaved' },
     conditions: { minOperationalPowerLevel: 0 },
     priority: 'main',
     playbackMode: 'requiredOnce',
-    tags: ['draft', 'containment', 'quiet-threat', 'workflow'],
+    tags: ['sketch', 'containment', 'quiet-threat', 'workflow'],
     audioIntent: 'calm_assistant',
     uiBehavior: { showAsBubble: true },
     glitchIntensity: 0.08,

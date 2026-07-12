@@ -48,7 +48,7 @@ const busyState: GameState = {
       accuracy: 81,
       grade: 'A',
       qualityProgress: 132,
-      quality: 'cudenko',
+      quality: 'cudeńko',
       publishedAt: '2026-05-21T18:05:00.000Z',
     },
     {

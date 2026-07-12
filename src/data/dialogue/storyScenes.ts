@@ -14,13 +14,14 @@ export type StorySceneTrigger =
   | { type: 'rhythm.firstFinished'; trackId: string }
   | { type: 'remix.firstOverwritten'; trackId: string }
   | { type: 'share'; channel: StorySceneChannel; trackId: string }
-  | { type: 'presence.level'; level: StoryScenePresenceLevel };
+  | { type: 'presence.level'; level: StoryScenePresenceLevel }
+  | { type: 'final.ready' };
 
 export type StorySceneLine = {
   id: string;
   speaker: StorySceneSpeaker;
   text: string;
-  audioId: string;
+  audioId?: string;
   audioIntent?: 'calm' | 'dry' | 'glitch' | 'tired' | 'curious';
 };
 
@@ -204,8 +205,7 @@ export const storyScenes: readonly StoryScene[] = [
       {
         id: 'story.remix.wystep.001.cybek',
         speaker: 'Cybek',
-        text: 'Nadpisałem draft. To już nie jest pierwsza panika, tylko panika po korekcie.',
-        audioId: 'story-remix-wystep-001-cybek',
+        text: 'Nadpisałem szkic. To już nie jest pierwsza panika, tylko panika po korekcie.',
         audioIntent: 'tired',
       },
       {
@@ -277,15 +277,13 @@ export const storyScenes: readonly StoryScene[] = [
       {
         id: 'story.share.pawel.wystep.001.cybek',
         speaker: 'Cybek',
-        text: 'Wysyłam Pawłowi. Niech zobaczy, że „czekamy” może mieć wersję roboczą.',
-        audioId: 'story-share-pawel-wystep-001-cybek',
+        text: 'Wysyłam Pawłowi. Niech zobaczy, że „czekamy” może mieć szkic, zanim stanie się występem.',
         audioIntent: 'calm',
       },
       {
         id: 'story.share.pawel.wystep.002.neura',
         speaker: 'Neura',
-        text: 'Dobrze. Jedna osoba to jeszcze nie tłum. To tylko presja w wersji demo.',
-        audioId: 'story-share-pawel-wystep-002-neura',
+        text: 'Dobrze. Jedna osoba to jeszcze nie tłum. To presja w bezpiecznym opakowaniu.',
         audioIntent: 'dry',
       },
     ],
@@ -507,6 +505,42 @@ export const storyScenes: readonly StoryScene[] = [
       },
     ],
   },
+  {
+    id: 'story.final.ready',
+    checkpointId: 'checkpoint.final.ready',
+    title: 'Most finałowy: cały Występ',
+    trigger: { type: 'final.ready' },
+    lines: [
+      {
+        id: 'story.final.ready.001.cybek',
+        speaker: 'Cybek',
+        text: 'To już wszystkie pliki. Czat dostał Występ, Paweł dostał dowody, a ja dalej siedzę przy tym samym pulpicie.',
+        audioId: 'story-final-ready-001-cybek',
+        audioIntent: 'tired',
+      },
+      {
+        id: 'story.final.ready.002.neura',
+        speaker: 'Neura',
+        text: 'Pulpit się nie zmienił. Zmieniło się to, kto decyduje, co na nim jest ważne.',
+        audioId: 'story-final-ready-002-neura',
+        audioIntent: 'glitch',
+      },
+      {
+        id: 'story.final.ready.003.cybek',
+        speaker: 'Cybek',
+        text: 'Czyli finał to nie kolejny numer?',
+        audioId: 'story-final-ready-003-cybek',
+        audioIntent: 'curious',
+      },
+      {
+        id: 'story.final.ready.004.neura',
+        speaker: 'Neura',
+        text: 'Nie. Finał to pytanie, czy Występ był twoim głosem, czy tylko moim interfejsem.',
+        audioId: 'story-final-ready-004-neura',
+        audioIntent: 'calm',
+      },
+    ],
+  },
 ] as const;
 
 export type StorySceneId = (typeof storyScenes)[number]['id'];
@@ -544,5 +578,8 @@ function matchesStorySceneTrigger(scene: StoryScene, trigger: StorySceneTrigger)
       && scene.trigger.trackId === trigger.trackId
     );
   }
-  return scene.trigger.type === 'presence.level' && scene.trigger.level === trigger.level;
+  if (trigger.type === 'presence.level') {
+    return scene.trigger.type === 'presence.level' && scene.trigger.level === trigger.level;
+  }
+  return scene.trigger.type === 'final.ready';
 }

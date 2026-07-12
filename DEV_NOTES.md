@@ -2,19 +2,19 @@
 
 ## Struktura projektu
 
-- `src/App.tsx` - glowny przeplyw prototypu: pulpit, okna, generator, szuflada, remix, publikacja, player i ekran rytmiczny.
+- `src/App.tsx` - glowny przeplyw gry: pulpit, okna, generator, szuflada, poprawa szkicu, publikacja, player i ekran rytmiczny.
 - `src/styles.css` - prosty styl OS/CRT/neon/glitch.
-- `src/types.ts` - wspolne typy stanu, draftow, publikacji, wynikow i beatmap rytmicznych.
-- `src/rhythm.ts` - deterministyczny generator beatmap wedlug dlugosci audio, stan proby rytmicznej, trafienia, missy, combo i tier jakosci.
-- `src/resonance.ts` - czysta logika rezonansu Neury liczona z accuracy i echoCount, z efektami UI/audio oraz opcjonalnym bonusem combo.
+- `src/types.ts` - wspolne typy stanu, szkicow, publikacji, wynikow i beatmap rytmicznych.
+- `src/rhythm.ts` - deterministyczny generator beatmap wedlug dlugosci audio, stan proby rytmicznej, trafienia, rozjazdy, serie i tier jakosci.
+- `src/resonance.ts` - czysta logika rezonansu Neury liczona z accuracy i echoCount, z efektami UI/audio oraz opcjonalnym bonusem serii.
 - `src/ending.ts` - czysta logika aktualnej trasy endingowej na podstawie statystyk, echo, rezonansu i wiezi z Neura.
 - `src/storage.ts` - localStorage, migracja save'a, statystyki, jakosc publikacji i pomocnicze funkcje flow.
 - `src/data/tracks.ts` - lista utworow i ich poziomy trudnosci.
-- `src/data/uiLabels.ts` - etykiety UI: nazwy okien, aplikacji, ikon, przyciskow, statystyk, statusow i placeholderow.
+- `src/data/uiLabels.ts` - etykiety UI: nazwy okien, aplikacji, ikon, przyciskow, statystyk, statusow i tekstow fallbackowych.
 - `src/data/messages.ts` - startowe wiadomosci czatow.
 - `src/data/neuraVoiceLines.ts` - teksty, style i identyfikatory kwestii glosowych Neury.
 - `src/data/neuraVoiceAssets.ts` - manifest sciezek MP3 dla kwestii Neury.
-- `src/data/chatReactions.ts` - dynamiczne reakcje czatu po wyslaniu draftu i publikacji.
+- `src/data/chatReactions.ts` - dynamiczne reakcje czatu po wyslaniu szkicu i publikacji.
 - `src/audio/useSoundscape.ts` - globalne tlo audio pulpitu: ambient OS, losowe glitche, mute i domyslne poziomy glosnosci.
 - `src/audio/useRhythmSfx.ts` - runtime efektow SFX sekcji rytmicznej: tapy, petle holdow, fade overlay i cleanup aktywnych holdow.
 
@@ -22,14 +22,14 @@
 
 Generator `anh://www.ustno.ai/create` sluzy tylko do stworzenia pierwszej wersji utworu na najnizszym dostepnym poziomie. Po zapisaniu, wyslaniu do Pawla albo publikacji tytul trafia do `createdTrackIds` i znika z generatora.
 
-Szuflada `anh://www.ustno.ai/me` pokazuje stworzone, nieopublikowane drafty. Draft ma aktualny poziom, najlepszy wynik i status:
+Szuflada `anh://www.ustno.ai/szkice` pokazuje stworzone, nieopublikowane szkice. Szkic ma aktualny poziom, najlepszy wynik i status:
 
-- `inDrawer` - draft jest w szufladzie.
-- `sentToPawel` - draft zostal wyslany do Pawla, ale nadal mozna go opublikowac lub remiksowac.
+- `inDrawer` - szkic jest w szufladzie.
+- `sentToPawel` - szkic zostal wyslany do Pawla, ale nadal mozna go opublikowac lub poprawiac.
 
-Remix dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom draftu. Jesli stary albo recznie zmieniony save zawiera poziom spoza listy poziomow danego utworu, aplikacja nie przeskakuje do pierwszego poziomu, tylko blokuje kolejny remix. Po remixie ekran wynikow pokazuje porownanie obecnego draftu z nowa proba: poprzednia dokladnosc, nowa dokladnosc, roznica i werdykt. Gracz nadal moze nadpisac slabsza wersja, bo nieudany numer moze byc swiadoma decyzja fabularna.
+Poprawa szkicu dziala tylko z poziomu szuflady. Uruchamia probe na poziomie o +1 wyzszym niz aktualny poziom szkicu. Jesli stary albo recznie zmieniony save zawiera poziom spoza listy poziomow danego utworu, aplikacja nie przeskakuje do pierwszego poziomu, tylko blokuje kolejna poprawke. Po probie ekran wynikow pokazuje porownanie obecnego szkicu z nowa proba: poprzednia zgodnosc z rytmem, nowa zgodnosc, roznica i werdykt. Gracz nadal moze nadpisac slabsza wersja, bo wersja do poprawy moze byc swiadoma decyzja fabularna.
 
-Publikacja jest jednorazowa per `trackId`. Po publikacji draft znika z szuflady, a na pulpicie pojawia sie ikona pliku. Klikniecie ikony otwiera `Annihilation player.exe`.
+Publikacja jest jednorazowa per `trackId`. Po publikacji szkic znika z szuflady, a na pulpicie pojawia sie ikona pliku. Klikniecie ikony otwiera `Annihilation player.exe`.
 
 Szuflada dodatkowo blokuje przycisk publikacji dla tytulu, ktory w zapisie jest juz oznaczony jako opublikowany. Sama funkcja publikacji sprawdza to ponownie wewnatrz aktualizacji stanu, zeby szybkie podwojne klikniecie nie dopisalo drugi raz reakcji czatu.
 
@@ -58,15 +58,19 @@ Zrodlem prawdy dla kwestii jest `src/data/neuraVoiceLines.ts`. Nowa kwestia wyma
 
 Manifest `src/data/neuraVoiceAssets.ts` mapuje kazde `id` na podstawowe `/audio/neura/<id>.ogg` i fallbackowe `/audio/neura/<id>.mp3`. Brak pliku nie blokuje UI; odtwarzanie po prostu konczy sie bez widocznego bledu, a tekst kwestii bez dostepnego audio nie jest pokazywany jako osobny dymek.
 
-`src/neura/NeuraVoiceDirector.ts` jest pierwszym data-driven routerem narracyjnego glosu Neury. Eventy gry nie odtwarzaja audio bezposrednio: emituja event fabularny, director aktualizuje kolejke i wybiera nastepna linie. Runtime odpala eventy dla startu sesji, zapisu draftu, wysylki do Pawla, publikacji oraz spike'a glitcha przy wysokiej presji czatu. Dodatkowy story beat pulpitu probuje dobrac ambient tylko wtedy, gdy kolejka jest pusta i cooldown pozwala. Stan directora zapisuje sie przez `src/neura/neuraVoiceDirectorStorage.ts`, a `render_game_to_text` pokazuje aktywna linie, kolejke, odblokowane paczki i debug odrzuconych kandydatow.
+`src/neura/NeuraVoiceDirector.ts` jest pierwszym data-driven routerem narracyjnego glosu Neury. Eventy gry nie odtwarzaja audio bezposrednio: emituja event fabularny, director aktualizuje kolejke i wybiera nastepna linie. Runtime odpala eventy dla startu sesji, zapisu szkicu, wysylki do Pawla, publikacji oraz spike'a glitcha przy wysokiej presji czatu. Dodatkowy story beat pulpitu probuje dobrac ambient tylko wtedy, gdy kolejka jest pusta i cooldown pozwala. Stan directora zapisuje sie przez `src/neura/neuraVoiceDirectorStorage.ts`, a `render_game_to_text` pokazuje aktywna linie, kolejke, odblokowane paczki i diagnostyke odrzuconych kandydatow.
 
 Nowe data-driven dialogi mieszkaja w `src/data/dialogue/neuraVoiceLines.ts`. Ich `audio.id` moze wskazywac osobny plik `/audio/neura/<audio.id>.ogg`, niezaleznie od starego manifestu kompatybilnosci dla `NeuraPet`. Generator `scripts/generate-neura-voices.ts` obsluguje nowe zrodlo przez `--source dialogue-v2`, filtr fazy przez `--phase` i start od konkretnego id przez `--from-id`.
 
-Niepomijalne sceny Cybek/Neura mieszkaja w `src/data/dialogue/storyScenes.ts`, a ich kolejka i jednorazowe checkpointy w `src/neura/StorySceneDirector.ts`. Sa to pelne sceny overlayowe, nie ambientowe komentarze: blokuja UI, przechodza kliknieciem po zakonczonym audio i zapisuje sie je w `localStorage` pod `ustnik.storyScenes.v1`. Audio scen lezy w `/audio/story-scenes/<audioId>.ogg` z fallbackiem MP3. Pierwsza petla fabularna obejmuje boot, pierwsze wykonanie, pierwszy nadpisany remix, wysylke do Pawla i publikacje na czacie. Sceny udostepnienia sa jednorazowe per utwor i kanal: osobno Pawel, osobno czat glowny.
+Checkpoint 2026-07-07: wczesny ambient Neury w `neuraVoiceLinesV2` zostal przepiety na istniejace lokalne assety audio z `src/data/neuraVoiceLines.ts`, zeby tekst w UI nie rozjezdzal sie ze statycznym glosem. Nie zmieniaj samego tekstu linii korzystajacych z lokalnego `audio.id`, jesli nie generujesz odpowiadajacego mu nowego OGG/MP3. `scripts/neura-voice-director.dev-test.ts` pilnuje zgodnosci glownego szlaku ambientowego i blokuje powrot oderwanych zartow technicznych do pierwszego odbioru gry.
 
-Checkpoint 2026-06-01: sceny fabularne dzialaja tez w trybie tekstowym. Jesli OGG/MP3 jest niedostepne albo przegladarka blokuje autoplay, overlay po krotkim czasie pokazuje status `Audio niedostępne` i odblokowuje `Dalej`. Nie generujemy w tym kroku nowych glosow przez ElevenLabs. Znane brakujace audio scen: `story-share-chat-vlog-002-neura`, `story-presence-1-001-cybek`, `story-presence-1-002-neura`, `story-presence-2-001-cybek`, `story-presence-2-002-neura`, `story-presence-3-001-cybek`, `story-presence-3-002-neura`, `story-presence-4-001-cybek`, `story-presence-4-002-neura`.
+Niepomijalne sceny Cybek/Neura mieszkaja w `src/data/dialogue/storyScenes.ts`, a ich kolejka i jednorazowe checkpointy w `src/neura/StorySceneDirector.ts`. Sa to pelne sceny overlayowe, nie ambientowe komentarze: blokuja UI, przechodza kliknieciem po zakonczonym audio albo po wyswietleniu tekstowej kwestii i zapisuje sie je w `localStorage` pod `ustnik.storyScenes.v1`. Audio scen lezy w `/audio/story-scenes/<audioId>.ogg` z fallbackiem MP3; `audioId` jest opcjonalne dla kwestii poprawionych tekstowo, ktore czekaja na nowe nagranie. Pierwsza petla fabularna obejmuje boot, pierwsze wykonanie, pierwszy nadpisany szkic, wysylke do Pawla i publikacje na czacie. Sceny udostepnienia sa jednorazowe per utwor i kanal: osobno Pawel, osobno czat glowny.
+
+Checkpoint 2026-06-01/2026-07-07: sceny fabularne dzialaja tez w trybie tekstowym. Jesli OGG/MP3 jest niedostepne, przegladarka blokuje autoplay albo kwestia nie ma jeszcze `audioId`, overlay pokazuje fabularny status `Cisza w kadrze` i odblokowuje `Dalej`. Nie generujemy w tym kroku nowych glosow przez ElevenLabs; zamiast tego nie przypinamy nowych tekstow do starych plikow audio.
 
 Checkpoint 2026-06-07: runtime scen fabularnych uzywa teraz `src/neura/cutscene/CutsceneStage.tsx` zamiast `StorySceneOverlay`. Rezyser scen, kolejka, dane dialogow i zapis `ustnik.storyScenes.v1` zostaja bez zmian. Stage renderuje układ Visual Novel: Cybek jest skladany przez `CybekWebcam`, a portret Neury laduje manifest ekspresji z `public/pets/neura/cutscene/<expression>/manifest.json` i strip `strip.png`. Legacy `public/pets/neura/neura-miny.png` zostaje materialem zrodlowym workflow assetow, ale nie jest juz runtime'owym portretem cutscenek.
+
+Checkpoint 2026-07-07: VN nie pokazuje juz surowych `audioIntent` typu `calm`, `dry`, `tired`, `curious` ani `glitch`. `CutsceneStage` tlumaczy je na krotkie etykiety kadru (`spokojny sygnal`, `suchy ton`, `zmeczony glos`, `pytanie w kadrze`, `zaklocony sygnal`), bo te wartosci sa sterowaniem assetow i glosu, nie tekstem dla gracza. Regresja Playwright w bootowej cutscence blokuje powrot surowych etykiet.
 
 Mapowanie `audioIntent` mieszka w `src/neura/cutscene/expressionMapping.ts`: `calm/brak`, `curious`, `tired`, `dry`, `glitch` ida na odpowiadajace ekspresje Neury, a przyszle `success` mapuje sie na `delighted`. `scripts/cutscene-assets.dev-test.ts` waliduje kontrakt manifestow, znane ekspresje oraz wymiary PNG bez zaleznosci od Pythona/PIL.
 
@@ -80,11 +84,17 @@ Rezonans siedzi w `src/resonance.ts`. `calculateResonance(accuracy, echoCount)` 
 
 Ending jest logiczny, bez cinematic assetow. `src/ending.ts` wylicza trase `quietArchive/neuraBond/publicSpiral/offlineBreak` na podstawie `performance`, `chatPressure`, `cybart`, `echoCount`, `resonance` i `bondWithNeura`. `GameState.ending` trzyma aktualna trase, etykiete oraz prosty rozklad wplywow do debugowania.
 
+Checkpoint 2026-07-07: finalny `EVENTS` nie pokazuje juz technicznych identyfikatorow `events.*` ani raw tras `quietArchive/neuraBond/publicSpiral/offlineBreak`. Runtime mapuje je na krotki status kanalu i etykiete endingowa. Na desktopie scena domyka dolna krawedz viewportu, zeby webcam nie przebijal pod finalem; na mobile 390x844 `Wystep domkniety`, decyzje, panel Neury i `Impuls koncowy` mieszcza sie w pierwszym kadrze bez poziomego overflow.
+
 `EVENTS` nie jest juz normalna ikona pulpitu. Zamiast tego `EventCutsceneStage` w `src/App.tsx` renderuje kontrolowana makiete pulpitu pod cutscenki, gdy `echo.activeCutsceneId` jest aktywne. Stage pokazuje echo tekstowe, podswietlone decyzje, status Neury i aktualna trase endingowa. To narzedzie narracyjne, nie osobna aplikacja gracza.
 
 ## Decyzje porzadkowe
 
-Checkpoint 2026-06-23: usunieto prowadzony panel Neury oraz jego test developerski. Pierwszy obieg gracza ma docelowo przejac jedna petla cutscenek: start gry, pierwsze stworzenie piosenki, pierwszy remix, pierwsze wyslanie do Pawla i pierwsza publikacja na czacie. Nie wracamy do osobnego overlayu prowadzacego.
+Checkpoint 2026-06-23: usunieto prowadzony panel Neury oraz jego test developerski. Pierwszy obieg gracza ma docelowo przejac jedna petla cutscenek: start gry, pierwsze stworzenie piosenki, pierwsza poprawa szkicu, pierwsze wyslanie do Pawla i pierwsza publikacja na czacie. Nie wracamy do osobnego overlayu prowadzacego.
+
+Checkpoint 2026-07-04: prowadzenie gracza przez fabule jest liczone z `src/data/dialogue/mainStory.ts`. Plik opisuje beaty od bootu, przez pierwszy utwor, poprawę szkicu, bufor Pawla, pierwsza publikacje, domkniecie repertuaru i most finalowy. Panel `Plan Wystepu` oraz `render_game_to_text.mainStory` korzystaja z tego samego stanu, wiec UI, testy i diagnostyka nie rozjezdzaja sie z katalogiem cutscenek. `story.final.ready` jest tylko mostem pod pozniejszy final, nie implementacja pelnych endingow.
+
+Checkpoint 2026-07-07: mobile pulpit traktuje webcam jak element przeplywu, nie fixed overlay. Na waskich viewportach kamera laduje pod ikonami, core loop i okna ida dalej w pionie, a `Ustniki` renderuja jednoslupkowe karty. Nie przywracaj fixed webcam na mobile bez testu klikniecia ikon, bo poprzednio blokowal wejscie do `Ustniki`. Regresja siedzi w `tests/example.spec.ts` jako mobile 390x844 + brak poziomego overflow.
 
 Generowanie glosow:
 
@@ -111,7 +121,7 @@ Glitche sa losowane z `BGS-glitch_a.mp3` - `BGS-glitch_e.mp3`. Scheduler odpala 
 
 ## Sekcja rytmiczna
 
-Ekran rytmiczny ma cztery tory na klawiszach `S`, `D`, `K`, `L`. Nuty spadają do linii trafienia, a wynik jest liczony z wejść gracza:
+Ekran rytmiczny ma cztery tory na klawiszach `S`, `D`, `K`, `L`. Sygnały spadają do linii trafienia, a wynik jest liczony z wejść gracza. W UI kategorie są pokazane jako `czyste wejścia`, `pewne wejścia`, `złapane wejścia` i `rozjazdy`; techniczne identyfikatory scoringu zostają w kodzie jako:
 
 - `perfect` - trafienie do 45 ms,
 - `great` - trafienie do 85 ms,
@@ -126,7 +136,7 @@ Obsługiwane typy nut:
 
 Efekty trafien sekcji rytmicznej sa statycznymi MP3 w `public/audio/sfx/rhythm`, a ich runtime siedzi w `src/audio/useRhythmSfx.ts`. `App.tsx` nie zarzadza juz szczegolami audio, tylko wywoluje kontroler hooka. Tap i puste uderzenie losuja jeden wariant `SE-tap_note-keyboard_typing00..07.mp3`. Hold uruchamia dwie petle: `SE-hold_loop-keyboard_typing.mp3` i `SE-hold_loop-overlay_effect.mp3`. Gdy koniec holda minie linie trafienia, overlay schodzi fadeoutem, a warstwa keyboard typing zostaje aktywna do faktycznego puszczenia klawisza.
 
-Accuracy liczy się jako `(perfect + great * 0.85 + good * 0.65) / totalNotes * 100`. Grade jest tierem jakości `F/E/D/C/B/A/S`, wyliczanym z jakości próby, poziomu trudności i mnożnika combo. Próba trwa tyle, ile bazowy plik audio; jeśli metadane audio nie są jeszcze dostępne, runtime używa estymacji z BPM i liczby beatów tylko jako fallbacku.
+Accuracy liczy się jako `(perfect + great * 0.85 + good * 0.65) / totalNotes * 100`. Grade jest tierem jakości `F/E/D/C/B/A/S`, wyliczanym z jakości próby, poziomu trudności i wzmocnienia serii. Próba trwa tyle, ile bazowy plik audio; jeśli metadane audio nie są jeszcze dostępne, runtime używa estymacji z BPM i liczby beatów tylko jako fallbacku.
 
 Przy aktywnym rezonansie `getRhythmSummary(session, resonanceEffects)` moze dostac opcjonalny `comboBonus`. Runtime przekazuje aktualne efekty z `GameState.resonance`, a czysta logika pozostaje testowalna bez Reacta.
 
@@ -134,12 +144,12 @@ Beatmapy mogą być ręczne albo generowane. Runtime najpierw próbuje wczytać 
 
 `RhythmSectionEditor` jest narzędziem developerskim WinUI. Obsługuje zakres start/koniec z playhead, puste mapy z przyciskiem generowania bazy, backupy eksportu w `backups/manualBeatmaps`, blokadę eksportu przy poważnych problemach, prosty playtest `S/D/K/L` oraz formularz importu istniejących plików audio do katalogu gry i `src/data/tracks.ts`.
 
-Webowy `Beatmap Editor` jest traktowany jako docelowy codzienny workflow edycji beatmap, bo działa w tej samej aplikacji co runtime gry. Aktualny zakres:
+Webowe `Strojenie rytmu` jest traktowane jako docelowy codzienny workflow edycji beatmap, bo działa w tej samej aplikacji co runtime gry. Aktualny zakres:
 
 - wybór utworu i poziomu trudności,
 - edycja, przeciąganie, usuwanie i inspekcja nut `tap/hold`,
 - nagrywanie nut z klawiatury podczas playbacku,
-- `Test Mode` z tym samym wejściem `S/D/K/L`, którego używa ekran rytmiczny,
+- tryb `Próba` z tym samym wejściem `S/D/K/L`, którego używa ekran rytmiczny,
 - undo/redo, multi-select, kopiowanie/wklejanie nut oraz przesuwanie zaznaczenia skrótami,
 - snap do siatki BPM (`off`, `1/4`, `1/8`, `1/16`, `1/32`) przy klikaniu, przeciąganiu, resize, paste i nudge,
 - edycja BPM per mapa; BPM wpływa na snap, metronom i siatkę, ale nie przesuwa istniejących nut zapisanych w milisekundach,
@@ -153,8 +163,10 @@ Webowy `Beatmap Editor` jest traktowany jako docelowy codzienny workflow edycji 
 - import pełnego `manualBeatmaps.json`,
 - eksport pełnego katalogu jako `manualBeatmaps.json`,
 - backup eksportu w `localStorage` i przywracanie backupu z poziomu UI.
-- guard niezapisanych zmian: po edycji nuty zmiana utworu/poziomu, import i powrot do pulpitu wymagaja najpierw `Eksport + backup` albo `Porzuc zmiany`.
+- guard niezapisanych zmian: po edycji nuty zmiana utworu/poziomu, import i powrot do pulpitu wymagaja najpierw `Zapisz katalog` albo `Porzuc zmiany`.
 - widoczna lista skrótów generowana z `src/editor/beatmapEditorKeybinds.ts`.
+
+Widoczne etykiety webowego strojenia nie używają już surowych nazw `Edit Mode`, `Test Mode`, `Play`, `Audio`, `Schowek`, `Backup localStorage`, `Import manualBeatmaps` ani `Eksport + backup`. Bieżący język UI to `Układanie`, `Próba`, `Odtwórz`, `Siatka rytmu`, `Podkład`, `Wokal`, `Kopia`, `Kopia lokalna`, `Wczytaj katalog rytmu`, `Pobierz katalog rytmu` i `Zapisz katalog`. Playwright sprawdza zarówno desktop, jak i mobile 390x844 bez poziomego overflow.
 
 Widok nut w edytorze powinien być odniesieniem do właściwej gry, nie osobną wizualizacją. Dlatego tory są renderowane jako cztery osobne kolumny, nuty używają tej samej bazowej klasy `.note` co runtime i mają pełną szerokość toru, a domyślne okno czasu przy `zoom x1` wynika z gameplayowego `travelMs` danego poziomu trudności. Suwak `Zoom` zawęża albo rozszerza okno czasu, ale nie rozciąga DOM-u pionowo.
 
@@ -168,27 +180,27 @@ Nagrywanie klawiaturą podczas playbacku działa tak:
 
 Praktyczny workflow developerski:
 
-1. Otwórz `Beatmap Editor` w webowym prototypie.
-2. Jeśli zaczynasz od pliku z dysku, użyj `Import manualBeatmaps.json`.
+1. Otwórz `Strojenie rytmu` w webowej aplikacji.
+2. Jeśli zaczynasz od pliku z dysku, użyj `Wczytaj katalog rytmu`.
 3. Edytuj mapę dla wybranego utworu i poziomu.
 4. Jeśli układasz ręcznie, ustaw BPM mapy, włącz snap i opcjonalny metronom; jeśli mapa nie trafia w audio, skoryguj `Offset wejścia ms`.
 5. Do większych refrenów użyj multi-select, `Ctrl+C` / `Ctrl+V`, markerów i nudge `,` / `.`.
-6. Użyj `Eksport + backup`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
+6. Użyj `Zapisz katalog`; przeglądarka pobierze pełny `manualBeatmaps.json`, a kopia trafi do `localStorage`.
 7. Podmień `src/data/manualBeatmaps.json` pobranym plikiem dopiero po sprawdzeniu mapy.
 8. Jeśli edycja poszła w złą stronę, użyj undo/redo albo wybierz backup z listy i użyj `Przywróć`, potem ponownie wykonaj eksport.
 9. Jeśli chcesz zmienić utwór albo poziom bez zapisywania bieżących zmian, użyj `Porzuć zmiany`.
 
-Audyt 2026-05-25: po analizie YunYunEditor przejęto lekkie wzorce workflow, ale bez migracji na Svelte, ZIP paczki, waveform albo pełną tempo mapę. Nadal ręcznie podmieniamy pobrany `manualBeatmaps.json` w repo, żeby webowy prototyp nie udawał dostępu do systemu plików i nie nadpisywał danych bez kontroli.
+Audyt 2026-05-25: po analizie YunYunEditor przejęto lekkie wzorce workflow, ale bez migracji na Svelte, ZIP paczki, waveform albo pełną tempo mapę. Nadal ręcznie podmieniamy pobrany `manualBeatmaps.json` w repo, żeby webowa wersja gry nie udawała dostępu do systemu plików i nie nadpisywała danych bez kontroli.
 
 ## Jakosc wersji i reakcje czatu
 
-Jakosc tieru jest liczona w `src/rhythm.ts` i kumulowana w `src/storage.ts` na podstawie poprzedniego stanu draftu, wyniku podejścia, poziomu trudności oraz combo. Tekstowa jakosc publikacji w `getPublishedQuality` jest teraz pochodną tieru:
+Jakosc tieru jest liczona w `src/rhythm.ts` i kumulowana w `src/storage.ts` na podstawie poprzedniego stanu szkicu, wyniku podejścia, poziomu trudności oraz serii. Tekstowa jakosc publikacji w `getPublishedQuality` jest teraz pochodną tieru:
 
-- `F/E/D`: `slaba wersja`,
+- `F/E/D`: `szkic publiczny`,
 - `C/B`: `lepsza wersja`,
-- `A/S`: `cudenko`.
+- `A/S`: `cudeńko`.
 
-Jakosc jest widoczna w playerze i w wiadomosci publikacji na czacie glownym. Po publikacji `groupPublishMessages` w `src/data/chatReactions.ts` dodaje tez reakcje czatu zalezne od jakosci pliku i dokladnosci wykonania. Slaby wynik nie blokuje historii, tylko zmienia ton komentarzy.
+Jakosc jest widoczna w playerze i w wiadomosci publikacji na czacie glownym. Po publikacji `groupPublishMessages` w `src/data/chatReactions.ts` dodaje tez reakcje czatu zalezne od jakosci pliku i zgodnosci wykonania z rytmem. Slabszy wynik nie blokuje historii, tylko zmienia ton komentarzy.
 
 ## Zapis stanu
 
@@ -201,9 +213,9 @@ Zapisywane sa:
 - `resonance` - poziom rezonansu, wynik, ostatnia accuracy, wiez z Neura i efekty runtime,
 - `ending` - aktualna trasa endingowa oraz wplywy decyzyjne,
 - `createdTrackIds` - utwory juz stworzone w generatorze,
-- `drafts` - drafty w szufladzie,
-- aktualny poziom draftu,
-- najlepszy wynik draftu,
+- `drafts` - techniczna lista szkicow w szufladzie,
+- aktualny poziom szkicu,
+- najlepszy wynik szkicu,
 - `publishedTracks` - opublikowane wersje z poziomem, ocena, dokladnoscia i jakoscia,
 - `publishedTrackIds` - blokada jednorazowej publikacji,
 - zaktualizowane wiadomosci Pawla,
@@ -215,17 +227,17 @@ Migracja w `storage.ts` probuje zachowac starsze save'y z poprzedniego modelu `d
 
 Zmiany statystyk sa liczone przez `getStatDelta` w `src/storage.ts` i zaleza od dokladnosci oraz poziomu trudnosci.
 
-- Zapis draftu lekko podnosi `Presja Czatu`.
-- Wyslanie draftu do Pawla podnosi `Presja Czatu`.
+- Zapis szkicu lekko podnosi `Presja Czatu`.
+- Wyslanie szkicu do Pawla podnosi `Presja Czatu`.
 - Publikacja podnosi `Wystep`, `Cybart.exe` i `Presja Czatu`.
 
 Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 
-## Elementy zastepcze
+## Aktualne ograniczenia wersji gry
 
 - Gra rytmiczna ma ukryty element audio, countdown i synchronizuje nuty względem czasu audio, ale nadal nie ma kalibracji input laga.
 - Beatmapy generowane są losowe, ale stabilne dla danego utworu, BPM-u, długości audio, poziomu i seeda.
-- Remix kumuluje progres tieru jakości zamiast zaczynać każdą próbę od zera.
+- Poprawa szkicu kumuluje ślad jakości zamiast zaczynać każdą próbę od zera.
 - Player opublikowanego utworu odtwarza scalony plik audio. Głos Neury jest osobnym systemem statycznych OGG/Opus z fallbackiem MP3.
 - Neura korzysta z atlasu `public/pets/neura/spritesheet.webp` i dziala jako niezalezny, przeciagalny awatar nad pulpitem. WebCam Cybka jest manifestowym rendererem warstwowym opisanym nizej.
 - Okna mozna przenosic za pasek tytulu; pozycja zyje tylko w stanie sesji Reacta.
@@ -234,7 +246,7 @@ Wartosci sa ograniczane do zakresu 0-100 przez `clampStat`.
 
 `npm run test:e2e` uruchamia lokalny smoke test Playwright na Chromium. Konfiguracja startuje Vite przez `webServer` pod `http://127.0.0.1:5173`, czysci lokalny zapis testowy i sprawdza tytul, boot, pulpit, generator oraz podstawowy stan z `window.render_game_to_text`. Test nie wchodzi na zewnetrzne strony i nie wymaga internetu.
 
-`ref_data/YunYunEditor` zostaje na razie w repo jako material referencyjny do edytora beatmap. Przed merge'em do glownej galezi warto osobno zdecydowac, czy trzymamy pelny import, czy przenosimy go do dokumentacji/linku zewnetrznego, bo jest duzy i nie jest czescia runtime'u prototypu.
+`ref_data/YunYunEditor` zostaje na razie w repo jako material referencyjny do edytora beatmap. Przed merge'em do glownej galezi warto osobno zdecydowac, czy trzymamy pelny import, czy przenosimy go do dokumentacji/linku zewnetrznego, bo jest duzy i nie jest czescia runtime'u gry.
 
 ## Cybek WebCam 2026-05-24
 
@@ -270,7 +282,7 @@ Kolejnosc warstw w rendererze:
 
 Warstwa statyczna jest zwyklym PNG o wymiarze `frameWidth x frameHeight`. Warstwa animowana jest paskiem klatek: szerokosc pliku musi wynosic `frameWidth * frames`, a wysokosc `frameHeight`. Renderer przesuwa pasek klatek przez `transform`, korzystajac z jednej wspolnej klatki dla wszystkich animowanych warstw danego manifestu.
 
-Od migracji kwadratowego webcam z 2026-05-24 runtime assetow uzywamy kontraktu `320x320`. Animowane paski maja `2560x320` przy 8 klatkach, a stare wersje `320x240` sa zachowane w `_legacy` wewnatrz katalogow animacji. Nowe warstwy zostaly wyprowadzone z `public/pets/cybek-webcam/TEMPLATE/`, bez uzywania poprzednich runtime placeholderow jako zrodla.
+Od migracji kwadratowego webcam z 2026-05-24 runtime assetow uzywamy kontraktu `320x320`. Animowane paski maja `2560x320` przy 8 klatkach, a stare wersje `320x240` sa zachowane w `_legacy` wewnatrz katalogow animacji. Nowe warstwy zostaly wyprowadzone z `public/pets/cybek-webcam/TEMPLATE/`, bez uzywania poprzednich roboczych zrodel jako zrodla.
 
 Przyklad manifestu:
 
@@ -299,9 +311,9 @@ Fallbacki sa celowo lagodne: brak `animations.json`, brak manifestu lub niepopra
 
 Zakres byl wizualny i bez zmiany logiki gry. `src/styles.css` ma teraz wspolne zmienne dla neonowych kolorow, paneli, ramek i glow. Tlo pulpitu zostalo przygaszone, ikony maja czytelniejsze podpisy, aktywne okno mocniejszy focus, a prawa kolumna z WebCam/statystykami/Neura mniej zlewa sie z pulpitem.
 
-Sekcja rytmiczna zachowuje te same dane i input, ale ma mocniejsza linie trafienia, wyrazniejszy aktywny tor, bardziej czytelny countdown i dodatkowy feedback wizualny dla `Perfect/Great/Good/Miss`. Efekty sa ograniczone przez `prefers-reduced-motion`.
+Sekcja rytmiczna zachowuje te same dane i input, ale ma mocniejsza linie trafienia, wyrazniejszy aktywny tor, bardziej czytelny countdown i dodatkowy feedback wizualny dla czystych, pewnych, złapanych i rozjechanych wejść. Efekty sa ograniczone przez `prefers-reduced-motion`.
 
-Ekran wynikow dostal jasniejsza hierarchie akcji, remix comparison jest bardziej skanowalny, a `Annihilation player.exe` wyglada jak archiwum opublikowanego Wystepu z realnym odtwarzaczem audio. `Beatmap Editor` ma mocniej widoczny status niezapisanych zmian, panele oddzielone od playfieldu i tory spojne z runtime'em.
+Ekran wynikow dostal jasniejsza hierarchie akcji, remix comparison jest bardziej skanowalny, a `Annihilation player.exe` wyglada jak archiwum opublikowanego Wystepu z realnym odtwarzaczem audio. `Strojenie rytmu` ma mocniej widoczny status niezapisanych zmian, panele oddzielone od playfieldu i tory spojne z runtime'em.
 
 ## Neura 2.0 2026-05-19
 
@@ -313,7 +325,7 @@ Spritesheet Neury zostal podmieniony na poprawiony wariant w `public/pets/neura/
 
 Warstwa `tezGdop-PeT` ma teraz osobny, maly system obecnosci Neury. Czysty manager siedzi w `src/neura/NeuraPresenceManager.ts`, a data-driven progi i presety w `src/data/neuraPresence.ts`. Glowne wyjscie to `NeuraPresenceState`: `OperationalPowerLevel` 0-4, intensywnosc glitchy, glebia ambientu, niestabilnosc avatara, autonomia UI, ostatni event, override debugowy i tryb low FX.
 
-Progres obecnosci jest liczony z aktualnego stanu gry: publikacji, draftow, jakosci, presji czatu, Cybarta i odkrywania tytulow. Czas spedzony w aplikacji sam z siebie nie eskaluje Neury. Eventy typu `rhythmStarted`, `rhythmFinished`, `draftSaved`, `sentToPawel`, `published` i `manualReaction` daja tylko lekki kontekstowy impuls.
+Progres obecnosci jest liczony z aktualnego stanu gry: publikacji, szkicow, jakosci, presji czatu, Cybarta i odkrywania tytulow. Czas spedzony w aplikacji sam z siebie nie eskaluje Neury. Eventy typu `rhythmStarted`, `rhythmFinished`, `draftSaved`, `sentToPawel`, `published` i `manualReaction` daja tylko lekki kontekstowy impuls.
 
 `useSoundscape` przyjmuje `presenceState`. Ambient nadal respektuje unlock autoplay i globalny mute, ale jego glosnosc i minimalna zmiana tempa wynikaja z `ambientDepth`. Scheduler glitchy korzysta z `glitchIntensity`: zmienia odstepy, glosnosc i limit aktywnych warstw, z twardym limitem 3.
 
@@ -333,13 +345,13 @@ Po merge z `NEURA_fabularne-skrypty` zachowane sa oba systemy Neury: presence/so
 
 ## Patrol repozytorium 2026-05-12
 
-Zakres patrolu byl maly i bez rozszerzania gry. Sprawdzone zostaly: generator `anh://www.ustno.ai/create`, szuflada `anh://www.ustno.ai/me`, remix +1, jednorazowa publikacja, pliki publikacji na pulpicie, `Annihilation player.exe`, slowniki etykiet oraz zgodnosc typow z aktualna logika.
+Zakres patrolu byl maly i bez rozszerzania gry. Sprawdzone zostaly: generator `anh://www.ustno.ai/create`, szuflada `anh://www.ustno.ai/szkice`, poprawa szkicu o +1 poziom, jednorazowa publikacja, pliki publikacji na pulpicie, `Annihilation player.exe`, slowniki etykiet oraz zgodnosc typow z aktualna logika.
 
 Naprawione:
 
 - guard publikacji wewnatrz `setGameState`, zeby jednorazowa publikacja nie zalezala tylko od stanu z renderu,
 - blokada przycisku publikacji w szufladzie dla tytulow juz opublikowanych,
-- bezpieczne `getNextDifficulty`: nie zwraca pierwszego poziomu, gdy draft ma poziom spoza listy utworu.
+- bezpieczne `getNextDifficulty`: nie zwraca pierwszego poziomu, gdy szkic ma poziom spoza listy utworu.
 
 Celowo odlozone:
 
@@ -349,16 +361,16 @@ Celowo odlozone:
 
 ## Patrol stabilizacyjny 2026-05-17
 
-Zakres patrolu byl sredni, ale bez rozbudowy gry poza istniejace systemy. Priorytetem byly: stabilnosc prototypu, rytm/beatmapy oraz drobna spojnosc UI.
+Zakres patrolu byl sredni, ale bez rozbudowy gry poza istniejace systemy. Priorytetem byly: stabilnosc wersji gry, rytm/beatmapy oraz drobna spojnosc UI.
 
 Naprawione:
 
-- male helpery flow zostaly wydzielone z `src/App.tsx` do `src/gameFlow.ts`, zeby logika draftow, publikacji i porownania remixu byla testowalna poza komponentem,
+- male helpery flow zostaly wydzielone z `src/App.tsx` do `src/gameFlow.ts`, zeby logika szkicow, publikacji i porownania poprawki byla testowalna poza komponentem,
 - migracja save'a ma publiczny punkt `migrateSavedState`, a `npm run test:state` pilnuje legacy drawer, `publishedTrackIds`, reveal tytulow i fallbacku tieru,
 - `npm run test:rhythm` waliduje teraz takze realny `src/data/manualBeatmaps.json`, zeby reczne mapy nie spadaly po cichu do generatora,
-- webowy `Beatmap Editor` blokuje ryzykowne przejscia przy niezapisanych zmianach,
+- webowe `Strojenie rytmu` blokuje ryzykowne przejscia przy niezapisanych zmianach,
 - player obsluguje stare publikacje bez pasujacego wpisu w `tracks.ts`,
-- etykieta szuflady zostala ujednolicona jako `Ustno.ai Me`.
+- etykieta szuflady zostala ujednolicona jako `Ustno.ai Szkice`.
 
 ## Sugerowane kolejne kroki
 

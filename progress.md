@@ -173,3 +173,149 @@ Poprawki dialogów VN 2026-06-09:
 - Start audio jest opóźniony do następnego ticka i oznaczony tokenem odtwarzania, żeby devowy React StrictMode nie zostawiał podwójnego startu pierwszej kwestii.
 - Dodano regresję Playwright dla kliknięcia, Entera i Spacji przy audio pozostającym w stanie `playing`.
 - Typewriter cutscenki synchronizuje prędkość z metadanymi aktualnego audio (`duration / liczba znaków`), z dotychczasowym fallbackiem gdy przeglądarka nie poda czasu pliku.
+
+System fabularny 2026-07-04:
+- Audyt przed zmianą: `git status --short` był czysty; istniejący runtime miał osobne cutscenki VN (`storyScenes`/`StorySceneDirector`/`CutsceneStage`) oraz ambientowy `NeuraVoiceDirector`, ale brakowało jednego źródła prawdy dla prowadzenia gracza od początku do końca.
+- Zastąpiono luźny `mainStory.ts` pełnym modelem beatów: boot, pierwszy utwór, pierwszy remix, bufor Pawła, pierwsza publikacja, pełny repertuar i most finałowy.
+- Panel pulpitu `Plan Występu` oraz `render_game_to_text.mainStory` korzystają z tego samego modelu, więc debug i UI pokazują aktualny cel fabularny.
+- Dodano trigger i cutscenkę `story.final.ready` jako most po opublikowaniu całego repertuaru; to nie jest pełny ending, tylko fabularne domknięcie prototypu.
+- Rozszerzono `scripts/story-scenes.dev-test.ts` o regresje dla mostu finałowego i progresu `mainStory`.
+- Weryfikacja: `npm run test:story-scenes`, `npm test`, `npm run build` i `npm run test:e2e` przechodzą. Dodatkowy smoke Playwright na lokalnym Vite potwierdził `mainStory.currentBeatId = first-song`, brak błędów konsoli i czytelny panel `Plan Występu` na screenie `test-results/story-smoke/02-desktop-story-plan.png`.
+- Ograniczenie: klient `develop-web-game` z katalogu `.codex` nie uruchomił się bezpośrednio, bo Node ESM rozwiązywał `playwright` względem katalogu skryptu, nie lokalnego `node_modules`; zastąpiono go lokalnym przebiegiem Playwright z repo.
+
+TODO:
+- Po kolejnych utworach lub endingach rozszerzać najpierw `mainStoryBeats`, potem dopiero dane cutscenek.
+- Jeśli powstanie właściwy finał, `story.final.ready` powinien zostać bramką do wyboru/endingu, a nie zastępować ending.
+
+World presentation cleanup 2026-07-07:
+- Audyt kontynuacyjny: worktree zawierał poprzedni pakiet `mainStory` bez commita; AGENTS.md nadal wymaga małych stabilnych kroków, audytu i sprawdzeń po zmianach.
+- Usunięto widoczne sygnały robocze z pierwszego odbioru: topbar mówi teraz `transmisja domowa`, title screen ma status sesji prywatnej, a `placeholder-window-pass` zniknął z logu boot/title.
+- `todo.tmp` zmieniono w ikonę `Plan Występu`, spójną z panelem fabularnym.
+- Okno `Ustniki / Challenge` przestało być placeholderem `wkrótce`: pokazuje teraz realny dziennik prób Występu liczony z `GameState` (bufor Pawła, pierwsza publikacja, dobra wersja, kontrola presji).
+- Podniesiono zwykłe okna nad webcam, bo aktywne okno Ustników było wizualnie zasłaniane przez kamerę i ucinało statusy.
+- Dodano regresję Playwright: ekran startowy i Ustniki nie mogą pokazywać `prototyp`, `placeholder`, `WIP` ani `wkrótce` w normalnym flow.
+- Weryfikacja: `npm test`, `npm run build`, `npm run test:e2e` przechodzą. Smoke Playwright zapisał `test-results/world-overhaul/01-title.png` i `test-results/world-overhaul/02-ustniki-ledger.png`; drugi screen ręcznie obejrzany przez `view_image`.
+
+TODO:
+- Następny pakiet overhaul'u powinien domknąć mobile/responsive: okna działają, ale pełny naturalny feeling na węższych viewportach wymaga osobnego passu.
+
+Ambient Neury / pierwszy odbiór świata 2026-07-07:
+- Audyt przed zmianą: `mainStory` i cutscenki VN prowadziły gracza przez boot -> pierwszy numer -> remix -> Pawła -> czat, ale `neuraVoiceLinesV2` nadal mieszało ten łuk z luźnymi technicznymi żartami o cache, localStorage, fallbacku audio i prywatności.
+- Przepięto wczesne/middle/late/finalne kwestie Neury na istniejące statyczne audio z `src/data/neuraVoiceLines.ts`: tekst runtime'u i `audio.id` są teraz zgodne dla głównego szlaku ambientowego.
+- Usunięto z pierwszej sesji oderwane fragmenty typu `Nie sprzątaj cache`, `stabilne serwery`, `tania licencja`; zastąpiły je linie o buforze Pawła, szufladzie, publicznym śladzie, presji czatu i Neurze jako obecności pulpitu.
+- Dodano regresję w `scripts/neura-voice-director.dev-test.ts`, która pilnuje zgodności tekstu ze statycznym audio i zakazuje powrotu tych odklejonych fragmentów do wczesnego ambientu.
+- Ograniczenie: nie generowano nowych plików głosu, bo wymagałoby to wysłania dialogów do zewnętrznego ElevenLabs. Użyto wyłącznie istniejących lokalnych assetów audio.
+
+Responsive desktop pass 2026-07-07:
+- Audyt przed zmianą: Playwright na 390px wykazał realną blokadę wejścia - fixed webcam zasłaniał ikonę `Ustniki` i przechwytywał kliknięcie.
+- Na breakpointach mobile webcam przechodzi teraz do normalnego przepływu pulpitu pod ikonami, zamiast wisieć jako fixed overlay nad wejściami.
+- Topbar na małych ekranach zawija tekst i przyciski bez poziomego overflow, a `Ustniki` przechodzą na jednosłupkowe karty z czytelnymi statusami.
+- Dodano regresję Playwright `responsive: mobile pozwala otworzyć Ustniki bez zasłonięcia przez webcam`, która sprawdza aktywne okno i brak poziomego overflow przy 390x844.
+- Weryfikacja: `npm run test:e2e`, `npm test`, `npm run build` przechodzą. Smoke Playwright zapisał `test-results/responsive-overhaul/mobile-390-ustniki.png` i `test-results/responsive-overhaul/tablet-768-ustniki.png`; oba screeny obejrzane po zmianie.
+
+Responsive rhythm/results pass 2026-07-07:
+- Audyt przed zmianą: Playwright na 390x844 wykazał, że ekran próby i wyników dziedziczył scroll z pulpitu/tworzenia. Panel wyników potrafił zaczynać się poza górą viewportu, a fallback ładowanej cutscenki doklejał pełnostronicowy blok pod wynikami.
+- `App` resetuje teraz scroll do góry przy każdej zmianie `screen`, więc przejście desktop -> rhythm -> results startuje od czytelnego kadru.
+- Fallback cutscenki VN ma osobny tryb nakładki (`system-fallback-overlay`), a pełnostronicowy fallback został zachowany dla edytora.
+- Drobno zacieśniono mobilny układ rhythm/results: mniejszy dolny padding, czytelniejsze lane'y, pełnoszerokie akcje wyników i stabilne przyciski bez poziomego overflow.
+- Po audycie słów roboczych usunięto nieużywane etykiety `todoTitle`/`todoItems` i zastąpiono opis ukrytych okien neutralnym komunikatem diagnostycznym.
+- Dodano regresję Playwright `responsive: mobile prowadzi próbę i wynik od góry ekranu bez overflow`, która sztucznie przewija przed przejściami i sprawdza reset scrolla oraz szerokość dokumentu.
+- Weryfikacja: `npm run test:e2e`, `npm test`, `npm run build` przechodzą. Smoke Playwright zapisał `test-results/rhythm-mobile-final/mobile-rhythm.png` i `test-results/rhythm-mobile-final/mobile-results.png`; oba screeny obejrzane po zmianie, metryki: `scrollY=0`, `documentWidth=390`, `scrollHeight=1058`, brak błędów konsoli.
+
+Full story playtest 2026-07-07:
+- Audyt przed zmianą: pełny Playwright flow title -> boot -> pierwszy draft -> remix -> Paweł -> pierwsza publikacja -> reszta repertuaru -> `story.final.ready` technicznie kończył `mainStory`, ale po checkpointcie finalnym `Plan Występu` nadal pokazywał cel `Przejdź przez ostatni dialog`.
+- Dodano stan `session-complete` w `deriveMainStoryProgress`: po ukończeniu wszystkich beatów panel nie cofa już gracza do mostu finałowego, tylko pokazuje `Po Występie: Sesja domknięta`.
+- Panel `EVENTS` rozpoznaje ukończony mainStory i zastępuje końcowe `Publikuj dalej` decyzjami po Występie.
+- Rozszerzono `scripts/story-scenes.dev-test.ts` o regresję przed/po checkpointcie `checkpoint.final.ready`.
+- Dodano e2e `fabuła: pełny repertuar kończy Plan Występu bez cofania celu`, które przechodzi cały repertuar przez UI i sprawdza finalny `session-complete`, pustą kolejkę cutscenek oraz brak przycisku `Publikuj dalej` po domknięciu.
+- Weryfikacja: `npm run test:e2e` (7/7), `npm test`, `npm run build` przechodzą. Smoke runtime zapisał `test-results/full-story-final-fixed/final-session-complete.png` i `report.json`; raport potwierdził `currentBeatId=session-complete`, `completedCount=7/7`, `storyScene.queue=[]`, `documentWidth=1280`, brak błędów konsoli i brak tekstu `Publikuj dalej`.
+
+Final EVENTS readability pass 2026-07-07:
+- Audyt przed zmianą: screenshot finalny pokazał, że `EVENTS` ma `z-index` niższy niż zwykłe okna i webcam. Finał był logicznie ukończony, ale główna warstwa końcowa była zasłaniana przez Messenger/CybekWebcam.
+- Dodano klasę `event-cutscene-final` dla ukończonego mainStory: finalny `EVENTS` ma własny układ, złoty akcent, wyższą warstwę niż okna pulpitu i czytelne decyzje po Występie.
+- Na mobile finalny `EVENTS` jest fixed, przewijalny i pojawia się jako pierwszy panel nad pulpitem; Messenger/webcam nie przechwytują już końcowego komunikatu.
+- Rozszerzono e2e pełnego repertuaru o `elementFromPoint`, żeby sprawdzać rzeczywistą warstwę głównego panelu finału, a nie tylko obecność tekstu w DOM.
+- Weryfikacja: `npm run test:e2e` (7/7), `npm test`, `npm run build` przechodzą. Smoke screenshoty: `test-results/final-event-layer/desktop-final-event.png`, `test-results/final-event-layer/mobile-final-event.png`; raport potwierdził `event-cutscene-final`, `isTopLayer=true`, brak poziomego overflow (`documentWidth` równe viewportowi) i brak `Publikuj dalej`.
+
+Publication/chat language pass 2026-07-07:
+- Audyt przed zmianą: pełny flow był już logicznie domknięty, ale publikacje i czat nadal używały roboczych etykiet `slaba wersja`/`cudenko` oraz reakcji brzmiących jak placeholderowy żart.
+- Zmieniono kontrakt `PublishedTrack.quality` na `szkic publiczny` / `lepsza wersja` / `cudeńko`, a migracja save'ów normalizuje dawne `slaba wersja`, `słaba wersja` i `cudenko` do nowych wartości.
+- Przepisano komunikaty Pawła i czatu głównego wokół publikacji tak, żeby zachowały wynik/ocenę, ale mówiły językiem świata: szkic, prywatny bufor, publiczny ślad i punkt zwrotny Występu.
+- Poprawiono etykietę Ustników po wysłaniu szkicu do Pawła na `Paweł ma szkic`.
+- Dodano regresje: `scripts/state.dev-test.ts` pilnuje migracji legacy jakości, a e2e pełnego repertuaru zakazuje powrotu fraz `slaba wersja`, `kompromitacja`, `demo uciekło` w finalnym flow.
+- Weryfikacja: `npm test`, `npm run build` i ponowione po korekcie `npm run test:e2e` (7/7) przechodzą. Tekstowy smoke `rg` pokazuje stare frazy tylko w celowej migracji legacy i asercjach regresyjnych.
+
+UI copy polish pass 2026-07-07:
+- Audyt przed zmianą: główny runtime nadal pokazywał robocze lub angielskie określenia `Core loop`, `nieudany song`, `draft`, `demo`, `Ustniki / Challenge` i `The Game` w miejscach pierwszego kontaktu z grą.
+- Przepisano widoczne etykiety UI na spójny język świata: `Ścieżka Występu`, `szkic`, `Dziennik prób`, `wersja do poprawy`; przyciski zapisu/wysyłki/nadpisania nie mówią już `draft`.
+- `Plan Występu` używa teraz tytułów `Popraw szkic` i `Wyślij szkic Pawłowi`, więc cele prowadzące gracza są spójne z Messengerem, Ustnikami i publikacją.
+- Rozszerzono e2e o regresję na zwykłym pulpicie oraz finalnym flow: `Core loop` i `nieudany song` nie mogą wrócić jako widoczny tekst.
+- Weryfikacja: runtime smoke `rg` w `src` nie znajduje już `Core loop`, `nieudany song`, starych przycisków draftu ani `Wyślij demo Pawłowi`; `npm run test:e2e` (7/7), `npm test` i `npm run build` przechodzą.
+- Pozostałe ryzyko: dwie voiced kwestie VN nadal zawierają `draft`/`wersji demo`, bo mają istniejące lokalne audio. Następny pass powinien albo zregenerować audio, albo jawnie odłączyć te konkretne linie od audio przed zmianą tekstu.
+
+Voiced dialogue text polish pass 2026-07-07:
+- Audyt przed zmianą: po czyszczeniu UI w katalogu scen VN i ambientu Neury nadal były widoczne kwestie `Nadpisałem draft`, `wersja robocza` i `presja w wersji demo`.
+- Poprawiono teksty na język `szkicu` i bezpiecznego bufora, a linie VN bez nowego nagrania nie mają już `audioId`; cutscenka pokazuje dla nich fabularny status `Cisza w kadrze`.
+- `CutsceneStage` i starszy `StorySceneOverlay` obsługują teraz tekstowe kwestie bez próby odtworzenia brakującego albo niezgodnego audio.
+- Legacy komentarze Neury dostały nowe identyfikatory `comment-szkic-dla-pawla` i `comment-early-sketch-contained`, żeby nie odtwarzać starych plików głosowych z nowym tekstem.
+- Generator `scripts/generate-neura-voices.ts` pomija tekstowe kwestie VN bez `audioId`, dopóki nie dostaną docelowego nagrania.
+- Dodano regresję `scripts/story-scenes.dev-test.ts`, która blokuje powrót `Nadpisałem draft`, `wersji demo`, `wersja robocza` i `wersję roboczą` do scen VN.
+- Weryfikacja: smoke tekstowy nie znajduje już tych fraz w danych dialogowych poza technicznymi nazwami eventów/testów; `npm run test:story-scenes`, `npm test`, `npm run build` i `npm run test:e2e` (7/7) przechodzą.
+
+Cutscene silence status polish 2026-07-07:
+- Audyt przed zmianą: tekstowe kwestie VN i błędy odtworzenia audio używały technicznych statusów `Tekst sceny` / `Audio niedostępne`, co brzmiało jak warstwa developerska.
+- `CutsceneStage` i legacy `StorySceneOverlay` pokazują teraz wspólny status `Cisza w kadrze` dla kwestii bez głosu oraz dla fallbacku audio.
+- Komunikat starego playera publikacji został przepisany na język archiwum: `Pulpit pamięta wynik, ale nie ma już odsłuchu`.
+- E2E pełnego repertuaru sprawdza po pierwszym remixie, że tekstowa kwestia pokazuje `Cisza w kadrze` i nie pokazuje `Audio niedostępne` ani `Tekst sceny`.
+- Weryfikacja: `npm run test:e2e` (7/7), `npm test`, `npm run build` przechodzą; smoke `rg` pokazuje techniczne statusy tylko w asercjach testowych i historii dokumentacji.
+
+Player-facing tool labels pass 2026-07-07:
+- Audyt przed zmianą: normalny pulpit pokazywał `Beatmap Editor`, szuflada nazywała się `Ustno.ai Me`, a ekran próby miał widoczny przycisk `Rhythm debug`.
+- Przepisano publiczne etykiety na język świata: `Beatmap Editor` -> `Strojenie rytmu`, `Ustno.ai Me` -> `Ustno.ai Szkice`, ikona szuflady `ME` -> `SZK`, adres szuflady `anh://www.ustno.ai/szkice`.
+- Usunięto widoczny przycisk `Rhythm debug` z HUD próby; panel pomiarowy nadal istnieje pod skrótami F8/F9, ale pokazuje się jako `Pomiary rytmu`.
+- Zaktualizowano bieżące `DEV_NOTES.md`, żeby workflow edytora i nazwa szuflady nie przywracały dawnych etykiet.
+- E2E pilnuje, że desktop nie pokazuje `Beatmap Editor`/`Ustno.ai Me`, a ekran rytmu nie pokazuje `Rhythm debug`.
+- Weryfikacja: smoke `rg` znajduje stare widoczne nazwy tylko w asercjach regresyjnych; `npm run test:e2e` (7/7), `npm test` i `npm run build` przechodzą.
+
+Rhythm language polish pass 2026-07-07:
+- Audyt przed zmianą: ekran próby, raport wyników i webowe `Strojenie rytmu` nadal pokazywały język scoringu jak narzędzie developerskie: `Perfect/Great/Good/Miss`, `combo`, `max combo`, `mnożnik`, `puste kliknięcia`, `nuty` i `progres tieru`.
+- Przepisano publiczne etykiety rytmu na język świata: seria, wzmocnienie serii, czyste/pewne/złapane wejścia, rozjazdy, nerwowe wejścia, sygnały i ślad jakości. Logika scoringu i techniczne uniony pozostały bez zmian.
+- Przycisk szuflady `Remix` został zastąpiony przez `Popraw szkic`, a porównanie próby mówi teraz `Porównanie szkicu`.
+- Ukryty panel Neury nie pokazuje już tytułu `Neura debug`; widoczny nagłówek to `Panel Neury`, a ostatni event jest opisany jako impuls.
+- Rozszerzono e2e mobile rhythm/results o regresję zakazującą powrotu dawnych angielskich i roboczych etykiet w raporcie wyniku.
+- Zaktualizowano bieżący kontrakt w `DEV_NOTES.md`, żeby dokumentacja nie przywracała starych nazw szuflady, jakości publikacji ani języka scoringu.
+- Weryfikacja: `npm run test:e2e` (7/7), `npm test` i `npm run build` przechodzą.
+
+System/editor naming polish pass 2026-07-07:
+- Audyt przed zmianą: słowniki UI nadal trzymały `Event / Dialogi fabularne`, `Lab / Ukryte` i diagnostyczny opis ukrytych kanałów, a webowe `Strojenie rytmu` pokazywało `Edit Mode`, `Test Mode`, `Play`, `Audio`, `Schowek`, `Backup localStorage`, `Import manualBeatmaps` i `Eksport + backup`.
+- Przepisano nazwy systemowych kanałów na język świata: `Echo Występu`, `Kanał serwisowy`, `Archiwum ciszy`, `Ślepa transmisja` oraz fabularny opis wyciszonego kanału.
+- Edytor strojenia dostał spójne polskie etykiety: `Układanie`, `Próba`, `Odtwórz`, `Katalog`, `Sygnały`, `Kopia`, `Podkład`, `Wczytaj katalog rytmu`, `Pobierz katalog rytmu`, `Zapisz katalog`, `Kopia lokalna`.
+- Lista skrótów i komunikaty edytora mówią teraz o odtwarzaniu, kopii i sygnałach zamiast o `play`, schowku i nutach.
+- Dodano e2e `świat gry: strojenie rytmu nie pokazuje surowych etykiet edytora`, które otwiera edytor z pulpitu i blokuje powrót dawnych etykiet.
+- Weryfikacja: `npm run test:e2e` (8/8), `npm test` i `npm run build` przechodzą.
+
+Mobile editor feel pass 2026-07-07:
+- Audyt przed zmianą: regresje mobile obejmowały pulpit, Ustniki, próbę rytmiczną i wyniki, ale nie `Strojenie rytmu`; edytor dalej miał drobne surowe podpisy `Reset czasu/testu`, `Instrumental`, `Vocal`, `off`, komunikaty `Import/Eksport/backup` oraz część tekstów o nutach zamiast sygnałach.
+- Przepisano widoczne copy edytora na `Wróć na początek próby`, `Siatka rytmu`, `bez siatki`, `Podkład`, `Wokal`, `Katalog gotowy`, `Można wczytać katalog rytmu`, `Kopiuj sygnały`, `Inspektor sygnału` i komunikaty kopii lokalnej.
+- Rozszerzono Playwright o `responsive: mobile otwiera strojenie rytmu bez poziomego overflow`; test otwiera edytor na 390x844, sprawdza reset scrolla, brak poziomego overflow i brak dawnych surowych etykiet.
+- Weryfikacja: `npm run test:e2e` (9/9), `npm test` i `npm run build` przechodzą.
+
+VN/EVENTS presentation pass 2026-07-07:
+- Audyt przed zmianą: screenshot bootowej cutscenki ujawnił surowe etykiety tonu `tired/calm/dry/...`, a finalny `EVENTS` pokazywał techniczne `events.echo.after-publish`, `ending:` oraz raw trasy zakończeń.
+- `CutsceneStage` tłumaczy teraz intencje audio na krótkie etykiety świata (`zmęczony głos`, `suchy ton`, `pytanie w kadrze`, `zakłócony sygnał`, `spokojny sygnał`).
+- Finalny `EVENTS` pokazuje status `publikacja`, polskie nazwy statystyk i etykietę zakończenia zamiast ID stanu; desktopowy overlay domyka dolną krawędź, żeby webcam nie prześwitywał pod finałem.
+- Mobilny finał dostał kompaktowy układ: kanał, główny komunikat, decyzje, Neura i `Impuls końcowy` mieszczą się w pierwszym kadrze 390x844 bez poziomego overflow.
+- Rozszerzono Playwright o screenshoty `test-results/story-world-smoke/boot-cutscene.png`, `final-events.png`, `mobile-final-events.png` oraz regresje blokujące raw `audioIntent`, `events.*`, raw trasy endingów i mobile overflow finału.
+- Weryfikacja w trakcie passu: `npm run test:e2e` (9/9) przechodzi po iteracji CSS i asercji mobilnego finału.
+
+Documentation alignment pass 2026-07-08:
+- Audyt przed zmianą: README i `docs/dokumentacja_funkcjonalna_ustnik_2_0.md` nadal opisywały pierwszy szkielet, placeholderowe ekrany, `Ustno.ai Me`, `Beatmap Editor`, `Rhythm debug`, `Event / Dialogi fabularne`, `Ustniki / Challenge`, `todo.tmp`, `draft/remix/demo`, `slaba wersja` i `cudenko` jako aktualny kontrakt.
+- README ma teraz sekcję `Aktualny pionowy wycinek gry` z obecnym flow: title.sys, boot, pulpit, Messenger, `Ustno.ai Utwórz`, `Ustno.ai Szkice`, rytm, raport próby, publikacja, player, VN i finalny `EVENTS`.
+- Dokumentacja funkcjonalna została zaktualizowana pod obecne nazwy i język świata: szkice zamiast draftów, poprawa szkicu zamiast remixu, `Echo Występu`, `Ustniki / Dziennik prób`, `Plan Występu`, `Pomiary rytmu`, `Strojenie rytmu`, `szkic publiczny` / `lepsza wersja` / `cudeńko`.
+- Scan bieżących dokumentów nie znajduje już starych nazw jako aktualnego kontraktu poza historycznym `progress.md` i asercjami regresyjnymi.
+
+Documentation screenshots refresh 2026-07-08:
+- Audyt przed zmianą: `docs/screenshots/*.png` były starsze od przebudowy fabuły i pokazywały nieaktualną warstwę UI, a dokumentacja wskazywała jeszcze `07-drawer-draft.png`.
+- Dodano `npm run docs:screenshots`, które uruchamia lokalny Vite, przechodzi Playwrightem przez title -> boot -> pulpit -> generator -> rytm -> wynik -> szufladę -> publikację -> player i zapisuje dziewięć kadrów dokumentacyjnych.
+- Odświeżono screenshoty dokumentacji zgodnie z obecnym językiem świata, w tym nowy kadr `07-drawer-sketch.png`; opis sekcji pulpitu nie zakłada już niedeterministycznie aktywnej cutscenki w tym samym momencie co Messenger.
+- Weryfikacja: `npm run docs:screenshots` przechodzi i zapisuje wszystkie dziewięć kadrów w `docs/screenshots`; reprezentatywne kadry obejrzane ręcznie (`01-title-screen`, `03-desktop-story-messenger`, `05-rhythm-section`, `06-results-story`, `07-drawer-sketch`, `08-publication-chat`, `09-annihilation-player`). `npm run test:e2e` (9/9), `npm test` i `npm run build` przechodzą.

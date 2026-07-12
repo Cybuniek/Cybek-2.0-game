@@ -17,6 +17,7 @@
     "test:story-scenes": "node --experimental-strip-types scripts/story-scenes.dev-test.ts",
     "test:cutscene-assets": "node --experimental-strip-types scripts/cutscene-assets.dev-test.ts",
     "test:e2e": "node scripts/run-playwright-e2e.mjs",
+    "docs:screenshots": "node scripts/capture-doc-screenshots.mjs",
     "voice:neura:dry-run": "node --experimental-strip-types scripts/generate-neura-voices.ts --dry-run",
     "voice:neura": "node --experimental-strip-types scripts/generate-neura-voices.ts",
     "voice:neura:force": "node --experimental-strip-types scripts/generate-neura-voices.ts --force",

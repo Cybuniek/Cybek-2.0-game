@@ -1,12 +1,12 @@
 # Ustnik 2.0 The Show - The Game
 
-Dokumentacja funkcjonalna prototypu  
-Stan audytu: 2026-05-27  
+Dokumentacja funkcjonalna wersji gry  
+Stan audytu: 2026-07-08  
 Cel: opisac obecna gre tak, aby mozna bylo odtworzyc jej klimat, flow i zasady w nowym silniku bez przepisywania obecnej implementacji jeden do jednego.
 
 ## 1. Obraz gry
 
-`Ustnik 2.0 The Show - The Game` jest malym, stabilnym prototypem webowym na granicy visual novel, pulpitu systemowego i prostej gry rytmicznej. Gracz nie chodzi po swiecie postacia. Gracz siedzi w `Cybek OS`: neonowo-CRT pulpicie Cybka, gdzie wszystko dzieje sie przez okna, pliki, czaty, generatory, dzwieki systemowe i widoczne "procesy" psychiki.
+`Ustnik 2.0 The Show - The Game` jest malą, stabilną wersją webową na granicy visual novel, pulpitu systemowego i prostej gry rytmicznej. Gracz nie chodzi po swiecie postacia. Gracz siedzi w `Cybek OS`: neonowo-CRT pulpicie Cybka, gdzie wszystko dzieje sie przez okna, pliki, czaty, generatory, dzwieki systemowe i widoczne "procesy" psychiki.
 
 Rdzen doswiadczenia:
 
@@ -14,21 +14,22 @@ Rdzen doswiadczenia:
 2. Neura prowadzi go przez tworzenie numeru.
 3. Gracz wybiera utwor w `Ustno.ai Utworz`.
 4. Utwor uruchamia sekcje rytmiczna.
-5. Wynik proby daje draft.
-6. Draft trafia do szuflady, moze isc do Pawla albo zostac opublikowany na czacie grupowym.
+5. Wynik proby daje szkic.
+6. Szkic trafia do szuflady, moze isc do Pawla albo zostac opublikowany na czacie grupowym.
 7. Publikacja zwieksza presje, zmienia status gry i zostawia na pulpicie odtwarzalny plik.
+8. Po domknieciu repertuaru finalny `EVENTS` pokazuje decyzje po Wystepie zamiast kolejnego polecenia publikacji.
 
 Gra jest o Wystepie jako rytuale ekipy: troche beka, troche presja, troche sztuka, troche kompulsywne klejenie plikow. Cybek jest domowym tworzeniem, a Neura jest zarazem asystentka, komentatorka, maskotka, widgetem i czyms, co stopniowo przestaje miescic sie w roli narzedzia.
 
 ## 2. Material wizualny
 
-Zrzuty ponizej zostaly wykonane z aktualnego prototypu. Pokazuja reprezentatywne stany gry, nie idealny przebieg gracza. W pokazanym przebiegu wynik rytmiczny jest celowo slaby, bo screenshot dokumentuje UI, a nie balans rozgrywki.
+Zrzuty ponizej zostaly wykonane z aktualnej wersji gry. Pokazuja reprezentatywne stany gry, nie idealny przebieg gracza. W pokazanym przebiegu wynik rytmiczny jest celowo slaby, bo screenshot dokumentuje UI, a nie balans rozgrywki.
 
 ### 2.1 Ekran tytulowy
 
 ![Ekran tytulowy](./screenshots/01-title-screen.png)
 
-Pierwszy ekran to `title.sys`. Jest to bardziej warstwa systemowa niz klasyczne menu gry. Komunikuje, ze gracz wchodzi do prototypu, ktory sam udaje system.
+Pierwszy ekran to `title.sys`. Jest to bardziej warstwa systemowa niz klasyczne menu gry. Komunikuje, ze gracz wchodzi do prywatnej transmisji uruchamianej przez Cybek OS.
 
 ### 2.2 Bootowanie Cybek OS
 
@@ -36,11 +37,11 @@ Pierwszy ekran to `title.sys`. Jest to bardziej warstwa systemowa niz klasyczne 
 
 Boot ma klimat starego systemu, logow i kontrolowanej awarii. Widac progress inicjalizacji, kroki startowe i mozliwosc pominiecia po chwili. To wazny rytual wejscia: gra nie zaczyna sie od mapy, tylko od uruchomienia pulpitu.
 
-### 2.3 Pulpit, Messenger i scena fabularna
+### 2.3 Pulpit i scena fabularna
 
 ![Pulpit z dialogiem](./screenshots/03-desktop-story-messenger.png)
 
-Glowny widok gry to pulpit. Ma pasek systemowy, ikony aplikacji, panel statystyk, webcam Cybka, pet Neury, Messenger i modal dialogu fabularnego. To jest docelowy "hub" calej gry.
+Glowny widok gry to pulpit. Ma pasek systemowy, ikony aplikacji, panel statystyk, webcam Cybka, pet Neury i modal dialogu fabularnego. To jest docelowy "hub" calej gry, z ktorego gracz przechodzi do Messengera, generatora, szuflady i publikacji.
 
 ### 2.4 Generator Ustno.ai
 
@@ -58,13 +59,13 @@ Sekcja rytmiczna jest neonowym automatem muzycznym wklejonym w desktopowa gre. C
 
 ![Wynik](./screenshots/06-results-story.png)
 
-Po probie gracz widzi wynik: dokladnosc, ocene, statystyki trafien, puste klikniecia, combo i progres tieru. Rownolegle moze pojawic sie scena fabularna komentujaca pierwszy wystep danego utworu.
+Po probie gracz widzi wynik: zgodnosc z rytmem, ocene, czyste/pewne/zlapane wejscia, rozjazdy, nerwowe wejscia, najdluzsza serie i slad jakosci. Rownolegle moze pojawic sie scena fabularna komentujaca pierwszy wystep danego utworu.
 
-### 2.7 Szuflada draftow
+### 2.7 Szuflada szkicow
 
-![Szuflada](./screenshots/07-drawer-draft.png)
+![Szuflada](./screenshots/07-drawer-sketch.png)
 
-`Ustno.ai Me` jest szuflada nieopublikowanych wersji. Draft mozna remiksowac, wyslac Pawlowi albo opublikowac. To okno odpowiada za decyzje: chowam, poprawiam, pokazuje jednej osobie, pokazuje wszystkim.
+`Ustno.ai Szkice` jest szuflada nieopublikowanych wersji. Szkic mozna poprawic, wyslac Pawlowi albo opublikowac. To okno odpowiada za decyzje: chowam, poprawiam, pokazuje jednej osobie, pokazuje wszystkim.
 
 ### 2.8 Publikacja na czacie
 
@@ -87,9 +88,9 @@ Petla gry ma byc mala i czytelna:
 3. **Generator** - gracz tworzy pierwsza wersje jednego z dostepnych utworow.
 4. **Rytm** - gracz gra probe na poziomie startowym utworu.
 5. **Wynik** - gra wylicza jakosc i pozwala zdecydowac, co zrobic z plikiem.
-6. **Szuflada** - draft zostaje jako prywatna wersja robocza.
-7. **Remix** - draft mozna poprawic na nastepnym poziomie trudnosci.
-8. **Pawel** - draft mozna wyslac do Pawla jako bezpieczniejsza, niepubliczna walidacje.
+6. **Szuflada** - szkic zostaje jako prywatny zapis.
+7. **Poprawa szkicu** - szkic mozna poprawic na nastepnym poziomie trudnosci.
+8. **Pawel** - szkic mozna wyslac do Pawla jako bezpieczniejsza, niepubliczna walidacje.
 9. **Publikacja** - wersja trafia na czat grupowy, rosnie presja i powstaje plik na pulpicie.
 10. **Odsłuch** - opublikowany plik mozna otworzyc w playerze.
 
@@ -99,12 +100,12 @@ Wazne: publikacja jest jednorazowa dla danego utworu. Ten sam tytul nie powinien
 
 ### 4.1 `title.sys`
 
-Funkcja: wejscie do prototypu.
+Funkcja: wejscie do prywatnej transmisji Cybka.
 
 Zawartosc:
 
 - nazwa gry,
-- status prototypu,
+- status sesji prywatnej,
 - przycisk przejscia do bootowania.
 
 To nie jest klasyczne menu z opcjami. Powinno wygladac jak plik/systemowy ekran startowy, ktory zostal uruchomiony wewnatrz Cybek OS.
@@ -129,12 +130,12 @@ Funkcja: glowny hub gry.
 
 Elementy:
 
-- gorny pasek z tytulem systemu i przyciskami `Beatmap Editor`, `Dzwiek`, `Reset zapisu`,
+- gorny pasek z tytulem systemu i przyciskami `Strojenie rytmu`, `Dzwiek`, `Reset zapisu`,
 - pionowa lista ikon aplikacji po lewej,
 - statystyki systemowe w prawym gornym obszarze,
 - webcam Cybka po prawej,
 - Neura jako pet na dole/na pulpicie,
-- pasek `CORE LOOP` na dole,
+- pasek `Sciezka Wystepu` na dole,
 - przesuwalne okna aplikacji,
 - okno ToDo,
 - opcjonalne modale scen fabularnych.
@@ -160,7 +161,7 @@ Stan poczatkowy grupy:
 - Sztuka za Sztuke: `Wystepy Cybarta wracaja po przerwie technicznej.`
 - Anon: `Czy Cybart.exe dzisiaj odpali bez dymu?`
 
-Wyslanie draftu do Pawla dopisuje wiadomosc Cybka z tytulem, dokladnoscia i ocena. Publikacja na grupie dopisuje komunikat publikacji i reakcje publicznosci zalezne od jakosci.
+Wyslanie szkicu do Pawla dopisuje wiadomosc Cybka z tytulem, dokladnoscia i ocena. Publikacja na grupie dopisuje komunikat publikacji i reakcje publicznosci zalezne od jakosci.
 
 ### 4.5 `Ustno.ai Utworz`
 
@@ -175,19 +176,19 @@ Zasady:
 
 Po stworzeniu pierwszej wersji utwor trafia do listy `createdTrackIds` i znika z generatora. Dalsza praca odbywa sie w szufladzie.
 
-### 4.6 `Ustno.ai Me`
+### 4.6 `Ustno.ai Szkice`
 
-Funkcja: szuflada wersji roboczych.
+Funkcja: szuflada szkicow.
 
-Pokazuje drafty, ktore:
+Pokazuje szkice, ktore:
 
 - sa w szufladzie,
 - albo zostaly wyslane Pawlowi, ale nadal nie sa opublikowane.
 
 Dostepne akcje:
 
-- remix na nastepnym poziomie trudnosci,
-- wysylka wersji roboczej do Pawla,
+- poprawa szkicu na nastepnym poziomie trudnosci,
+- wysylka szkicu do Pawla,
 - publikacja na czacie glownym.
 
 Jesli utwor jest juz opublikowany, publikacja jest zablokowana.
@@ -203,7 +204,7 @@ Elementy:
 - poziom trudnosci,
 - BPM,
 - gestosc nut,
-- opcjonalny `Rhythm debug`,
+- ukryty panel pomiarowy rytmu pod skrotami testowymi,
 - wizualizacja wokalu jako pas slupkow,
 - cztery tory `S`, `D`, `K`, `L`,
 - linia trafienia,
@@ -212,7 +213,7 @@ Elementy:
 - dokladnosc,
 - mnoznik,
 - feedback trafienia,
-- licznik `perfect`, `great`, `good`, `miss`, pustych klikniec i nut.
+- liczniki czystych, pewnych, zlapanych i rozjechanych wejsc, nerwowych wejsc oraz sygnalow.
 
 Rodzaje nut:
 
@@ -257,23 +258,23 @@ Pokazuje:
 - procent dokladnosci,
 - ocene `F` do `S`,
 - liczniki trafien,
-- puste klikniecia,
-- max combo,
-- mnoznik,
-- progres tieru,
-- liczbe nut.
+- nerwowe wejscia,
+- najdluzsza serie,
+- wzmocnienie serii,
+- slad jakosci,
+- liczbe sygnalow.
 
 Dostepne akcje przy pierwszej wersji:
 
-- `Zapisz draft do szuflady`,
-- `Wyslij wersje robocza do Pawla`,
+- `Zapisz szkic do szuflady`,
+- `Wyslij szkic do Pawla`,
 - `Opublikuj na czacie glownym`,
 - `Wroc bez zapisu`.
 
-Dostepne akcje przy remiksie:
+Dostepne akcje przy poprawie szkicu:
 
-- porownanie obecnego draftu z nowa proba,
-- mozliwosc nadpisania draftu,
+- porownanie obecnego szkicu z nowa proba,
+- mozliwosc nadpisania szkicu,
 - powrot bez zapisu.
 
 Wazne: nawet slabsza wersja moze zostac nadpisana. Gra traktuje nieudany numer jako mozliwa decyzje fabularna.
@@ -287,64 +288,70 @@ Pokazuje:
 - tytul opublikowanego utworu,
 - poziom trudnosci opublikowanej wersji,
 - ocene i dokladnosc,
-- progres tieru,
+- slad jakosci,
 - jakosc opisowa,
 - realny odtwarzacz scalonego pliku audio.
 
 Jakosci publikacji:
 
-- `slaba wersja` - oceny `F`, `E`, `D`,
+- `szkic publiczny` - oceny `F`, `E`, `D`,
 - `lepsza wersja` - oceny `C`, `B`,
-- `cudenko` - oceny `A`, `S`.
+- `cudeńko` - oceny `A`, `S`.
 
-### 4.10 `Event / Dialogi fabularne`
+### 4.10 `Echo Wystepu`
 
-Funkcja: placeholder okna wydarzen fabularnych.
+Funkcja: finalna i srodwystepowa warstwa echa decyzji.
 
-Obecnie pokazuje status WIP i wpisy klimatyczne:
+Obecnie pokazuje:
 
-- Neura: sygnal z czatu zaczyna przebijac ambient.
-- Cybek: draft gotowy, ale timing dalej na granicy.
-- Pawel: zostaw szkic, nie wyglaszaj za wczesnie.
-- System: wykryto wzrost presji spolecznej.
-- Narrator: przygotowac most do finalnej sceny.
+- ostatnie echa publikacji i decyzji,
+- stan rezonansu,
+- wiez z Neura,
+- etykiete aktualnej trasy endingowej,
+- po domknieciu repertuaru decyzje po Wystepie bez przycisku `Publikuj dalej`.
 
-### 4.11 `Ustniki / Challenge`
+### 4.11 `Ustniki / Dziennik prob`
 
-Funkcja: placeholder przyszlych wyzwan.
+Funkcja: dziennik prob Wystepu liczony z aktualnego stanu gry.
 
-Obecne wyzwania:
+Obecne wpisy obejmuja:
 
-- `Mirror Run / brak pomylek przez 30 sekund`,
-- `Low Pressure / utrzymaj presje czatu ponizej 25`,
-- `No Spam / zero pustych klikniec`,
-- `Combo Rail / combo x20 bez przerwy`.
+- bufor przed tlumem,
+- szkic wyslany Pawlowi,
+- pierwszy slad publiczny,
+- lepsza wersje,
+- kontrole presji.
 
-### 4.12 `todo.tmp`
+### 4.12 `Plan Wystepu`
 
-Funkcja: prosty workflow reminder na pulpicie.
+Funkcja: fabularny drogowskaz aktualnego celu.
 
-Obecne punkty:
+Plan Wystepu korzysta z tego samego modelu co `render_game_to_text.mainStory`. Prowadzi przez:
 
-- sprawdzic drafty,
-- nie karmic presji czatu,
-- zostawic miejsce na prawdziwy rytm.
+- boot,
+- pierwszy szkic,
+- poprawienie szkicu,
+- bufor Pawla,
+- pierwsza publikacje,
+- domkniecie repertuaru,
+- most finalowy,
+- stan `Po Wystepie: Sesja domknieta`.
 
-### 4.13 Ukryte okna developerskie
+### 4.13 Ukryte kanaly
 
-Istnieja placeholdery:
+Istnieja wyciszone kanaly:
 
-- `Lab / Ukryte`,
-- `Archiwum / Ukryte`,
-- `Broadcast / Ukryte`.
+- `Kanal serwisowy`,
+- `Archiwum ciszy`,
+- `Slepa transmisja`.
 
-Sa robocze, bez aktywnej logiki. Powinny zostac potraktowane jako zalazki przyszlych warstw, nie jako pelne funkcje gry.
+Sa czescia klimatu pulpitu. Nie udaja gotowych funkcji i pokazuja komunikat, ze pulpit pamieta adres, ale nie wpuszcza go do biezacej sesji.
 
 ## 5. Postacie i obecnosci
 
 ### 5.1 Cybek
 
-Cybek jest graczem-postacia i tworca Wystepu. W prototypie jest obecny przez:
+Cybek jest graczem-postacia i tworca Wystepu. W tej wersji gry jest obecny przez:
 
 - decyzje gracza,
 - wiadomosci w Messengerze,
@@ -401,7 +408,7 @@ Zachowania:
 - zmienia stabilnosc wraz z poziomem obecnosci,
 - moze powodowac subtelne przesuniecia okien i echa UI.
 
-Jej obecnosc jest liczona na podstawie stanu gry: publikacji, draftow, presji czatu, Cybart.exe, Wystepu, odkrywania tytulow i ostatniego eventu.
+Jej obecnosc jest liczona na podstawie stanu gry: publikacji, szkicow, presji czatu, Cybart.exe, Wystepu, odkrywania tytulow i ostatniego impulsu.
 
 Poziomy obecnosci:
 
@@ -443,7 +450,7 @@ Stan poczatkowy:
 
 Akcje zmieniaja statystyki:
 
-- zapis draftu lekko podnosi presje,
+- zapis szkicu lekko podnosi presje,
 - wyslanie do Pawla podnosi presje bardziej,
 - publikacja podnosi Wystep, Cybart.exe i Presje Czatu.
 
@@ -510,12 +517,12 @@ Nastepnie gra dobiera reakcje:
 
 | Warunek | Reakcje |
 | --- | --- |
-| `cudenko` i dokladnosc >= 85 | `Dobra, to juz nie jest demo. To jest material na klip.` / `Czat zapisuje ten moment jako peak Wystepu.` |
-| `cudenko` ponizej 85 | `Plik brzmi jak final, ale palce Cybka zostawily slady na podlodze.` / `Wersja jest mocna. Timing jeszcze oddycha nierowno.` |
+| `cudeńko` i dokladnosc >= 85 | `To juz nie jest plik do podgladu. To jest material na klip.` / `Czat zapisuje ten moment jako peak Wystepu.` |
+| `cudeńko` ponizej 85 | `Plik brzmi jak final, ale palce Cybka zostawily slady na podlodze.` / `Wersja jest mocna. Timing jeszcze oddycha nierowno.` |
 | `lepsza wersja` i dokladnosc >= 75 | `To juz ma refren, ktory da sie spamowac bez wstydu.` / `Presja czatu rosnie, bo ludzie slysza progres.` |
 | `lepsza wersja` ponizej 75 | `Lepszy plik, ale wykonanie jeszcze walczy z lagiem w glowie.` / `Nie kasowalbym. To ma brudny urok wersji po nocy.` |
-| `slaba wersja` i dokladnosc >= 70 | `Slaba wersja, ale zagranie trzyma ja za kark.` / `Czat nie jest pewien, czy to blad, czy stylistyka.` |
-| pozostale slabe publikacje | `To demo ucieklo z szuflady, zanim ktokolwiek zdazyl zamknac okno.` / `Zostawiam. Kompromitacja tez jest jakims materialem.` |
+| `szkic publiczny` i dokladnosc >= 70 | `To jeszcze szkic publiczny, ale zagranie trzyma go za kark.` / `Czat nie jest pewien, czy to blad, czy stylistyka.` |
+| pozostale szkice publiczne | `Szkic wyszedl na czat, zanim rece przestaly drzec.` / `Zostawiam. Publiczny slad tez jest materialem.` |
 
 ## 11. Sceny fabularne
 
@@ -559,9 +566,9 @@ Zasady:
 
 ## 13. Debug i narzedzia
 
-### 13.1 Rhythm debug
+### 13.1 Pomiary rytmu
 
-W sekcji rytmicznej istnieje `Rhythm debug`. Pokazuje informacje potrzebne do sprawdzania map:
+W sekcji rytmicznej istnieje ukryty panel `Pomiary rytmu`, otwierany skrotami testowymi. Nie jest stale widocznym elementem HUD-u. Pokazuje informacje potrzebne do sprawdzania map:
 
 - duration audio,
 - source start/end,
@@ -570,16 +577,16 @@ W sekcji rytmicznej istnieje `Rhythm debug`. Pokazuje informacje potrzebne do sp
 - widoczne nuty,
 - pozycje nut i dlugich nut.
 
-### 14.2 Beatmap Editor
+### 14.2 Strojenie rytmu
 
-`Beatmap Editor` jest narzedziem developerskim wewnatrz aplikacji.
+`Strojenie rytmu` jest narzedziem developerskim wewnatrz aplikacji.
 
 Funkcje:
 
 - wybor utworu,
 - wybor poziomu trudnosci,
-- tryb edycji,
-- tryb testu,
+- tryb `Ukladanie`,
+- tryb `Proba`,
 - odtwarzanie audio,
 - ustawianie playheada,
 - zoom,
@@ -588,9 +595,9 @@ Funkcje:
 - zmiana dlugosci holdow,
 - kasowanie nut prawym kliknieciem,
 - nagrywanie wejsc z klawiszy,
-- import `manualBeatmaps.json`,
+- wczytanie katalogu rytmu,
 - eksport pelnego katalogu,
-- `Eksport + backup`,
+- `Zapisz katalog`,
 - backupy w localStorage,
 - przywracanie backupu,
 - walidacja bledow i ostrzezen.
@@ -623,7 +630,7 @@ Zachowac koniecznie:
 - pulpit jako glowny hub,
 - Messenger z Pawlem i czatem grupowym,
 - generator `Ustno.ai Utworz`,
-- szuflade `Ustno.ai Me`,
+- szuflade `Ustno.ai Szkice`,
 - sekcje rytmiczna na 4 tory,
 - ekran wyniku,
 - publikacje i reakcje czatu,
@@ -653,14 +660,14 @@ Wszystkie ponizsze linie maja fizyczne audio w `public/audio/neura`. Czesc ma ty
 | `comment-pulpit-oddycha` | comment | `[curious]` | ogg+mp3 | Pulpit oddycha, ale jeszcze sie trzyma. |
 | `comment-nie-publikuj-dwa-razy` | comment | `[warning]` | ogg | Nie publikuj dwa razy tego samego tytulu. |
 | `comment-szuflada-bezpieczna` | comment | `[whispers]` | ogg+mp3 | Szuflada jest bezpieczna, czat juz mniej. |
-| `comment-wersja-dla-pawla` | comment | `[dry]` | ogg+mp3 | Wersja robocza dla Pawla zmniejsza chaos tylko pozornie. |
+| `comment-szkic-dla-pawla` | comment | `[dry]` | ogg+mp3 | Szkic dla Pawla zmniejsza chaos tylko pozornie. |
 | `reaction-hej` | reaction | `[playful]` | ogg+mp3 | Jestem. Nie klikaj tak nerwowo. |
 | `reaction-analiza` | reaction | `[focused]` | ogg+mp3 | Analiza trwa. Widze rytm, widze presje, widze zly pomysl. |
 | `reaction-glitch` | reaction | `[glitchy]` | ogg+mp3 | Glitch kontrolowany. Jeszcze nie uciekam z procesu. |
 | `comment-prologue-neura-boot` | comment | `[calm]` | ogg | Dzien dobry. Jestem tylko malym dodatkiem do pulpitu. Tak bedzie najwygodniej dla nas obu. |
 | `comment-prologue-process-friendly` | comment | `[system]` | ogg | Uruchomiono proces: tezGdop-PeT. Status: przyjazny. |
 | `reaction-prologue-click-where-i-live` | reaction | `[dry]` | ogg | Nie musisz wiedziec, gdzie mieszkam w systemie. Wystarczy, ze klikniesz, kiedy trzeba. |
-| `comment-early-draft-contained` | comment | `[calm]` | ogg | Zapisalam wersje robocza. Nic nie wyszlo na zewnatrz. Jeszcze. |
+| `comment-early-sketch-contained` | comment | `[calm]` | ogg | Zapisalam szkic. Nic nie wyszlo na zewnatrz. Jeszcze. |
 | `comment-early-pawel-buffer` | comment | `[softly]` | ogg | Pawel dostal szkic. To bezpieczniejsze niz publicznosc, ale mniej bezpieczne niz cisza. |
 | `comment-early-message-before-input` | comment | `[system]` | ogg | Wiadomosc przygotowana przed wpisaniem. |
 | `comment-mid-publication-behavior` | comment | `[low]` | ogg | Opublikowane. Teraz utwor nie jest juz plikiem. Jest zachowaniem ludzi wokol niego. |
@@ -728,8 +735,8 @@ Legenda audio:
 | `story.rhythm.firstFinished.vlog-wildforest-rave-anho27` | Po pierwszym wystepie: kamera | Neura | `story-rhythm-vlog-002-neura` | brak | Vlog robi z ryzyka pamiatke. Bas mija, ale plik zostaje. |
 | `story.rhythm.firstFinished.vlog-wildforest-rave-anho27` | Po pierwszym wystepie: kamera | Cybek | `story-rhythm-vlog-003-cybek` | brak | Czyli jesli zapisze wersje, to juz czesc historii? |
 | `story.rhythm.firstFinished.vlog-wildforest-rave-anho27` | Po pierwszym wystepie: kamera | Neura | `story-rhythm-vlog-004-neura` | brak | Tak. Nawet jesli historia ma bloto na butach i glitch na koncu nocy. |
-| `story.share.pawel.wystep-czekamy-czekamy` | Plik do Pawla: czekanie | Cybek | `story-share-pawel-wystep-001-cybek` | brak | Wysylam Pawlowi. Niech zobaczy, ze "czekamy" moze miec wersje robocza. |
-| `story.share.pawel.wystep-czekamy-czekamy` | Plik do Pawla: czekanie | Neura | `story-share-pawel-wystep-002-neura` | brak | Dobrze. Jedna osoba to jeszcze nie tlum. To tylko presja w wersji demo. |
+| `story.share.pawel.wystep-czekamy-czekamy` | Plik do Pawla: czekanie | Cybek | brak | brak | Wysylam Pawlowi. Niech zobaczy, ze "czekamy" moze miec szkic, zanim stanie sie wystepem. |
+| `story.share.pawel.wystep-czekamy-czekamy` | Plik do Pawla: czekanie | Neura | brak | brak | Dobrze. Jedna osoba to jeszcze nie tlum. To presja w bezpiecznym opakowaniu. |
 | `story.share.chat.wystep-czekamy-czekamy` | Czat: czekanie | Cybek | `story-share-chat-wystep-001-cybek` | brak | Publikuje. Jak krzykna "dawaj", to juz bedzie po fakcie. |
 | `story.share.chat.wystep-czekamy-czekamy` | Czat: czekanie | Neura | `story-share-chat-wystep-002-neura` | brak | Wlasnie o to chodzi. Czekanie konczy sie dopiero wtedy, gdy plik zaczyna mowic za ciebie. |
 | `story.share.pawel.wenezuelski-wystep-mashup` | Plik do Pawla: sufler | Cybek | `story-share-pawel-wenezuelski-001-cybek` | brak | Wysylam Pawlowi ten mashup, zanim sufler znowu zgubi artyste. |
@@ -758,17 +765,17 @@ Najpierw odtworzyc pionowy wycinek:
 3. Generator jednego utworu.
 4. Sekcja rytmiczna `S/D/K/L` dla `Wystep Czekamy Czekamy`.
 5. Ekran wyniku.
-6. Zapis draftu.
+6. Zapis szkicu.
 7. Publikacja i reakcja czatu.
 8. Ikona pliku i player.
 
 Dopiero po tym przenosic:
 
-- remixy dla wszystkich poziomow,
+- poprawianie szkicow dla wszystkich poziomow,
 - pozostale utwory,
 - pelny voice director,
 - narastanie poziomow obecnosci,
-- Beatmap Editor lub zewnetrzny odpowiednik narzedzia.
+- Strojenie rytmu lub zewnetrzny odpowiednik narzedzia.
 
 Najwieksze ryzyka migracji:
 
