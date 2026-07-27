@@ -100,6 +100,34 @@ test('smoke: tytuł, boot, pulpit i generator działają lokalnie', async ({ pag
   await expect(page.getByRole('button', { name: 'Stwórz pierwszą wersję' }).first()).toBeVisible();
 });
 
+test('pulpit: siatka 16x9 pokazuje overlay i otwiera Dev Menu z kafla', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.render_game_to_text === 'function');
+  await page.getByRole('button', { name: 'Przejdź do bootowania' }).click();
+  await page.evaluate(() => window.advanceTime?.(5000));
+  await expect.poll(async () => (await readGameState(page)).screen).toBe('desktop');
+  const desktopGrid = page.getByRole('region', { name: 'Kafelki pulpitu' });
+  await expect(desktopGrid).toHaveAttribute('data-columns', '16');
+  await expect(desktopGrid).toHaveAttribute('data-rows', '9');
+  await expect(page.getByRole('button', { name: 'Messenger' }).locator('..')).toHaveAttribute('data-grid-x', '1');
+  await expect(page.getByRole('button', { name: 'Messenger' }).locator('..')).toHaveAttribute('data-grid-y', '1');
+  await expect(page.getByRole('dialog', { name: 'Dev Menu' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Pokaż siatkę' }).click();
+  await expect(page.locator('.desktop-grid-overlay')).toBeVisible();
+  await expect(page.locator('.desktop-grid-overlay span')).toHaveCount(144);
+
+  await page.getByRole('button', { name: 'Dev Menu' }).click();
+  await expect(page.getByRole('dialog', { name: 'Dev Menu' })).toBeVisible();
+  await page.getByRole('button', { name: 'Przejdź cały dzień' }).click();
+  await expect.poll(async () => (await readGameState(page)).dayCycle).toMatchObject({ currentDay: 2, phase: 'communication' });
+
+  await page.getByRole('button', { name: 'Zamknij Dev Menu' }).click();
+  await expect(page.getByRole('dialog', { name: 'Dev Menu' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Ukryj siatkę' }).click();
+  await expect(page.locator('.desktop-grid-overlay')).toHaveCount(0);
+});
+
 test('świat gry: ekran startowy i Ustniki nie pokazują roboczych placeholderów', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => typeof window.render_game_to_text === 'function');

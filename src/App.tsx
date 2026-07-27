@@ -13,6 +13,9 @@ import {
   type ActiveRun,
 } from './controllers/useSessionController';
 import { CybekWebcam, type CybekWebcamEvent } from './cybekWebcam';
+import { DesktopGrid, DesktopGridItem, type DesktopGridPlacement } from './desktop/DesktopGrid.tsx';
+import { DevMenu } from './dev/DevMenu.tsx';
+import type { DevOperation } from './dev/devMenuDomain.ts';
 import { NeuraPet } from './neura/NeuraPet';
 import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
 import { useEnvironmentalUiEvents } from './neura/useEnvironmentalUiEvents';
@@ -151,6 +154,17 @@ const NEURA_COMMENT_INTERVAL_MS = 27500;
 const NEURA_STORY_BEAT_INTERVAL_MS = 41000;
 const NEURA_LOW_FX_STORAGE_KEY = 'ustnik.neura.lowFxMode';
 const ENABLE_HIDDEN_WINDOWS = false;
+const ENABLE_DEV_TOOLS = import.meta.env.DEV;
+const DESKTOP_ICON_PLACEMENTS = {
+  messenger: { x: 1, y: 1, width: 1, height: 1 },
+  create: { x: 1, y: 2, width: 1, height: 1 },
+  me: { x: 1, y: 3, width: 1, height: 1 },
+  ustniki: { x: 1, y: 4, width: 1, height: 1 },
+  titleHub: { x: 1, y: 5, width: 1, height: 1 },
+  todo: { x: 1, y: 6, width: 1, height: 1 },
+  devMenu: { x: 2, y: 1, width: 1, height: 1 },
+  gridOverlay: { x: 2, y: 2, width: 1, height: 1 },
+} satisfies Record<string, DesktopGridPlacement>;
 const BOOT_STEPS = [
   'Sprawdzanie integralności systemu',
   'Inicjalizacja kernela',
@@ -191,6 +205,8 @@ export default function App() {
     [{ id: 'boot', at: new Date().toISOString() }]
   ));
   const [isNeuraDebugOpen, setIsNeuraDebugOpen] = useState(false);
+  const [isDevMenuOpen, setIsDevMenuOpen] = useState(false);
+  const [isDesktopGridVisible, setIsDesktopGridVisible] = useState(false);
   const [isDebugOverlayDragEnabled, setIsDebugOverlayDragEnabled] = useState(false);
   const [isTodoVisible, setIsTodoVisible] = useState(true);
   const [environmentEcho, setEnvironmentEcho] = useState<{ id: number; text: string } | null>(null);
@@ -408,6 +424,16 @@ export default function App() {
 
   useEffect(() => {
     function handleDebugKey(event: KeyboardEvent) {
+      if (event.key === 'F8' && ENABLE_DEV_TOOLS) {
+        event.preventDefault();
+        setIsDesktopGridVisible((current) => !current);
+        return;
+      }
+      if (event.key === 'F9' && ENABLE_DEV_TOOLS) {
+        event.preventDefault();
+        setIsDevMenuOpen((current) => !current);
+        return;
+      }
       if (event.key !== 'F10') return;
       event.preventDefault();
       setIsNeuraDebugOpen((current) => !current);
@@ -926,6 +952,35 @@ export default function App() {
     setActiveWindow(windowId);
   }
 
+  const applyDevOperation = useCallback((operation: DevOperation) => {
+    if (!operation.success) return;
+    const previousState = gameState;
+    setGameState(operation.nextState);
+    recordDayCycleEvents(previousState, operation.nextState);
+
+    if (operation.events.includes('draft.saved')) {
+      runStoryAction('draft.saved', operation.nextState);
+      recordNeuraPresenceEvent('draftSaved');
+    }
+    if (operation.events.includes('draft.sentToPawel')) {
+      runStoryAction('draft.sentToPawel', operation.nextState);
+      recordNeuraPresenceEvent('sentToPawel');
+    }
+    if (operation.events.includes('draft.rejected')) {
+      runStoryAction('draft.rejected', operation.nextState);
+      recordNeuraPresenceEvent('draftRejected');
+    }
+    if (operation.events.includes('track.published')) {
+      runStoryAction('track.published', operation.nextState);
+      recordNeuraPresenceEvent('published');
+    }
+  }, [gameState, recordNeuraPresenceEvent, runStoryAction]);
+
+  const triggerDevNeuraEvent = useCallback((eventId: NeuraPresenceEventId) => {
+    recordNeuraPresenceEvent(eventId);
+    runStoryAction(eventId as DialoguePresenceEventId, gameState);
+  }, [gameState, recordNeuraPresenceEvent, runStoryAction]);
+
   const storySceneOverlay = activeStoryScene ? (
     <Suspense fallback={<SystemOverlayFallback label="Ładowanie cutscenki..." overlay />}>
       <CutsceneStage
@@ -1046,22 +1101,35 @@ export default function App() {
         <button onClick={resetSession}>{buttonLabels.resetSave}</button>
       </header>
 
-      <section className="icons" aria-label="Ikony pulpitu">
-        <DesktopIcon label={iconLabels.messenger} symbol={iconSymbols.messenger} onClick={() => setActiveWindow('messenger')} />
-        <DesktopIcon label={iconLabels.create} symbol={iconSymbols.create} onClick={() => setActiveWindow('create')} />
-        <DesktopIcon label={iconLabels.me} symbol={iconSymbols.me} onClick={() => setActiveWindow('me')} />
-        <DesktopIcon label={iconLabels.ustniki} symbol={iconSymbols.ustniki} onClick={() => setActiveWindow('ustniki')} />
-        <DesktopIcon label={iconLabels.titleHub} symbol={iconSymbols.titleHub} onClick={() => setActiveWindow('titleHub')} />
-        <DesktopIcon label={iconLabels.todo} symbol={iconSymbols.todo} onClick={() => setIsTodoVisible((current) => !current)} muted />
-        {gameState.publishedTracks.map((published) => (
+      <DesktopGrid showOverlay={isDesktopGridVisible}>
+        <DesktopIcon placement={DESKTOP_ICON_PLACEMENTS.messenger} label={iconLabels.messenger} symbol={iconSymbols.messenger} onClick={() => setActiveWindow('messenger')} />
+        <DesktopIcon placement={DESKTOP_ICON_PLACEMENTS.create} label={iconLabels.create} symbol={iconSymbols.create} onClick={() => setActiveWindow('create')} />
+        <DesktopIcon placement={DESKTOP_ICON_PLACEMENTS.me} label={iconLabels.me} symbol={iconSymbols.me} onClick={() => setActiveWindow('me')} />
+        <DesktopIcon placement={DESKTOP_ICON_PLACEMENTS.ustniki} label={iconLabels.ustniki} symbol={iconSymbols.ustniki} onClick={() => setActiveWindow('ustniki')} />
+        <DesktopIcon placement={DESKTOP_ICON_PLACEMENTS.titleHub} label={iconLabels.titleHub} symbol={iconSymbols.titleHub} onClick={() => setActiveWindow('titleHub')} />
+        <DesktopIcon placement={DESKTOP_ICON_PLACEMENTS.todo} label={iconLabels.todo} symbol={iconSymbols.todo} onClick={() => setIsTodoVisible((current) => !current)} muted />
+        {gameState.publishedTracks.map((published, index) => (
           <DesktopIcon
             key={published.id}
+            placement={{ x: 1, y: 7 + index, width: 1, height: 1 }}
             label={`${iconLabels.publishedFilePrefix}: ${published.trackTitle}`}
             symbol={iconSymbols.publishedFile}
             onClick={() => openPlayer(published)}
           />
         ))}
-      </section>
+        {ENABLE_DEV_TOOLS && (
+          <>
+            <DesktopIcon placement={DESKTOP_ICON_PLACEMENTS.devMenu} label="Dev Menu" symbol="DEV" onClick={() => setIsDevMenuOpen(true)} />
+            <DesktopIcon
+              placement={DESKTOP_ICON_PLACEMENTS.gridOverlay}
+              label={isDesktopGridVisible ? 'Ukryj siatkę' : 'Pokaż siatkę'}
+              symbol="16×9"
+              onClick={() => setIsDesktopGridVisible((current) => !current)}
+              muted={!isDesktopGridVisible}
+            />
+          </>
+        )}
+      </DesktopGrid>
 
       <DraggableOverlay
         className="system-identity"
@@ -1128,6 +1196,16 @@ export default function App() {
             onToggleLowFx={() => setNeuraLowFxMode(!neuraPresence.lowFxMode)}
           />
         </DraggableOverlay>
+      )}
+      {ENABLE_DEV_TOOLS && isDevMenuOpen && (
+        <DevMenu
+          gameState={gameState}
+          neuraPower={neuraPresence.powerLevel}
+          onClose={() => setIsDevMenuOpen(false)}
+          onApply={applyDevOperation}
+          onTriggerNeura={triggerDevNeuraEvent}
+          onSetNeuraPower={setNeuraOverride}
+        />
       )}
       {storySceneOverlay}
 
@@ -1363,21 +1441,25 @@ function getVisibleBootLogs(progress: number) {
 }
 
 function DesktopIcon({
+  placement,
   label,
   symbol,
   muted = false,
   onClick,
 }: {
+  placement: DesktopGridPlacement;
   label: string;
   symbol: string;
   muted?: boolean;
   onClick: () => void;
 }) {
   return (
-    <button className={`desktop-icon ${muted ? 'muted' : ''}`} onClick={onClick}>
-      <span>{symbol}</span>
-      {label}
-    </button>
+    <DesktopGridItem placement={placement}>
+      <button className={`desktop-icon ${muted ? 'muted' : ''}`} onClick={onClick} title={label}>
+        <span>{symbol}</span>
+        <small>{label}</small>
+      </button>
+    </DesktopGridItem>
   );
 }
 

@@ -391,3 +391,16 @@ Naprawione:
 
 1. Podmienic generowane beatmapy na autorskie dane dla prawdziwych utworow.
 2. Zrobic wersjonowana migracje save'a, gdy model danych ustabilizuje sie bardziej.
+# Dev Menu (pierwszy patch)
+
+- W środowisku developerskim panel otwiera się klawiszem `F9` albo kaflem `Dev Menu`; kafel i skrót nie są aktywne w buildzie produkcyjnym.
+- Stan interfejsu Dev Menu oraz jego tymczasowy snapshot nie są zapisywane w zwykłym save.
+- Pierwszy patch obejmuje: FLOW, STATE, sześć presetów, ACTIONS, eventy Neury, snapshot/reset, przeliczenie endingu i log różnic.
+- Kolejne etapy ze specyfikacji pozostają poza tym patchem: Diff Inspector, walidacja, Event Bus, replay, fuzz i command palette.
+
+## Siatka pulpitu
+
+- Pulpit ma logiczną siatkę `16 × 9`; każdy kafel otrzymuje `x`, `y`, `width` i `height` w kratkach.
+- Ikony aplikacji i plików publikacji są osadzone przez `DesktopGridItem`, bez pikselowych pozycji w komponencie UI.
+- Kafel `Pokaż siatkę` oraz skrót `F8` przełączają developerski overlay współrzędnych.
+- Na wąskich ekranach kafle przechodzą do responsywnej listy, ale zachowują dane logicznego położenia 16 × 9.
