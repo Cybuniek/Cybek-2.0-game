@@ -1,8 +1,10 @@
+import { intentLabels, intentDescriptions, performanceComment, performanceDecisionPreview } from './performance';
+import type { PerformanceIntent } from './types';
+import { readRhythmClock, type RhythmSpeed } from './rhythm';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 import { neuraComments } from './data/messages';
 import type { NeuraVoiceLine } from './data/neuraVoiceLines';
-import { chatAuthors, communicationMessage, groupPublishMessages, pawelDraftMessage } from './data/chatReactions';
 import { tracks } from './data/tracks';
 import { useSoundscape } from './audio/useSoundscape';
 import { useRhythmSfx } from './audio/useRhythmSfx';
@@ -12,10 +14,10 @@ import {
   useSessionController,
   type ActiveRun,
 } from './controllers/useSessionController';
+import { createGameActions, type GameWindowId } from './controllers/gameActions';
 import { CybekWebcam, type CybekWebcamEvent } from './cybekWebcam';
 import { DesktopGrid, DesktopGridItem, type DesktopGridPlacement } from './desktop/DesktopGrid.tsx';
 import { DevMenu } from './dev/DevMenu.tsx';
-import type { DevOperation } from './dev/devMenuDomain.ts';
 import { NeuraPet } from './neura/NeuraPet';
 import { appendNeuraPresenceEvent, createNeuraPresenceState } from './neura/NeuraPresenceManager.ts';
 import { useEnvironmentalUiEvents } from './neura/useEnvironmentalUiEvents';
@@ -43,45 +45,25 @@ import type { StorySceneTrigger } from './data/dialogue/storyScenes';
 import type { NeuraPresenceEventId as DialoguePresenceEventId } from './data/dialogue/dialogueTypes';
 import { deriveMainStoryProgress } from './data/dialogue/mainStory';
 import {
-  addUnique,
   createRemixComparison,
-  resultFromDraft,
-  triggerEchoAfterPublish,
-  upsertDraft,
-  upsertPublished,
   type RemixComparison,
 } from './gameFlow';
 import {
-  applyCommunicationAction,
-  applyStatsDelta,
-  advanceDaySummary,
-  beginWork,
   canPublish,
   canStartWork,
-  cancelWork,
-  finishDay,
   getActionPreview,
   getDraftAge,
   getRhythmStatModifier,
   getStatBand,
-  getDecisionDelta,
   type DayDecision,
 } from './dayCycle';
-import { updateEndingState } from './ending';
-import { applyResonanceEffects, updateResonanceState } from './resonance';
 import {
-  createDraftFromResult,
-  createPublishedTrack,
   defaultState,
   getNextDifficulty,
   getTitleReveal,
-  improveDraftWithResult,
   loadState,
   maskTrackTitle,
-  revealTitleByAccuracy,
-  revealTitleFully,
   saveState,
-  addMessage,
 } from './storage';
 import {
   addresses,
@@ -102,7 +84,7 @@ import {
   finishRhythmSession,
   getRhythmNoteKind,
   getRhythmNoteEndMs,
-  getRhythmDifficultyConfig,
+  getRhythmLiveAccuracy,
   getRhythmSummary,
   getVisibleRhythmNotes,
   holdRhythmLane,
@@ -132,7 +114,7 @@ import type {
   Track,
 } from './types';
 
-type WindowId = 'messenger' | 'create' | 'me' | 'player' | 'event' | 'ustniki' | 'titleHub' | null;
+type WindowId = GameWindowId;
 type HiddenWindowId = 'lab' | 'archive' | 'broadcast';
 type Point = { x: number; y: number };
 type HitFeedback = {
@@ -184,7 +166,7 @@ const BOOT_LOGS = [
   'Time: 2025-05-25 21:37:00',
   'Witaj, USTNIK!',
 ] as const;
-type RhythmPhase = 'loading' | 'countdown' | 'playing';
+type RhythmPhase = 'loading' | 'countdown' | 'starting' | 'playing' | 'paused' | 'error';
 
 const BeatmapEditor = lazy(() => import('./editor/BeatmapEditor').then((module) => ({ default: module.BeatmapEditor })));
 const CutsceneStage = lazy(() => import('./neura/cutscene/CutsceneStage').then((module) => ({ default: module.CutsceneStage })));
@@ -682,304 +664,41 @@ export default function App() {
     return maskTrackTitle(title, getTitleReveal(gameState.titleRevealByTrackId, trackId, isPublished), trackId, corruptionTick);
   }
 
-  function recordDayCycleEvents(previousState: GameState, nextState: GameState) {
-    const previousCommitmentStatuses = new Map(
-      previousState.dayCycle.commitments.map((commitment) => [commitment.id, commitment.status]),
-    );
-    const missedCommitment = nextState.dayCycle.commitments.some((commitment) => (
-      commitment.status === 'missed' && previousCommitmentStatuses.get(commitment.id) !== 'missed'
-    ));
-    const fulfilledCommitment = nextState.dayCycle.commitments.some((commitment) => (
-      commitment.status === 'fulfilled' && previousCommitmentStatuses.get(commitment.id) !== 'fulfilled'
-    ));
-    const advancedToNewDay = nextState.dayCycle.currentDay > previousState.dayCycle.currentDay
-      && nextState.dayCycle.phase === 'communication';
-
-    if (advancedToNewDay || nextState.dayCycle.phase === 'complete') {
-      recordNeuraPresenceEvent('dayAdvanced');
-    }
-    if (nextState.dayCycle.rejectedCount > previousState.dayCycle.rejectedCount) {
-      recordNeuraPresenceEvent('draftRejected');
-    }
-    if (missedCommitment) {
-      recordNeuraPresenceEvent('promiseMissed');
-    }
-
-    if (missedCommitment) {
-      runStoryAction('commitment.missed', nextState);
-    } else if (nextState.dayCycle.rejectedCount > previousState.dayCycle.rejectedCount) {
-      runStoryAction('draft.rejected', nextState);
-    } else if (advancedToNewDay) {
-      runStoryAction('day.advanced', nextState);
-    }
-
-    if (fulfilledCommitment) {
-      showEnvironmentalEcho('Obietnica domknięta. Czat zapamięta termin lepiej niż ulgę.');
-    }
-  }
-
-  function commitDay(previousState: GameState, nextState: GameState, windowId: WindowId) {
-    setGameState(nextState);
-    recordDayCycleEvents(previousState, nextState);
-    returnToDesktop(windowId);
-  }
-
-  function sendCommunication(action: CommunicationAction, trackId?: string) {
-    if (gameState.dayCycle.phase !== 'communication') return;
-    const nextDayState = applyCommunicationAction(gameState, action, trackId);
-    if (nextDayState === gameState) return;
-
-    const target = trackId
-      ? gameState.drafts.find((draft) => draft.trackId === trackId)?.trackTitle
-        ?? tracks.find((track) => track.id === trackId)?.title
-      : undefined;
-    const message = communicationMessage(action, gameState.dayCycle.currentDay, target);
-    const nextState: GameState = {
-      ...nextDayState,
-      groupMessages: [...nextDayState.groupMessages, message],
-    };
-    setGameState(nextState);
-    setMessengerTab('group');
-    showEnvironmentalEcho(action === 'silence' ? 'Cisza też jest komunikatem.' : message.text);
-  }
-
-  function restForDay() {
-    if (gameState.dayCycle.phase !== 'work') return;
-    const withRest = {
-      ...gameState,
-      stats: applyStatsDelta(gameState.stats, getDecisionDelta('rest')),
-    };
-    const nextState = finishDay(withRest);
-    commitDay(gameState, nextState, 'messenger');
-  }
-
-  function continueAfterDaySummary() {
-    if (gameState.dayCycle.phase !== 'daySummary') return;
-    const nextState = advanceDaySummary(gameState);
-    setGameState(nextState);
-    recordDayCycleEvents(gameState, nextState);
-  }
-
-  function startCreate(track: Track) {
-    if (gameState.dayCycle.phase !== 'work' || !canStartWork(gameState.stats)) return;
-    setGameState(beginWork(gameState));
-    startRun(track, track.difficulties[0], 'create');
-  }
-
-  function startRemix(draft: DraftTrack) {
-    const track = tracks.find((item) => item.id === draft.trackId);
-    const nextDifficulty = getNextDifficulty(draft.trackId, draft.difficulty) ?? draft.difficulty;
-    if (gameState.dayCycle.phase !== 'work' || !canStartWork(gameState.stats)) return;
-    if (track) {
-      setGameState(beginWork(gameState));
-      startRun(track, nextDifficulty, 'remix', draft.id);
-    }
-  }
-
-  function saveInitialDraft(status: DraftTrack['status']) {
-    if (!result) return;
-    const action: DayDecision = status === 'sentToPawel' ? 'sendToPawel' : 'saveDraft';
-    const draft = createDraftFromResult(result, status, gameState.dayCycle.currentDay);
-    const pawelMessages = status === 'sentToPawel'
-      ? addMessage(
-          gameState.pawelMessages,
-          chatAuthors.cybek,
-          pawelDraftMessage(
-            result,
-            maskTrackTitle(
-              result.trackTitle,
-              getTitleReveal(gameState.titleRevealByTrackId, result.trackId, gameState.publishedTrackIds.includes(result.trackId)),
-              result.trackId,
-              corruptionTick,
-            ),
-          ),
-        )
-      : gameState.pawelMessages;
-    let nextState: GameState = {
-      ...gameState,
-      createdTrackIds: addUnique(gameState.createdTrackIds, result.trackId),
-      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, result.trackId, result.accuracy),
-      drafts: upsertDraft(gameState.drafts, draft),
-      pawelMessages,
-      stats: applyStatsDelta(gameState.stats, getDecisionDelta(action, result.grade, true)),
-    };
-    nextState = finishDay(nextState);
-
-    runStoryAction(status === 'sentToPawel' ? 'draft.sentToPawel' : 'draft.saved', nextState);
-    if (status === 'sentToPawel') {
-      queueStoryScene({ type: 'share', channel: 'pawel', trackId: draft.trackId });
-    }
-
-    commitDay(gameState, nextState, status === 'sentToPawel' ? 'messenger' : 'me');
-    recordNeuraPresenceEvent(status === 'sentToPawel' ? 'sentToPawel' : 'draftSaved');
-    if (status === 'sentToPawel') setMessengerTab('pawel');
-  }
-
-  function overwriteDraft() {
-    if (!result || !activeRun?.draftId) return;
-    const current = gameState.drafts.find((draft) => draft.id === activeRun.draftId);
-    if (!current) return;
-    let nextState: GameState = {
-      ...gameState,
-      drafts: upsertDraft(gameState.drafts, improveDraftWithResult(current, result, gameState.dayCycle.currentDay)),
-      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, result.trackId, result.accuracy),
-      stats: applyStatsDelta(gameState.stats, getDecisionDelta('saveDraft', result.grade, true)),
-    };
-    nextState = finishDay(nextState);
-
-    runStoryAction('draft.saved', nextState);
-    queueStoryScene({ type: 'remix.firstOverwritten', trackId: result.trackId });
-    commitDay(gameState, nextState, 'me');
-    recordNeuraPresenceEvent('draftSaved');
-  }
-
-  function sendDraftToPawel(draft: DraftTrack) {
-    if (gameState.dayCycle.phase !== 'work') return;
-    const resultLike = resultFromDraft(draft);
-    let nextState: GameState = {
-      ...gameState,
-      drafts: upsertDraft(gameState.drafts, { ...draft, status: 'sentToPawel', updatedAt: new Date().toISOString() }),
-      titleRevealByTrackId: revealTitleByAccuracy(gameState.titleRevealByTrackId, draft.trackId, draft.bestAccuracy),
-      pawelMessages: addMessage(
-        gameState.pawelMessages,
-        chatAuthors.cybek,
-        pawelDraftMessage(
-          draft,
-          maskTrackTitle(
-            draft.trackTitle,
-            getTitleReveal(gameState.titleRevealByTrackId, draft.trackId, gameState.publishedTrackIds.includes(draft.trackId)),
-            draft.trackId,
-            corruptionTick,
-          ),
-        ),
-      ),
-      stats: applyStatsDelta(gameState.stats, getDecisionDelta('sendToPawel', resultLike.grade, false)),
-    };
-    nextState = finishDay(nextState);
-    commitDay(gameState, nextState, 'messenger');
-    runStoryAction('draft.sentToPawel', nextState);
-    queueStoryScene({ type: 'share', channel: 'pawel', trackId: draft.trackId });
-    recordNeuraPresenceEvent('sentToPawel');
-    setMessengerTab('pawel');
-  }
-
-  function publishInitialResult() {
-    if (!result || gameState.publishedTrackIds.includes(result.trackId)) return;
-    publishDraft(createDraftFromResult(result, 'inDrawer', gameState.dayCycle.currentDay), true);
-  }
-
-  function publishDraft(draft: DraftTrack, includeWork = false) {
-    if (gameState.publishedTrackIds.includes(draft.trackId) || !canPublish(gameState.stats)) return;
-
-    const published = createPublishedTrack(
-      draft,
-      gameState.dayCycle.currentDay,
-      gameState.dayCycle.lastPublicationDay,
-    );
-    let nextState: GameState = {
-      ...gameState,
-      createdTrackIds: addUnique(gameState.createdTrackIds, draft.trackId),
-      titleRevealByTrackId: revealTitleFully(gameState.titleRevealByTrackId, draft.trackId),
-      drafts: gameState.drafts.filter((item) => item.trackId !== draft.trackId),
-      publishedTracks: upsertPublished(gameState.publishedTracks, published),
-      publishedTrackIds: addUnique(gameState.publishedTrackIds, draft.trackId),
-      groupMessages: [...gameState.groupMessages, ...groupPublishMessages(published)],
-      stats: applyStatsDelta(gameState.stats, getDecisionDelta('publish', draft.bestGrade, includeWork)),
-    };
-    nextState = finishDay(nextState, {
-      publishedTrackId: draft.trackId,
-      publishedQuality: draft.bestGrade,
-    });
-    nextState = triggerEchoAfterPublish(nextState, published);
-    nextState = updateResonanceState(nextState, draft.bestAccuracy);
-    nextState = applyResonanceEffects(nextState);
-    nextState = updateEndingState(nextState);
-
-    runStoryAction('track.published', nextState);
-    queueStoryScene({ type: 'share', channel: 'chat', trackId: draft.trackId });
-    if (gameState.publishedTrackIds.length < tracks.length && nextState.publishedTrackIds.length >= tracks.length) {
-      queueStoryScene({ type: 'final.ready' });
-      runStoryAction('story.finalSceneUnlocked', nextState);
-    }
-    if (nextState.stats.chatPressure >= 35) runStoryAction('neura.glitchSpike', nextState);
-    showEnvironmentalEcho(nextState.echo.lastPhrase ? `Echo: ${nextState.echo.lastPhrase}` : 'Echo publikacji wraca przez EVENTS');
-    commitDay(gameState, nextState, 'messenger');
-    recordNeuraPresenceEvent('published');
-    setMessengerTab('group');
-  }
-
-  function discardInitialResult() {
-    if (!result) return;
-    let nextState: GameState = {
-      ...gameState,
-      stats: applyStatsDelta(gameState.stats, getDecisionDelta('discard', result.grade, true)),
-      dayCycle: {
-        ...gameState.dayCycle,
-        rejectedCount: gameState.dayCycle.rejectedCount + 1,
-      },
-    };
-    nextState = finishDay(nextState);
-    commitDay(gameState, nextState, 'messenger');
-  }
-
-  function discardDraft(draft: DraftTrack) {
-    if (gameState.dayCycle.phase !== 'work') return;
-    let nextState: GameState = {
-      ...gameState,
-      drafts: gameState.drafts.filter((item) => item.id !== draft.id),
-      stats: applyStatsDelta(gameState.stats, getDecisionDelta('discard', draft.bestGrade, false)),
-      dayCycle: {
-        ...gameState.dayCycle,
-        rejectedCount: gameState.dayCycle.rejectedCount + 1,
-      },
-    };
-    nextState = finishDay(nextState);
-    commitDay(gameState, nextState, 'me');
-  }
-
-  function cancelPendingWork(windowId: WindowId) {
-    setGameState(cancelWork(gameState));
-    returnToDesktop(windowId);
-  }
-
-  function openPlayer(published: PublishedTrack) {
-    setSelectedPublishedId(published.id);
-    setActiveWindow('player');
-  }
-
-  function returnToDesktop(windowId: WindowId = activeWindow) {
-    clearSessionToDesktop();
-    setActiveWindow(windowId);
-  }
-
-  const applyDevOperation = useCallback((operation: DevOperation) => {
-    if (!operation.success) return;
-    const previousState = gameState;
-    setGameState(operation.nextState);
-    recordDayCycleEvents(previousState, operation.nextState);
-
-    if (operation.events.includes('draft.saved')) {
-      runStoryAction('draft.saved', operation.nextState);
-      recordNeuraPresenceEvent('draftSaved');
-    }
-    if (operation.events.includes('draft.sentToPawel')) {
-      runStoryAction('draft.sentToPawel', operation.nextState);
-      recordNeuraPresenceEvent('sentToPawel');
-    }
-    if (operation.events.includes('draft.rejected')) {
-      runStoryAction('draft.rejected', operation.nextState);
-      recordNeuraPresenceEvent('draftRejected');
-    }
-    if (operation.events.includes('track.published')) {
-      runStoryAction('track.published', operation.nextState);
-      recordNeuraPresenceEvent('published');
-    }
-  }, [gameState, recordNeuraPresenceEvent, runStoryAction]);
-
-  const triggerDevNeuraEvent = useCallback((eventId: NeuraPresenceEventId) => {
-    recordNeuraPresenceEvent(eventId);
-    runStoryAction(eventId as DialoguePresenceEventId, gameState);
-  }, [gameState, recordNeuraPresenceEvent, runStoryAction]);
+  const {
+    sendCommunication,
+    restForDay,
+    continueAfterDaySummary,
+    startCreate,
+    startRemix,
+    saveInitialDraft,
+    overwriteDraft,
+    sendDraftToPawel,
+    publishInitialResult,
+    publishDraft,
+    discardInitialResult,
+    discardDraft,
+    cancelPendingWork,
+    openPlayer,
+    returnToDesktop,
+    applyDevOperation,
+    triggerDevNeuraEvent,
+  } = createGameActions({
+    gameState,
+    result,
+    activeRun,
+    activeWindow,
+    corruptionTick,
+    setGameState,
+    setMessengerTab,
+    setSelectedPublishedId,
+    setActiveWindow,
+    startRun,
+    clearSessionToDesktop,
+    recordNeuraPresenceEvent,
+    runStoryAction,
+    queueStoryScene,
+    showEnvironmentalEcho,
+  });
 
   const storySceneOverlay = activeStoryScene ? (
     <Suspense fallback={<SystemOverlayFallback label="Ładowanie cutscenki..." overlay />}>
@@ -1009,7 +728,7 @@ export default function App() {
           onOverlayMove={(overlayId, position) => setOverlayPositions((state) => ({ ...state, [overlayId]: position }))}
           onNeuraPresenceEvent={recordNeuraPresenceEvent}
           onFinish={finishRun}
-          onExit={() => returnToDesktop(activeRun.mode === 'create' ? 'create' : 'me')}
+          onExit={() => cancelPendingWork(activeRun.mode === 'create' ? 'create' : 'me')}
           storySceneActive={isStorySceneActive}
         />
         {storySceneOverlay}
@@ -1053,6 +772,7 @@ export default function App() {
     return (
       <>
         <ResultsScreen
+          gameState={gameState}
           result={result}
           displayTitle={getDisplayTitle(result.trackId, result.trackTitle)}
           rhythmHint={result.rhythmStatModifier?.neuraHint ?? 'czysty kanał'}
@@ -1219,6 +939,9 @@ export default function App() {
           <strong>Plan Występu</strong>
           <span>{mainStoryProgress.currentBeat.actLabel}: {mainStoryProgress.currentBeat.title}</span>
           <span>{mainStoryProgress.currentBeat.objective}</span>
+          <button onClick={() => setActiveWindow(gameState.dayCycle.phase === 'work' && canStartWork(gameState.stats) ? 'create' : 'messenger')}>
+            {gameState.dayCycle.phase === 'communication' ? 'Zacznij dzień: odezwij się' : gameState.dayCycle.phase === 'work' ? canStartWork(gameState.stats) ? 'Wybierz charakter i utwór' : 'Odpocznij: silnik potrzebuje przerwy' : gameState.dayCycle.phase === 'daySummary' ? 'Domknij dzień i odbierz reakcję' : 'Zobacz ślad Występu'}
+          </button>
         </DraggableOverlay>
       )}
 
@@ -1226,11 +949,11 @@ export default function App() {
         <strong>Ścieżka Występu:</strong>
         <span>twórz utwór</span>
         <i aria-hidden="true" />
-        <span>test rytmiczny</span>
+        <span>złap frazę</span>
         <i aria-hidden="true" />
         <span>decyzja</span>
         <i aria-hidden="true" />
-        <span>szuflada / publikacja / wersja do poprawy</span>
+        <span>zostaw ślad → odbierz reakcję</span>
       </section>
 
       {activeWindow === 'messenger' && (
@@ -1284,6 +1007,7 @@ export default function App() {
           onClose={() => setActiveWindow(null)}
         >
           <MeWindow
+            gameState={gameState}
             drafts={gameState.drafts}
             currentDay={gameState.dayCycle.currentDay}
             titleRevealByTrackId={gameState.titleRevealByTrackId}
@@ -1751,13 +1475,15 @@ function CreateWindow({
   titleRevealByTrackId: GameState['titleRevealByTrackId'];
   publishedTrackIds: string[];
   corruptionTick: number;
-  onCreate: (track: Track) => void;
+  onCreate: (track: Track, intent?: PerformanceIntent) => void;
   canStart: boolean;
 }) {
+  const [intent, setIntent] = useState<PerformanceIntent>('close');
   if (createTracks.length === 0) return <p className="empty">{placeholderLabels.noCreateTracks}</p>;
 
   return (
     <div className="track-list">
+      <IntentSelector intent={intent} onChange={setIntent} />
       {createTracks.map((track) => {
         const displayTitle = maskTrackTitle(
           track.title,
@@ -1772,7 +1498,7 @@ function CreateWindow({
               <span>{track.artist} / {track.bpm} BPM / {track.mood}</span>
               <em>{placeholderLabels.level}: {track.difficulties[0]}</em>
             </div>
-            <button disabled={!canStart} onClick={() => onCreate(track)}>
+            <button disabled={!canStart} onClick={() => onCreate(track, intent)}>
               {canStart ? buttonLabels.createFirstVersion : 'Najpierw komunikacja / odpoczynek'}
             </button>
           </article>
@@ -1783,6 +1509,7 @@ function CreateWindow({
 }
 
 function MeWindow({
+  gameState,
   drafts,
   currentDay,
   titleRevealByTrackId,
@@ -1795,22 +1522,25 @@ function MeWindow({
   canAct,
   canPublish: canPublishAction,
 }: {
+  gameState: GameState;
   drafts: DraftTrack[];
   currentDay: number;
   titleRevealByTrackId: GameState['titleRevealByTrackId'];
   publishedTrackIds: string[];
   corruptionTick: number;
-  onRemix: (draft: DraftTrack) => void;
+  onRemix: (draft: DraftTrack, intent?: PerformanceIntent) => void;
   onSendToPawel: (draft: DraftTrack) => void;
   onPublish: (draft: DraftTrack) => void;
   onDiscard: (draft: DraftTrack) => void;
   canAct: boolean;
   canPublish: boolean;
 }) {
+  const [intent, setIntent] = useState<PerformanceIntent>('close');
   if (drafts.length === 0) return <p className="empty">{placeholderLabels.noDrafts}</p>;
 
   return (
     <div className="track-list">
+      <IntentSelector intent={intent} onChange={setIntent} />
       {drafts.map((draft) => {
         const nextDifficulty = getNextDifficulty(draft.trackId, draft.difficulty);
         const displayTitle = maskTrackTitle(
@@ -1825,10 +1555,12 @@ function MeWindow({
               <strong className="masked-title">{displayTitle}</strong>
               <span>{draft.difficulty} / {draft.bestAccuracy}% / {placeholderLabels.grade} {draft.bestGrade} / {draft.qualityProgress} pkt / wiek {getDraftAge(currentDay, draft)} dni</span>
               <em>Status: {statusLabels[draft.status]}</em>
+              {draft.lastPerformance && <span>Ostatnie wykonanie: {draft.lastPerformance.intent ? intentLabels[draft.lastPerformance.intent] : 'bez intencji'} / {draft.lastPerformance.accuracy}% · najlepsza celność: {draft.bestAccuracy}%</span>}
+              {canAct && <div className="draft-previews">{(['sendToPawel', 'publish', 'discard'] as const).filter((action) => action !== 'sendToPawel' || draft.status === 'inDrawer').map((action) => <small key={action}>{action === 'sendToPawel' ? 'Paweł' : action === 'publish' ? 'Publikacja' : 'Odrzucenie'}: {formatStatDelta(performanceDecisionPreview(gameState, action, draft.bestGrade, false, draft.trackId, draft.lastPerformance?.intent).delta)}</small>)}</div>}
               {!nextDifficulty && <em>Powtarzanie poziomu Cybart z malejącym zyskiem</em>}
             </div>
             <div className="difficulty-row">
-              <button disabled={!canAct} onClick={() => onRemix(draft)}>
+              <button disabled={!canAct} onClick={() => onRemix(draft, intent)}>
                 {nextDifficulty ? `${buttonLabels.remix}: ${nextDifficulty}` : `${buttonLabels.remix}: Cybart`}
               </button>
               {draft.status === 'inDrawer' && (
@@ -1913,12 +1645,18 @@ function RhythmScreen({
   const [audioDurationMs, setAudioDurationMs] = useState(initialDurationMs);
   const [phase, setPhase] = useState<RhythmPhase>(() => (activeRun.track.audio?.instrumental ? 'loading' : 'countdown'));
   const [countdownMs, setCountdownMs] = useState(3000);
+  const [speed, setSpeed] = useState<RhythmSpeed>(() => {
+    try { const saved = localStorage.getItem('ustnik-rhythm-speed'); return saved === 'calm' || saved === 'fast' ? saved : 'standard'; } catch { return 'standard'; }
+  });
+  const resumedRef = useRef(false);
+  const clockAnchorRef = useRef({ now: 0, elapsed: 0 });
+  const playbackAttemptRef = useRef(0);
   const [debugMode, setDebugMode] = useState<'panel' | 'window' | null>(null);
   const beatmap = useMemo(
     () => resolveRhythmBeatmap(activeRun.track, activeRun.difficulty, audioDurationMs),
     [activeRun.difficulty, activeRun.track, audioDurationMs],
   );
-  const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty, statModifier));
+  const [session, setSession] = useState<RhythmSession>(() => createRhythmSession(beatmap, activeRun.difficulty, statModifier, speed));
   const [vocalPeaks, setVocalPeaks] = useState<number[]>(() => createFallbackPeaks(beatmap.bpm));
   const [hitFeedbacks, setHitFeedbacks] = useState<HitFeedback[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -1928,14 +1666,13 @@ function RhythmScreen({
   const onFinishRef = useRef(onFinish);
   const phaseRef = useRef<RhythmPhase>(phase);
   const countdownRef = useRef(countdownMs);
-  const gameClockFallbackMsRef = useRef(0);
   const rhythmSfx = useRhythmSfx();
-  const visibleNotes = getVisibleRhythmNotes(session);
+  const previewSession = phase === 'countdown' && !resumedRef.current ? { ...session, elapsedMs: -countdownMs } : session;
+  const visibleNotes = getVisibleRhythmNotes(previewSession);
   const summary = getRhythmSummary(session, resonanceEffects);
   const remainingSeconds = Math.max(0, Math.ceil((session.beatmap.durationMs - session.elapsedMs) / 1000));
   const vocalAudioSource = activeRun.track.audio?.vocals;
   const instrumentalAudioSource = activeRun.track.audio?.instrumental;
-  const densityConfig = getRhythmDifficultyConfig(activeRun.difficulty);
 
   useEffect(() => {
     onFinishRef.current = onFinish;
@@ -1950,7 +1687,7 @@ function RhythmScreen({
   }, [countdownMs]);
 
   useEffect(() => {
-    const nextSession = createRhythmSession(beatmap, activeRun.difficulty, statModifier);
+    const nextSession = createRhythmSession(beatmap, activeRun.difficulty, statModifier, speed);
     sessionRef.current = nextSession;
     finishedRef.current = false;
     setSession(nextSession);
@@ -1958,8 +1695,7 @@ function RhythmScreen({
     setHitFeedbacks([]);
     heldLanesRef.current.clear();
     rhythmSfx.stopAllHolds();
-    gameClockFallbackMsRef.current = 0;
-  }, [activeRun.difficulty, beatmap, rhythmSfx, statModifier]);
+  }, [activeRun.difficulty, beatmap, rhythmSfx, statModifier, speed]);
 
   useEffect(() => {
     setAudioDurationMs(estimateRhythmDurationMs(activeRun.track));
@@ -1978,6 +1714,8 @@ function RhythmScreen({
   }, [instrumentalAudioSource, phase]);
 
   useEffect(() => () => {
+    playbackAttemptRef.current += 1;
+    finishedRef.current = true;
     audioRef.current?.pause();
   }, []);
 
@@ -2019,6 +1757,7 @@ function RhythmScreen({
   const completeRun = useCallback((sessionToFinish: RhythmSession) => {
     if (finishedRef.current) return;
 
+    audioRef.current?.pause();
     rhythmSfx.stopAllHolds();
     const finalSession = finishRhythmSession(sessionToFinish);
     sessionRef.current = finalSession;
@@ -2048,50 +1787,87 @@ function RhythmScreen({
     }
   }, [completeRun, rhythmSfx]);
 
-  const startPlayback = useCallback(() => {
-    if (finishedRef.current || phaseRef.current === 'playing') return;
+  const currentElapsed = useCallback(() => readRhythmClock(
+    audioRef.current ? audioRef.current.currentTime : null,
+    sessionRef.current.beatmap.sourceStartMs ?? 0,
+    clockAnchorRef.current.elapsed + performance.now() - clockAnchorRef.current.now,
+  ), []);
 
-    phaseRef.current = 'playing';
-    setPhase('playing');
-    gameClockFallbackMsRef.current = 0;
+  const pausePlayback = useCallback(() => {
+    if (finishedRef.current || phaseRef.current === 'paused' || phaseRef.current === 'error' || phaseRef.current === 'loading') return;
+    if (phaseRef.current === 'playing') syncToElapsed(currentElapsed());
+    playbackAttemptRef.current += 1;
+    audioRef.current?.pause();
+    rhythmSfx.stopAllHolds();
+    heldLanesRef.current.clear();
+    resumedRef.current = sessionRef.current.elapsedMs > 0;
+    phaseRef.current = 'paused';
+    setPhase('paused');
+  }, [currentElapsed, rhythmSfx, syncToElapsed]);
+
+  const startPlayback = useCallback(async () => {
+    if (finishedRef.current || phaseRef.current === 'playing' || phaseRef.current === 'starting') return;
+    const attempt = ++playbackAttemptRef.current;
+    phaseRef.current = 'starting';
+    setPhase('starting');
     const audio = audioRef.current;
-    if (audio) {
-      audio.currentTime = (sessionRef.current.beatmap.sourceStartMs ?? 0) / 1000;
-      audio.play().catch(() => undefined);
+    try {
+      if (audio) {
+        if (!resumedRef.current) audio.currentTime = (sessionRef.current.beatmap.sourceStartMs ?? 0) / 1000;
+        await audio.play();
+      }
+      if (attempt !== playbackAttemptRef.current || finishedRef.current) { audio?.pause(); return; }
+      if (resumedRef.current) {
+        for (const note of sessionRef.current.notes) {
+          if (!note.judged && note.startedAtMs !== undefined && !heldLanesRef.current.has(note.lane)) {
+            sessionRef.current = releaseRhythmLane(sessionRef.current, note.lane);
+          } else if (!note.judged && note.startedAtMs !== undefined) {
+            rhythmSfx.startHold(note.lane);
+          }
+        }
+      }
+      clockAnchorRef.current = { now: performance.now(), elapsed: sessionRef.current.elapsedMs };
+      phaseRef.current = 'playing';
+      setPhase('playing');
+      syncToElapsed(currentElapsed());
+    } catch {
+      if (attempt !== playbackAttemptRef.current) return;
+      audio?.pause();
+      phaseRef.current = 'error';
+      setPhase('error');
     }
-    syncToElapsed(0);
-  }, [syncToElapsed]);
+  }, [currentElapsed, rhythmSfx, syncToElapsed]);
+
+  const resumePlayback = useCallback(() => {
+    resumedRef.current = sessionRef.current.elapsedMs > 0;
+    countdownRef.current = 3000;
+    setCountdownMs(3000);
+    phaseRef.current = 'countdown';
+    setPhase('countdown');
+  }, []);
 
   const stepByMs = useCallback((ms: number) => {
     if (finishedRef.current) return;
-
     if (phaseRef.current === 'countdown') {
       const nextCountdown = Math.max(0, countdownRef.current - Math.max(0, ms));
       countdownRef.current = nextCountdown;
       setCountdownMs(nextCountdown);
-      if (nextCountdown <= 0) startPlayback();
+      if (nextCountdown <= 0) void startPlayback();
       return;
     }
-
     if (phaseRef.current !== 'playing') return;
+    syncToElapsed(currentElapsed());
+  }, [startPlayback, syncToElapsed, currentElapsed]);
 
-    gameClockFallbackMsRef.current += Math.max(0, ms);
-    const audio = audioRef.current;
-    const currentBeatmap = sessionRef.current.beatmap;
-    const sourceStartMs = currentBeatmap.sourceStartMs ?? 0;
-    const sourceEndMs = currentBeatmap.sourceEndMs ?? sourceStartMs + currentBeatmap.durationMs;
-    if (audio && !audio.paused && audio.currentTime * 1000 >= sourceEndMs) {
-      audio.pause();
-      syncToElapsed(currentBeatmap.durationMs);
-      return;
-    }
-
-    const clockElapsedMs = audio && !audio.paused
-      ? Math.max(0, audio.currentTime * 1000 - sourceStartMs)
-      : gameClockFallbackMsRef.current;
-    gameClockFallbackMsRef.current = Math.max(gameClockFallbackMsRef.current, clockElapsedMs);
-    syncToElapsed(Math.max(sessionRef.current.elapsedMs, clockElapsedMs));
-  }, [startPlayback, syncToElapsed]);
+  useEffect(() => {
+    const onHidden = () => { if (document.hidden) pausePlayback(); };
+    window.addEventListener('blur', pausePlayback);
+    document.addEventListener('visibilitychange', onHidden);
+    return () => {
+      window.removeEventListener('blur', pausePlayback);
+      document.removeEventListener('visibilitychange', onHidden);
+    };
+  }, [pausePlayback]);
 
   const showHitFeedback = useCallback((nextSession: RhythmSession) => {
     const judgement = nextSession.lastJudgement;
@@ -2118,8 +1894,10 @@ function RhythmScreen({
   }, []);
 
   const pressLane = useCallback((lane: RhythmLane) => {
+    if (phaseRef.current === 'countdown' && resumedRef.current) { heldLanesRef.current.add(lane); return; }
     if (finishedRef.current || phaseRef.current !== 'playing') return;
-
+    syncToElapsed(currentElapsed());
+    if (finishedRef.current || sessionRef.current.isFinished) return;
     heldLanesRef.current.add(lane);
     const previousSession = sessionRef.current;
     const nextSession = hitRhythmLane(previousSession, lane);
@@ -2131,18 +1909,19 @@ function RhythmScreen({
       rhythmSfx.playTap();
     }
     showHitFeedback(nextSession);
-  }, [rhythmSfx, showHitFeedback]);
+  }, [rhythmSfx, showHitFeedback, syncToElapsed, currentElapsed]);
 
   const releaseLane = useCallback((lane: RhythmLane) => {
+    if (phaseRef.current === 'countdown') { heldLanesRef.current.delete(lane); return; }
     if (finishedRef.current || phaseRef.current !== 'playing') return;
-
+    syncToElapsed(currentElapsed());
     heldLanesRef.current.delete(lane);
     rhythmSfx.stopHold(lane);
     const nextSession = releaseRhythmLane(sessionRef.current, lane);
     sessionRef.current = nextSession;
     setSession(nextSession);
     showHitFeedback(nextSession);
-  }, [rhythmSfx, showHitFeedback]);
+  }, [rhythmSfx, showHitFeedback, syncToElapsed, currentElapsed]);
 
   const pressPointerLane = useCallback((event: PointerEvent<HTMLDivElement>, lane: RhythmLane) => {
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -2172,6 +1951,7 @@ function RhythmScreen({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') { event.preventDefault(); pausePlayback(); return; }
       if (event.key === 'F8') {
         event.preventDefault();
         setDebugMode((current) => (current === 'panel' ? null : 'panel'));
@@ -2186,7 +1966,7 @@ function RhythmScreen({
 
       if (event.repeat) return;
 
-      const lane = keyToLane(event.key);
+      const lane = keyToLane(event.code.startsWith('Key') ? event.code.slice(3) : event.key);
       if (!lane) return;
 
       event.preventDefault();
@@ -2194,7 +1974,7 @@ function RhythmScreen({
     }
 
     function handleKeyUp(event: KeyboardEvent) {
-      const lane = keyToLane(event.key);
+      const lane = keyToLane(event.code.startsWith('Key') ? event.code.slice(3) : event.key);
       if (!lane) return;
 
       event.preventDefault();
@@ -2207,7 +1987,7 @@ function RhythmScreen({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [pressLane, releaseLane]);
+  }, [pressLane, releaseLane, pausePlayback]);
 
   useEffect(() => {
     window.render_game_to_text = () => {
@@ -2234,6 +2014,7 @@ function RhythmScreen({
         sourceEndMs: currentSession.beatmap.sourceEndMs ?? currentSession.beatmap.durationMs,
         beatmapDurationMs: currentSession.beatmap.durationMs,
         beatmapSource: currentSession.beatmap.source ?? 'generated',
+        liveAccuracy: getRhythmLiveAccuracy(currentSession),
         combo: currentSession.combo,
         comboMultiplier: currentSummary.comboMultiplier,
         lastJudgement: currentSession.lastJudgement,
@@ -2274,7 +2055,6 @@ function RhythmScreen({
         <strong className="masked-title">{displayTitle}</strong>
         <span>{placeholderLabels.level}: {activeRun.difficulty}</span>
         <span>{beatmap.bpm} BPM</span>
-        <span>{placeholderLabels.density}: {densityConfig.densityMultiplier}</span>
       </div>
 
       {debugMode === 'panel' && <RhythmDebugPanel payload={debugPayload} compact />}
@@ -2288,11 +2068,12 @@ function RhythmScreen({
           onLoadedMetadata={(event) => {
             const duration = event.currentTarget.duration;
             if (Number.isFinite(duration) && duration > 0) {
-              setAudioDurationMs(Math.round(duration * 1000));
+              if (phaseRef.current === 'loading') setAudioDurationMs(Math.round(duration * 1000));
               setPhase((current) => (current === 'loading' ? 'countdown' : current));
             }
           }}
-          onEnded={() => syncToElapsed(sessionRef.current.beatmap.durationMs)}
+          onEnded={() => { if (phaseRef.current === 'playing') syncToElapsed(sessionRef.current.beatmap.durationMs); }}
+          onError={() => { pausePlayback(); resumedRef.current = sessionRef.current.elapsedMs > 0; phaseRef.current = 'error'; setPhase('error'); }}
           preload="auto"
         />
       )}
@@ -2311,14 +2092,34 @@ function RhythmScreen({
       <section className="rhythm-hud" aria-label="Stan próby rytmicznej">
         <RhythmStat label={placeholderLabels.timeLeft} value={`${remainingSeconds}s`} />
         <RhythmStat label={placeholderLabels.combo} value={String(session.combo)} />
-        <RhythmStat label={placeholderLabels.accuracy} value={`${summary.accuracy}%`} />
+        <RhythmStat label="Zgodność teraz" value={getRhythmLiveAccuracy(session) === null ? '—' : `${getRhythmLiveAccuracy(session)}%`} />
         <RhythmStat label={placeholderLabels.comboMultiplier} value={`x${summary.comboMultiplier}`} />
       </section>
 
-      <p className={`judgement ${session.lastJudgement ?? ''}`}>{judgementLabel(session.lastJudgement)}</p>
+      <section className="phrase-hud" aria-label="Bieżąca fraza">
+        <strong>{intentLabels[activeRun.intent ?? 'close']} · Fraza {Math.max(0, Math.floor((session.elapsedMs - (beatmap.startOffsetMs ?? 0)) / (16 * 60000 / beatmap.bpm))) + 1}</strong>
+        <progress max={16 * 60000 / beatmap.bpm} value={Math.max(0, session.elapsedMs - (beatmap.startOffsetMs ?? 0)) % (16 * 60000 / beatmap.bpm)} />
+        <span aria-live="polite">{(() => {
+          const latest = summary.phrases?.filter((item) => item.complete).at(-1);
+          return latest && session.elapsedMs - Math.max(latest.endMs, ...session.notes.filter((note) => note.timeMs >= latest.startMs && note.timeMs < latest.endMs).map(getRhythmNoteEndMs)) < 2600
+            ? latest.comeback ? 'Wracasz w rytm' : latest.accuracy >= 80 ? 'Fraza trzyma puls' : 'Następna fraza — nowe wejście' : 'Złap frazę, zostaw ślad';
+        })()}</span>
+      </section>
+      <div className="rhythm-controls">
+        <label>Najazd <select aria-label="Najazd sygnałów" value={speed} disabled={phase !== 'loading' && (phase !== 'countdown' || resumedRef.current)} onChange={(event) => {
+          const next = event.target.value as RhythmSpeed;
+          setSpeed(next);
+          try { localStorage.setItem('ustnik-rhythm-speed', next); } catch { /* Ustawienie działa również bez zapisu. */ }
+        }}><option value="calm">Spokojnie</option><option value="standard">Standard</option><option value="fast">Szybko</option></select></label>
+        <button onClick={pausePlayback} disabled={phase !== 'playing' && phase !== 'countdown'}>Pauza · Esc</button>
+        <span className={`judgement ${session.lastJudgement ?? ''}`}>{judgementLabel(session.lastJudgement)}</span>
+      </div>
       {phase !== 'playing' && (
         <div className="countdown-overlay" aria-live="polite">
-          {phase === 'loading' ? placeholderLabels.loadingAudio : Math.ceil(countdownMs / 1000)}
+          {phase === 'paused' ? <><strong>Występ zatrzymany</strong><button onClick={resumePlayback}>Wznów występ</button></>
+            : phase === 'error' ? <><strong>Podkład nie ruszył. Próba czeka.</strong><button onClick={resumePlayback}>Ponów odtwarzanie</button></>
+            : phase === 'loading' || phase === 'starting' ? placeholderLabels.loadingAudio
+            : <><strong>{Math.ceil(countdownMs / 1000)}</strong><small>{resumedRef.current ? 'Wciśnij ponownie trzymane tory' : 'S · D · K · L — złap pierwsze wejście'}</small></>}
         </div>
       )}
 
@@ -2405,9 +2206,10 @@ function RhythmScreen({
         <span>{placeholderLabels.notes}: {summary.totalNotes}</span>
       </section>
 
-      <button className="primary-action" onClick={() => completeRun(sessionRef.current)}>
+      <button className="primary-action" onClick={() => { if (phaseRef.current === 'playing') syncToElapsed(currentElapsed()); completeRun(sessionRef.current); }}>
         {buttonLabels.finishTrial}
       </button>
+      <div className="performance-companions">
       <PersistentOverlays
         comment={neuraComment}
         presenceState={neuraPresence}
@@ -2419,10 +2221,40 @@ function RhythmScreen({
         onWebcamMove={(position) => onOverlayMove('webcam', position)}
         storySceneActive={storySceneActive}
       />
+      </div>
     </main>
   );
 }
 
+
+function IntentSelector({ intent, onChange }: { intent: PerformanceIntent; onChange: (intent: PerformanceIntent) => void }) {
+  const [speed, setSpeed] = useState(() => { try { return localStorage.getItem('ustnik-rhythm-speed') ?? 'standard'; } catch { return 'standard'; } });
+  return <fieldset className="intent-selector"><legend>Jak chcesz zostawić ślad?</legend>
+    {(['close', 'live'] as const).map((value) => <label key={value} className={intent === value ? 'selected' : ''}>
+      <input type="radio" name="performance-intent" value={value} checked={intent === value} onChange={() => onChange(value)} />
+      <strong>{intentLabels[value]}</strong><span>{intentDescriptions[value]}</span>
+      <small>{value === 'close' ? 'Pierwsze przekazanie: Presja −2' : 'Pierwsze przekazanie: Performance +2, Presja +2'}</small>
+    </label>)}
+    <label>Najazd sygnałów<select aria-label="Najazd przed występem" value={speed} onChange={(event) => {
+      setSpeed(event.target.value);
+      try { localStorage.setItem('ustnik-rhythm-speed', event.target.value); } catch { /* Można grać bez trwałych ustawień. */ }
+    }}><option value="calm">Spokojnie</option><option value="standard">Standard</option><option value="fast">Szybko</option></select></label>
+  </fieldset>;
+}
+
+function PhraseReport({ result }: { result: RhythmSummary }) {
+  const phrases = (result.phrases ?? []).filter((phrase) => phrase.complete && phrase.totalNotes > 0);
+  const best = [...phrases].sort((a, b) => b.accuracy - a.accuracy)[0];
+  const comeback = phrases.find((phrase) => phrase.comeback);
+  return <section className="phrase-report" aria-label="Ślad wykonania">
+    <strong>{result.intent ? intentLabels[result.intent] : 'Ślad wykonania'} · przebieg fraz</strong>
+    <div className="phrase-bars">{phrases.map((phrase) => <div key={phrase.index} className={phrase.comeback ? 'comeback' : ''}>
+      <span>{phrase.index + 1}</span><meter min="0" max="100" value={phrase.accuracy} /><small>{Math.round(phrase.accuracy)}%{phrase.comeback ? ' ↗ powrót' : ''}</small>
+    </div>)}</div>
+    {best ? <span>Najlepsza fraza: {best.index + 1} · {Math.round(best.accuracy)}%</span> : <span>Brak rozliczonych fraz.</span>}
+    {comeback && <strong>Pierwszy powrót: fraza {comeback.index + 1}. Wracasz w rytm.</strong>}
+  </section>;
+}
 
 function RhythmStat({ label, value }: { label: string; value: string }) {
   return (
@@ -2485,6 +2317,7 @@ function judgementLabel(judgement: RhythmJudgement | null) {
 }
 
 function ResultsScreen({
+  gameState,
   result,
   displayTitle,
   rhythmHint,
@@ -2508,6 +2341,7 @@ function ResultsScreen({
   onBack,
   storySceneActive,
 }: {
+  gameState: GameState;
   result: PerformanceResult;
   displayTitle: string;
   rhythmHint: string;
@@ -2531,7 +2365,7 @@ function ResultsScreen({
   onBack: () => void;
   storySceneActive: boolean;
 }) {
-  const actionPreview = (action: DayDecision) => getActionPreview({ stats, dayCycle }, action, result.grade, true);
+  const actionPreview = (action: DayDecision) => performanceDecisionPreview(gameState, action, result.grade, true, result.trackId, result.intent);
   const previews = [
     ['szuflada', actionPreview('saveDraft')],
     ['Paweł', actionPreview('sendToPawel')],
@@ -2561,18 +2395,11 @@ function ResultsScreen({
           <span>{placeholderLabels.qualityProgress}: {result.qualityProgress}</span>
           <span>{placeholderLabels.notes}: {result.totalNotes}</span>
         </div>
-        <p className="result-neura-hint">Neura: {rhythmHint === 'zimny silnik'
-          ? 'Silnik jeszcze śpi. Nie każ mu udawać transmisji.'
-          : rhythmHint === 'przegrzanie'
-            ? 'To nie był brak pomysłu. To był silnik, który pracował bez przerwy.'
-            : rhythmHint === 'szum publiczności'
-              ? 'Czat wszedł do środka rytmu. Słyszałam go między wejściami.'
-              : rhythmHint === 'stabilny silnik'
-                ? 'Cybart.exe trzymał tempo. To rzadki, użyteczny rodzaj ciszy.'
-                : 'Kanał był czysty. Tym razem decyzja należała do ciebie.'}</p>
+        <PhraseReport result={result} />
+        <p className="result-neura-hint">Neura: {performanceComment({ intent: result.intent, phrases: result.phrases ?? [], accuracy: result.accuracy })}</p>
         <div className="result-stat-previews" aria-label="Przewidywane zmiany statystyk">
-          <strong>Przewidywany ślad decyzji</strong>
-          {previews.map(([label, preview]) => (
+          <strong>Decyzja i intencja · przed rozliczeniem dnia</strong>
+          {previews.filter(([label]) => runMode === 'create' || label === 'szuflada' || label === 'odrzucenie').map(([label, preview]) => (
             <span key={label}>
               {label}: {formatStatDelta(preview.delta)}{preview.blockedReason ? ` / ${preview.blockedReason}` : ''}
             </span>
@@ -2600,6 +2427,7 @@ function ResultsScreen({
           <button className="result-secondary" onClick={onBack}>{buttonLabels.backWithoutSave}</button>
         </div>
       </section>
+      <div className="performance-companions">
       <PersistentOverlays
         comment={neuraComment}
         presenceState={neuraPresence}
@@ -2610,6 +2438,7 @@ function ResultsScreen({
         onWebcamMove={(position) => onOverlayMove('webcam', position)}
         storySceneActive={storySceneActive}
       />
+      </div>
     </main>
   );
 }

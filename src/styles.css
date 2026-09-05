@@ -3846,3 +3846,68 @@ button:disabled {
     grid-column: auto;
   }
 }
+.intent-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line-cyan);
+  border-radius: var(--radius-panel);
+}
+.intent-selector label {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, .28);
+}
+.intent-selector label.selected { border-color: var(--line-cyan); background: rgba(0, 215, 239, .1); }
+.intent-selector span, .intent-selector small { white-space: normal; line-height: 1.45; }
+.draft-previews, .phrase-report { display: grid; gap: 8px; }
+.phrase-report { margin: 16px 0; padding: 14px; background: rgba(0, 215, 239, .06); border: 1px solid var(--line-cyan); border-radius: 10px; }
+.phrase-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(65px, 1fr)); gap: 8px; }
+.phrase-bars > div { display: grid; gap: 4px; }
+.phrase-bars meter { width: 100%; }
+.phrase-bars .comeback { color: var(--line-cyan); font-weight: bold; }
+.stage-screen .phrase-hud { display: grid; grid-template-columns: auto minmax(70px, 1fr) auto; gap: 12px; align-items: center; max-width: 1040px; margin: 8px auto; font-size: 13px; }
+.phrase-hud progress { width: 100%; accent-color: var(--line-cyan); }
+.stage-screen .rhythm-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; margin: 8px auto; }
+.rhythm-controls select { background: #071520; color: var(--text-soft); padding: 6px; border: 1px solid var(--line-cyan); }
+.stage-screen .rhythm-controls .judgement { min-height: 30px; margin: 0; padding: 4px 10px; font-size: 13px; }
+.stage-screen .countdown-overlay { inset: auto; top: 15%; left: 50%; transform: translateX(-50%); width: min(90vw, 520px); padding: 16px; gap: 12px; border-radius: 12px; background: rgba(3, 5, 11, .93); font-size: 24px; text-align: center; }
+.stage-screen .countdown-overlay small { font-size: 14px; }
+.stage-screen .countdown-overlay button { pointer-events: auto; font-size: 16px; }
+@media (max-width: 600px) {
+  .intent-selector { grid-template-columns: 1fr; }
+  .stage-screen .phrase-hud { grid-template-columns: auto 1fr; gap: 5px; }
+  .stage-screen .phrase-hud > span { grid-column: 1 / -1; }
+  .stage-screen .rhythm-controls { font-size: 12px; }
+}
+.stage-screen .performance-companions, .results-screen .performance-companions {
+  display: flex; align-items: end; justify-content: center; gap: 20px;
+  width: 100%; max-width: 640px; margin: 20px auto 0;
+}
+.performance-companions .webcam-window {
+  position: relative !important; inset: auto !important; transform: none !important;
+  width: 160px; min-height: 0; margin: 0; z-index: 1;
+}
+.performance-companions .webcam-window .cybek-webcam-panel { height: 170px; }
+.performance-companions .neura {
+  position: relative !important; inset: auto !important; transform: none !important;
+  width: 144px; height: 162px; display: block; z-index: 1;
+}
+.performance-companions .neura .neura-sprite-pad { transform: scale(.5); transform-origin: top left; }
+@media (max-width: 600px) {
+  .stage-screen .vocal-map { display: none; }
+  .stage-screen .rhythm-hud { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .stage-screen .rhythm-hud div { padding: 6px; }
+  .stage-screen .rhythm-hud span { font-size: 10px; }
+  .stage-screen .rhythm-hud strong { font-size: 18px; }
+  .stage-screen .lanes { height: clamp(260px, 40vh, 350px); }
+  .stage-screen .rhythm-counters { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .stage-screen .rhythm-counters span { padding: 6px; font-size: 11px; }
+  .stage-screen, .results-screen { padding-bottom: 24px; }
+}

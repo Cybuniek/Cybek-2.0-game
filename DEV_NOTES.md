@@ -1,5 +1,18 @@
 # Ustnik 2.0 The Show - The Game / DEV NOTES
 
+## Złap frazę, zostaw ślad — 2026-09-05
+
+- Wybór `Blisko` / `Na żywo` poprzedza tworzenie i poprawę szkicu. `src/performance.ts` rozlicza intencję raz na utwór oraz zapisuje reakcję odbiorcy na kolejny dzień; ostatni dzień dostarcza ją przy przejściu do finału. Kolejny odbiorca może odpowiedzieć bez powtórzenia premii.
+- `lastPerformance` przechowuje intencję, frazy i celność ostatniej zachowanej próby; najlepsza celność i skumulowana jakość szkicu zachowują dotychczasowe zasady. Zapis v2 przyjmuje brak nowych pól bez dopisywania historii.
+- Frazy mają 16 uderzeń według BPM i `startOffsetMs` wybranej mapy. Przytrzymanie należy do frazy rozpoczęcia i opóźnia jej rozliczenie. Powrót: ≥80% po sąsiedniej frazie <60%; bez premii punktowej. Puste frazy nie są oceniane.
+- Generator używa czterouderzeniowych motywów i kontroli zajętości torów. Istniejący katalog map ręcznych i jego nuty pozostają bez zmian; generator działa jako dotychczasowy fallback.
+- Wejście oraz animacja korzystają z zegara audio. Offset wejścia dotyczy również spóźnionych sygnałów. Zegar `performance.now()` służy tylko próbom bez audio; odmowa odtwarzania pokazuje ponowienie.
+- Najazd: Spokojnie 1750 ms / Standard 1400 ms / Szybko 1120 ms, niezależnie od trudności. Klucz ustawienia: `ustnik-rhythm-speed`.
+- Escape, blur i ukrycie karty zatrzymują próbę. Wznowienie: trzy sekundy i ponowne wciśnięcie aktywnych przytrzymań. Wyjście do pulpitu anuluje rozpoczętą pracę i przywraca fazę `work`.
+- HUD pokazuje celność już rozliczonych wejść; końcowy raport obejmuje cały utwór. Podgląd decyzji sumuje jej koszt i intencję przed osobnym rozliczeniem końca dnia.
+- Kamerka i Neura na ekranach próby/wyniku mają wydzielone miejsce pod treścią. Cztery tory mieszczą się w mobilnym ekranie 390 × 844.
+- Regresje: `npm run test:performance`, `tests/performance.spec.ts`. Playtesty korzystają z lokalnego audio; krótka mapa kontrolna sprawdza powrót/pauzę, osobne przebiegi grają po 15 sekund na rzeczywistej mapie ręcznej i generatorze. Zrzuty: `test-results/performance-*.png`, `test-results/playtest-*.png`.
+
 ## Struktura projektu
 
 - `src/App.tsx` - glowny przeplyw gry: pulpit, okna, generator, szuflada, poprawa szkicu, publikacja, player i ekran rytmiczny.

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createResult } from '../storage';
-import type { Difficulty, PerformanceResult, RhythmSummary, Track } from '../types';
+import type { Difficulty, PerformanceIntent, PerformanceResult, RhythmSummary, Track } from '../types';
 
 export type SessionScreen = 'title' | 'boot' | 'desktop' | 'rhythm' | 'results' | 'editor';
 
 export type ActiveRun = {
+  intent?: PerformanceIntent;
   track: Track;
   difficulty: Difficulty;
   mode: 'create' | 'remix';
@@ -80,9 +81,9 @@ export function useSessionController({
     };
   }, [bootElapsedMs, completeBoot, currentScreen]);
 
-  const startRun = useCallback((track: Track, difficulty: Difficulty, mode: ActiveRun['mode'], draftId?: string) => {
+  const startRun = useCallback((track: Track, difficulty: Difficulty, mode: ActiveRun['mode'], draftId?: string, intent: PerformanceIntent = 'close') => {
     onRunStarted?.();
-    setActiveRun({ track, difficulty, mode, draftId });
+    setActiveRun({ track, difficulty, mode, draftId, intent });
     setResult(null);
     setCurrentScreen('rhythm');
   }, [onRunStarted]);
@@ -91,7 +92,7 @@ export function useSessionController({
     if (!activeRun) return;
 
     onRunFinished?.(activeRun);
-    setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty, summary));
+    setResult(createResult(activeRun.track.id, activeRun.track.title, activeRun.difficulty, { ...summary, intent: activeRun.intent }));
     setCurrentScreen('results');
   }, [activeRun, onRunFinished]);
 

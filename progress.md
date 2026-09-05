@@ -1,3 +1,9 @@
+Status: Active
+Ostatnia zmiana: 2026-09-05 — wdrożono „Złap frazę, zostaw ślad”: frazy i powroty, intencje wykonania, reakcje kolejnego dnia, uczciwy zegar wejścia, pauzę i czytelniejszy interfejs.
+Weryfikacja: `npm test`, `npm run build` i `git diff --check` przeszły. Końcowy `npm run test:e2e`: 17/17, w tym sześć nowych scenariuszy obejmujących dwa 15-sekundowe playtesty z lokalnym audio. Zrzuty desktop/mobile, mapy ręcznej/generowanej i raportu obejrzane; tory i decyzje odsłonięte.
+Najmniejszy następny krok: zagrać cały ulubiony utwór i ocenić subiektywne odczucie najazdu Standard.
+Otwarte / świadomie odłożone: ręczne strojenie istniejących map do nagrań (zachowano ich BPM i timing), subiektywna ocena muzycznego feelu przez gracza. Nie generowano nowych nagrań ani grafik. Bez commita i publikacji; zastane zmiany użytkownika zachowano.
+
 Original prompt: Stworz minimalny, grywalny szkielet dla prototypu webowego o nazwie "Ustnik 2.0 The Show - The Game".
 
 Postep:

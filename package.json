@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "npm run test:rhythm && npm run test:editor && npm run test:state && npm run test:day-cycle && npm run test:echo && npm run test:resonance && npm run test:ending && npm run test:neura-presence && npm run test:neura && npm run test:story-scenes && npm run test:cutscene-assets && npm run test:dev-menu",
+    "test": "npm run test:rhythm && npm run test:performance && npm run test:editor && npm run test:state && npm run test:day-cycle && npm run test:echo && npm run test:resonance && npm run test:ending && npm run test:neura-presence && npm run test:neura && npm run test:story-scenes && npm run test:cutscene-assets && npm run test:dev-menu",
+    "test:performance": "node --experimental-strip-types scripts/performance.dev-test.ts",
     "test:rhythm": "node --experimental-strip-types scripts/rhythm.dev-test.ts",
     "test:editor": "node --experimental-strip-types scripts/editor.dev-test.ts",
     "test:state": "node --experimental-strip-types scripts/state.dev-test.ts",

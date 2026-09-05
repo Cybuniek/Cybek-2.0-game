@@ -135,7 +135,27 @@ export type RhythmBeatmap = {
   markers?: RhythmMarker[];
 };
 
+export type PerformanceIntent = 'close' | 'live';
+
+export type RhythmPhrase = {
+  index: number;
+  startMs: number;
+  endMs: number;
+  totalNotes: number;
+  accuracy: number;
+  complete: boolean;
+  comeback: boolean;
+};
+
+export type PerformanceTrace = {
+  intent?: PerformanceIntent;
+  phrases: RhythmPhrase[];
+  accuracy: number;
+};
+
 export type RhythmSummary = {
+  intent?: PerformanceIntent;
+  phrases?: RhythmPhrase[];
   accuracy: number;
   grade: QualityTier;
   qualityProgress: number;
@@ -194,6 +214,7 @@ export type PerformanceResult = RhythmSummary & {
 };
 
 export type DraftTrack = {
+  lastPerformance?: PerformanceTrace;
   id: string;
   trackId: string;
   trackTitle: string;
@@ -209,6 +230,7 @@ export type DraftTrack = {
 };
 
 export type PublishedTrack = {
+  lastPerformance?: PerformanceTrace;
   id: string;
   trackId: string;
   trackTitle: string;
@@ -269,6 +291,8 @@ export type DayCycleState = {
 };
 
 export type GameState = {
+  settledIntentTrackIds?: string[];
+  pendingPerformanceReaction?: { trackId: string; day: number; channel: 'pawel' | 'group'; text: string } | null;
   saveVersion: 2;
   stats: Stats;
   dayCycle: DayCycleState;

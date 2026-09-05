@@ -9,6 +9,7 @@ import type {
   RhythmNoteKind,
   RhythmStatModifier,
   RhythmSummary,
+  RhythmPhrase,
   Track,
 } from './types';
 
@@ -25,7 +26,8 @@ export const EMPTY_PRESS_SPAM_WINDOW_MS = 1000;
 export const RHYTHM_HIT_LINE_PERCENT = 82;
 export const MIN_LONG_NOTE_DURATION_MS = 240;
 export const HOLD_MAX_PRESS_GAP_MS = 220;
-export const RHYTHM_NOTE_FALL_SPEED_SCALE = 2.5;
+export const RHYTHM_TRAVEL_MS = { calm: 1750, standard: 1400, fast: 1120 } as const;
+export type RhythmSpeed = keyof typeof RHYTHM_TRAVEL_MS;
 export const HIT_NOTE_FADE_MS = 160;
 
 type HitJudgement = 'perfect' | 'great' | 'good';
@@ -154,20 +156,31 @@ export function buildRhythmBeatmap(
   const firstNoteMs = 1000;
   const lastNoteMs = Math.max(firstNoteMs, durationMs - 850);
 
-  for (let timeMs = firstNoteMs, beatIndex = 0; timeMs <= lastNoteMs; timeMs += beatMs, beatIndex += 1) {
-    const shouldPlace = random() < config.densityMultiplier || beatIndex % 8 === 0;
-    if (!shouldPlace) continue;
-
-    const lane = pickLane(random, blockedLaneUntil, timeMs);
-    const note = createGeneratedNote(track.id, difficulty, beatIndex, lane, timeMs, beatMs, random, config);
-    notes.push(note);
-    blockedLaneUntil.set(lane, getRhythmNoteEndMs(note) + GOOD_WINDOW_MS);
-
-    if (config.doubleChance > 0 && getRhythmNoteKind(note) === 'tap' && random() < config.doubleChance) {
-      const secondLane = pickLane(random, blockedLaneUntil, timeMs, lane);
-      const secondNote = createTapNote(track.id, difficulty, beatIndex, secondLane, timeMs + 8);
-      notes.push(secondNote);
-      blockedLaneUntil.set(secondLane, getRhythmNoteEndMs(secondNote) + GOOD_WINDOW_MS);
+  const motifs = [[0, 0, 0, 0], [0, 1, 0, 1], [0, 1, 2, 3], [0, 2, 1, 3]];
+  for (let phrase = 0; firstNoteMs + phrase * 16 * beatMs <= lastNoteMs; phrase += 1) {
+    const motif = motifs[Math.floor(random() * motifs.length)];
+    const shift = Math.floor(random() * 4);
+    for (let beat = 0; beat < 15; beat += 1) {
+      if (difficulty === 'Łatwy' && beat % 2 === 1) continue;
+      if (difficulty === 'Normalny' && beat % 4 === 3) continue;
+      const timeMs = Math.round(firstNoteMs + (phrase * 16 + beat) * beatMs);
+      if (timeMs > lastNoteMs) continue;
+      const lane = RHYTHM_LANES[(motif[beat % 4] + shift + (beat >= 8 && beat < 12 ? 2 : 0)) % 4];
+      const add = (target: RhythmLane, hold: boolean) => {
+        if ((blockedLaneUntil.get(target) ?? -Infinity) > timeMs) return;
+        const note = createTapNote(track.id, difficulty, phrase * 16 + beat, target, timeMs);
+        if (hold) {
+          note.kind = 'hold';
+          note.durationMs = Math.min(Math.round(beatMs), durationMs - timeMs - 100);
+          if (note.durationMs < MIN_LONG_NOTE_DURATION_MS) return;
+        }
+        notes.push(note);
+        blockedLaneUntil.set(target, getRhythmNoteEndMs(note) + GOOD_WINDOW_MS * 2);
+      };
+      add(lane, beat === 14);
+      if (config.doubleChance > 0 && beat === 8 && random() < (difficulty === 'Cybart' ? 0.8 : 0.3)) {
+        add(RHYTHM_LANES[(RHYTHM_LANES.indexOf(lane) + 2) % 4], false);
+      }
     }
   }
 
@@ -179,6 +192,7 @@ export function buildRhythmBeatmap(
     audioDurationMs: durationMs,
     durationMs,
     source: 'generated',
+    startOffsetMs: firstNoteMs,
     notes: notes.sort(compareNotes),
   };
 }
@@ -187,14 +201,13 @@ export function createRhythmSession(
   beatmap: RhythmBeatmap,
   difficulty: Difficulty,
   statModifier: RhythmStatModifier = DEFAULT_RHYTHM_STAT_MODIFIER,
+  speed: RhythmSpeed = 'standard',
 ): RhythmSession {
-  const baseTravelMs = difficultyConfig[difficulty].travelMs;
-  const scaledTravelMs = Math.max(320, Math.round(baseTravelMs / RHYTHM_NOTE_FALL_SPEED_SCALE));
   return {
     beatmap,
     difficulty,
     elapsedMs: 0,
-    travelMs: scaledTravelMs,
+    travelMs: RHYTHM_TRAVEL_MS[speed],
     notes: beatmap.notes.map((note) => ({ ...normalizeNoteShape(note), judged: false })),
     perfectHits: 0,
     greatHits: 0,
@@ -363,6 +376,7 @@ export function getRhythmSummary(
 
   return {
     accuracy,
+    phrases: getRhythmPhrases(session),
     grade: tierFromQualityProgress(qualityProgress),
     qualityProgress,
     comboMultiplier,
@@ -375,6 +389,37 @@ export function getRhythmSummary(
     totalNotes,
     rhythmStatModifier: session.statModifier,
   };
+}
+
+export function getRhythmLiveAccuracy(session: RhythmSession): number | null {
+  const resolved = session.perfectHits + session.greatHits + session.goodHits + session.misses;
+  return resolved === 0 ? null : Math.round((session.perfectHits + session.greatHits * .85 + session.goodHits * .65) * 100 / resolved);
+}
+
+export function getRhythmPhrases(session: RhythmSession): RhythmPhrase[] {
+  const length = 16 * 60000 / Math.max(1, session.beatmap.bpm);
+  const origin = session.beatmap.startOffsetMs ?? 0;
+  const groups = new Map<number, RuntimeRhythmNote[]>();
+  for (const note of session.notes) {
+    const index = Math.max(0, Math.floor((note.timeMs - origin) / length));
+    groups.set(index, [...(groups.get(index) ?? []), note]);
+  }
+  const phrases: RhythmPhrase[] = [];
+  for (const [index, notes] of [...groups].sort(([a], [b]) => a - b)) {
+    const startMs = Math.max(0, origin + index * length);
+    const endMs = Math.min(session.beatmap.durationMs, origin + (index + 1) * length);
+    const complete = (session.isFinished || session.elapsedMs >= endMs) && notes.every((note) => note.judged);
+    const accuracy = notes.reduce((sum, note) => sum + (note.judgement === 'perfect' ? 1 : note.judgement === 'great' ? 0.85 : note.judgement === 'good' ? 0.65 : 0), 0) * 100 / notes.length;
+    const previous = phrases.at(-1);
+    phrases.push({ index, startMs, endMs, totalNotes: notes.length, accuracy, complete,
+      comeback: complete && accuracy >= 80 && !!previous?.complete && previous.accuracy < 60 && previous.index === index - 1 });
+  }
+  return phrases;
+}
+
+// Czas jest odczytywany również przy wejściu, niezależnie od ostatniej klatki animacji.
+export function readRhythmClock(audioTimeSeconds: number | null, sourceStartMs: number, fallbackElapsedMs: number) {
+  return Math.max(0, audioTimeSeconds === null ? fallbackElapsedMs : audioTimeSeconds * 1000 - sourceStartMs);
 }
 
 export function getVisibleRhythmNotes(session: RhythmSession): VisibleRhythmNote[] {
@@ -488,6 +533,7 @@ function normalizeManualBeatmap(
     durationMs,
     source: 'manual',
     inputOffsetMs: Number.isFinite(beatmap.inputOffsetMs) ? Math.round(beatmap.inputOffsetMs ?? 0) : undefined,
+    startOffsetMs: beatmap.startOffsetMs,
     markers: beatmap.markers?.map((marker) => ({ ...marker })),
     notes: notes.sort(compareNotes),
   };
@@ -624,7 +670,7 @@ function markMissedNotes(session: RhythmSession): RhythmSession {
     if (
       note.judged
       || note.startedAtMs !== undefined
-      || nextSession.elapsedMs - note.timeMs <= getMissWindow(nextSession) + LATE_HIT_GRACE_MS
+      || getInputAdjustedElapsedMs(nextSession) - note.timeMs <= getMissWindow(nextSession) + LATE_HIT_GRACE_MS
     ) continue;
     nextSession = settleNote(nextSession, index, 'miss', note.lane);
   }
@@ -808,60 +854,12 @@ function recordEmptyPress(session: RhythmSession, lane: RhythmLane): RhythmSessi
   };
 }
 
-function createGeneratedNote(
-  trackId: string,
-  difficulty: Difficulty,
-  beatIndex: number,
-  lane: RhythmLane,
-  timeMs: number,
-  beatMs: number,
-  random: () => number,
-  config: DifficultyConfig,
-): RhythmNote {
-  const kind = pickNoteKind(random, config);
-  if (kind === 'hold') {
-    const durationMs = Math.round(beatMs * (random() < 0.4 ? 1.5 : 2));
-    return {
-      id: `${trackId}-${difficulty}-${beatIndex}-${lane}-hold-${Math.round(timeMs)}`,
-      lane,
-      timeMs: Math.round(timeMs),
-      kind,
-      durationMs,
-    };
-  }
-
-  return createTapNote(trackId, difficulty, beatIndex, lane, timeMs);
-}
-
 function createTapNote(trackId: string, difficulty: Difficulty, beatIndex: number, lane: RhythmLane, timeMs: number): RhythmNote {
   return {
     id: `${trackId}-${difficulty}-${beatIndex}-${lane}-${Math.round(timeMs)}`,
     lane,
     timeMs: Math.round(timeMs),
   };
-}
-
-function pickNoteKind(random: () => number, config: DifficultyConfig): RhythmNoteKind {
-  const roll = random();
-  if (roll < config.holdChance) return 'hold';
-  return 'tap';
-}
-
-function pickLane(
-  random: () => number,
-  blockedLaneUntil: Map<RhythmLane, number>,
-  timeMs: number,
-  blockedLane?: RhythmLane,
-) {
-  const startIndex = Math.floor(random() * RHYTHM_LANES.length);
-
-  for (let offset = 0; offset < RHYTHM_LANES.length; offset += 1) {
-    const lane = RHYTHM_LANES[(startIndex + offset) % RHYTHM_LANES.length];
-    const blockedUntil = blockedLaneUntil.get(lane) ?? -Infinity;
-    if (lane !== blockedLane && timeMs - blockedUntil > GOOD_WINDOW_MS * 2) return lane;
-  }
-
-  return RHYTHM_LANES[startIndex];
 }
 
 function compareNotes(left: RhythmNote, right: RhythmNote) {

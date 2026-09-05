@@ -4,3 +4,17 @@ name = "Ustnik 2.0 Game"
 
 [setup]
 script = ""
+
+[[actions]]
+name = "Run Dev"
+icon = "test"
+command = "npm run dev"
+platform = "win32"
+
+[[actions]]
+name = "Run Prev"
+icon = "run"
+command = '''
+npm run build
+npm run preview'''
+platform = "win32"

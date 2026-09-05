@@ -24,6 +24,8 @@ export function upsertPublished(publishedTracks: PublishedTrack[], published: Pu
 
 export function resultFromDraft(draft: DraftTrack): PerformanceResult {
   return {
+    intent: draft.lastPerformance?.intent,
+    phrases: draft.lastPerformance?.phrases,
     id: draft.id,
     trackId: draft.trackId,
     trackTitle: draft.trackTitle,

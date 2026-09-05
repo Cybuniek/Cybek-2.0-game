@@ -85,6 +85,8 @@ const INITIAL_TITLE_REVEAL = 0.05;
 const CORRUPTED_CHARACTERS = ['#', '%', '&', '?', '@', 'X', '+', '=', '*', '~'];
 
 export const defaultState: GameState = {
+  settledIntentTrackIds: [],
+  pendingPerformanceReaction: null,
   saveVersion: 2,
   stats: initialStats,
   dayCycle: { ...defaultDayCycle },
@@ -269,6 +271,7 @@ export function createDraftFromResult(result: PerformanceResult, status: DraftTr
     updatedAt: new Date().toISOString(),
     createdDay: currentDay,
     lastWorkedDay: currentDay,
+    lastPerformance: result.intent || result.phrases ? { intent: result.intent, phrases: result.phrases ?? [], accuracy: result.accuracy } : undefined,
     attemptCount: 1,
   };
 }
@@ -288,6 +291,7 @@ export function improveDraftWithResult(draft: DraftTrack, result: PerformanceRes
     updatedAt: new Date().toISOString(),
     createdDay: draft.createdDay ?? currentDay,
     lastWorkedDay: currentDay,
+    lastPerformance: result.intent || result.phrases ? { intent: result.intent, phrases: result.phrases ?? [], accuracy: result.accuracy } : undefined,
     attemptCount,
   };
 }
@@ -314,6 +318,7 @@ export function createPublishedTrack(draft: DraftTrack, publishedDay = 1, previo
     trackId: draft.trackId,
     trackTitle: draft.trackTitle,
     difficulty: draft.difficulty,
+    lastPerformance: draft.lastPerformance,
     accuracy: draft.bestAccuracy,
     grade: draft.bestGrade,
     qualityProgress: draft.qualityProgress,
@@ -401,6 +406,8 @@ function migrateState(
   return {
     ...defaultState,
     ...saved,
+    settledIntentTrackIds: Array.isArray(saved.settledIntentTrackIds) ? saved.settledIntentTrackIds.filter((id) => typeof id === 'string') : [],
+    pendingPerformanceReaction: saved.pendingPerformanceReaction ?? null,
     saveVersion: 2,
     dayCycle,
     echo: normalizeEchoState(saved.echo),
